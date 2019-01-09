@@ -6,7 +6,7 @@ from .interpolate import interpolate
 
 
 
-def process_interpolate_bin(doc, db, draw_func = None):
+def process_interpolate_bin(doc, db, draw_func_interp = None, draw_func_bin = None):
     if 'experiment' in db[doc['run_start']].start.keys():
         uid = doc['run_start']
         if db[uid].start['experiment'] == 'fly_energy_scan':
@@ -15,7 +15,8 @@ def process_interpolate_bin(doc, db, draw_func = None):
             e0 = find_e0(db,uid)
             comments = create_file_header(db,uid)
             validate_path_exists(db,uid)
-            path_to_file = validate_file_exists(db, uid )
+            path_to_file = db[uid].start['interp_filename']
+            path_to_file = validate_file_exists(path_to_file, file_type = 'interp')
             print(f'>>>Path to file {path_to_file}')
             save_interpolated_df_as_file(path_to_file, interpolated_df, comments)
             if e0 >0:
@@ -24,8 +25,10 @@ def process_interpolate_bin(doc, db, draw_func = None):
             else:
                 print('Energy E0 is not defined')
 
-            if draw_func is not None:
-                draw_func(interpolated_df)
+            if draw_func_interp is not None:
+                draw_func_interp(interpolated_df)
+            if draw_func_bin is not None:
+                draw_func_bin(binned_df)
 
 
 def process_interpolate_only(doc, db):

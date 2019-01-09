@@ -79,14 +79,18 @@ def load_dataset_from_files(db,uid):
 
     return arrays
 
-def validate_file_exists(db,uid):
-    path_to_file = db[uid].start['interp_filename']
+def validate_file_exists(path_to_file,file_type = 'interp'):
+    if file_type == 'interp':
+        prefix = 'r'
+    elif file_type == 'bin':
+        prefix = 'b'
     if os.path.isfile(path_to_file):
         (path, extension) = os.path.splitext(path_to_file)
         iterator = 2
 
         while True:
-            new_filename = '{}-r{:04d}{}'.format(path, iterator,extension)
+
+            new_filename = '{}-{}{:04d}{}'.format(path, prefix, iterator,extension)
             if not os.path.isfile(new_filename):
                 return new_filename
             iterator += 1
@@ -103,6 +107,8 @@ def validate_path_exists(db, uid):
         print('...........Path exists')
 
 def create_file_header(db,uid):
+    facility = db[uid]['start']['Facility']
+    beamline = db[uid]['start']['beamline_id']
     pi = db[uid]['start']['PI']
     proposal = db[uid]['start']['PROPOSAL']
     saf = db[uid]['start']['SAF']
@@ -138,35 +144,40 @@ def create_file_header(db,uid):
     else:
         e0 = ''
 
-    comments ='# Year: {}\n' \
-         '# Cycle: {}\n' \
-         '# SAF: {}\n' \
-         '# PI: {}\n' \
-         '# Proposal: {}\n' \
-         '# Scan ID: {}\n' \
-         '# UID: {}\n' \
-         '# Comment: {}\n' \
-         '# Trajectory name: {}\n' \
-         '# Element: {}\n' \
-         '# Edge: {}\n' \
-         '# E0: {}\n' \
-         '# Start time: {}\n' \
-         '# Stop time: {}\n' \
-         '# Total time: {}\n#\n# '.format(year,
-                                          cycle,
-                                          saf,
-                                          pi,
-                                          proposal,
-                                          scan_id,
-                                          real_uid,
-                                          comment,
-                                          trajectory_name,
-                                          element,
-                                          edge,
-                                          e0,
-                                          human_start_time,
-                                          human_stop_time,
-                                          human_duration)
+    comments ='# Facility: {}\n'\
+                 '# Beamline: {}\n'\
+                 '# Year: {}\n' \
+                 '# Cycle: {}\n' \
+                 '# SAF: {}\n' \
+                 '# PI: {}\n'\
+                 '# Proposal: {}\n'\
+                 '# Scan ID: {}\n' \
+                 '# UID: {}\n'\
+                 '# Comment: {}\n'\
+                 '# Trajectory name: {}\n'\
+                 '# Element: {}\n'\
+                 '# Edge: {}\n'\
+                 '# E0: {}\n'\
+                 '# Start time: {}\n'\
+                 '# Stop time: {}\n' \
+                 '# Total time: {}\n#\n# '.format(
+                  facility,
+                  beamline,
+                  year,
+                  cycle,
+                  saf,
+                  pi,
+                  proposal,
+                  scan_id,
+                  real_uid,
+                  comment,
+                  trajectory_name,
+                  element,
+                  edge,
+                  e0,
+                  human_start_time,
+                  human_stop_time,
+                  human_duration)
     return  comments
 
 def find_e0(db, uid):
@@ -196,6 +207,7 @@ def save_interpolated_df_as_file(path_to_file, df, comments):
 def save_binned_df_as_file(path_to_file, df, comments):
     (path, extension) = os.path.splitext(path_to_file)
     path_to_file = path + '.dat'
+    path_to_file = validate_file_exists(path_to_file,file_type = 'bin')
     cols = df.columns.tolist()
     fmt = '%12.6f ' + (' '.join(['%12.6e' for i in range(len(cols) - 1)]))
     header = '  '.join(cols)
