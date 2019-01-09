@@ -1,5 +1,7 @@
 import numpy as np
 from . import xray
+import numexpr as ne
+import pandas as pd
 
 
 

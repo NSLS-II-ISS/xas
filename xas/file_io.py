@@ -3,6 +3,7 @@ import os
 from subprocess import call
 import numpy as np
 import pandas as pd
+from . import xray
 
 
 
