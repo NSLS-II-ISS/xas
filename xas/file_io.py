@@ -103,6 +103,7 @@ def validate_path_exists(db, uid):
     (path, filename) = os.path.split(path_to_file)
     if not os.path.isdir(path):
         os.mkdir(path)
+        call(['chmod', '777', path])
     else:
         print('...........Path exists')
 

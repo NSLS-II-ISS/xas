@@ -2,7 +2,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import pkg_resources
-import scipy
+import scipy.integrate
 from scipy import interpolate
 import math
 from PyQt5 import QtCore
