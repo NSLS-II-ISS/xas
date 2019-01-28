@@ -6,8 +6,7 @@ import pandas as pd
 from . import xray
 
 
-
-def load_dataset_from_files(db,uid):
+def load_dataset_from_files(db, uid):
     def load_adc_trace(filename=''):
         df=pd.DataFrame()
         keys = ['times', 'timens', 'counter', 'adc']
@@ -60,7 +59,7 @@ def load_dataset_from_files(db,uid):
             if stream_offset in db[uid]['start']:
                 print("subtracting offset")
                 data.iloc[:, 1] = data.iloc[:, 1] - record['start'][stream_offset]
-            stream_gain =  f'{stream_device} gain'
+            stream_gain = f'{stream_device} gain'
             if stream_gain in db[uid]['start']:
                 print("correcting for gain")
                 data.iloc[:, 1] = data.iloc[:, 1]/(10**record['start'][stream_gain])
@@ -78,6 +77,67 @@ def load_dataset_from_files(db,uid):
         arrays[stream_name] = data
 
     return arrays
+
+
+def load_dataset_from_db(db, uid):
+
+    def load_adc_trace(stream_name):
+        df = pd.DataFrame()
+        df_raw, = db[uid].data(stream_name, stream_name=stream_name)
+        df['timestamp'] = df_raw['ts_s'] + 1e-9 * df_raw['ts_ns']
+        df['adc'] = df_raw['adc'].apply(lambda x: (int(x, 16) >> 8) - 0x40000 if (int(x, 16) >> 8) > 0x1FFFF else int(x, 16) >> 8) * 7.62939453125e-05
+        return df
+
+    def load_enc_trace(stream_name):
+        df = pd.DataFrame()
+        df_raw, = db[uid].data(stream_name, stream_name=stream_name)
+        df['timestamp'] = df_raw['ts_s'] + 1e-9 * df_raw['ts_ns']
+        df['encoder'] = df_raw['encoder'].apply(lambda x: int(x) if int(x) <= 0 else -(int(x) ^ 0xffffff - 1))
+        return df
+
+    def load_trig_trace(stream_name):
+        df, = db[uid].data(stream_name, stream_name=stream_name)
+        df['timestamp'] = df['ts_s'] + 1e-9 * df['ts_ns']
+        df = df.iloc[::2]
+        return df.iloc[:, [5, 3]]
+
+    arrays = {}
+    record = db[uid]
+    for stream in record['descriptors']:
+        data = pd.DataFrame()
+        stream_device = stream['name']
+        stream_name = stream['data_keys'][stream['name']]['devname']
+        stream_source = stream['data_keys'][stream['name']]['source']
+        # stream_file = stream['data_keys'][stream['name']]['filename']
+        print(stream_name)
+
+        if stream_source == 'pizzabox-di-file':
+            data = load_trig_trace(stream_device)
+
+        if stream_source == 'pizzabox-adc-file':
+            print(stream_device)
+            data = load_adc_trace(stream_device)
+            stream_offset = f'{stream_device} offset'
+            if stream_offset in db[uid]['start']:
+                print("subtracting offset")
+                data.iloc[:, 1] = data.iloc[:, 1] - record['start'][stream_offset]
+            stream_gain = f'{stream_device} gain'
+            if stream_gain in db[uid]['start']:
+                print("correcting for gain")
+                data.iloc[:, 1] = data.iloc[:, 1]/(10**record['start'][stream_gain])
+
+        if stream_source == 'pizzabox-enc-file':
+            data = load_enc_trace(stream_device)
+            print(stream_name)
+            if stream_name == 'hhm_theta':
+                data.iloc[:, 1] = xray.encoder2energy(data['encoder'], 360000, -float(record['start']['angle_offset']))
+                stream_name = 'energy'
+                print(stream_name)
+
+        arrays[stream_name] = data
+
+    return arrays
+
 
 def validate_file_exists(path_to_file,file_type = 'interp'):
     if file_type == 'interp':
@@ -106,6 +166,7 @@ def validate_path_exists(db, uid):
         call(['chmod', '777', path])
     else:
         print('...........Path exists')
+
 
 def create_file_header(db,uid):
     facility = db[uid]['start']['Facility']
@@ -181,6 +242,7 @@ def create_file_header(db,uid):
                   human_duration)
     return  comments
 
+
 def find_e0(db, uid):
     e0 = -1
     if 'e0' in db[uid]['start']:
@@ -224,8 +286,6 @@ def save_binned_df_as_file(path_to_file, df, comments):
     call(['chmod', '774', path_to_file])
 
 
-
-
 def load_interpolated_df_from_file(filename):
     ''' Load interp file and return'''
 
@@ -245,5 +305,3 @@ def read_header(filename):
             line = next(myfile)
             header += line
     return header[:-len(line)]
-
-

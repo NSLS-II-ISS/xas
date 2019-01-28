@@ -3,7 +3,7 @@ import pandas as pd
 
 
 
-def interpolate(dataset,key_base = 'i0'):
+def interpolate(dataset, key_base='i0'):
     interpolated_dataset = {}
     min_timestamp = max([dataset.get(key).iloc[0, 0] for key in dataset])
     max_timestamp = min([dataset.get(key).iloc[len(dataset.get(key)) - 1, 0] for key in
@@ -17,7 +17,7 @@ def interpolate(dataset,key_base = 'i0'):
         print(err.args[0], '\nAborted...')
         return
 
-    timestamps = dataset[key_base].iloc[:,0]
+    timestamps = dataset[key_base].iloc[:, 0]
 
     condition = timestamps < min_timestamp
     timestamps = timestamps[np.sum(condition):]
