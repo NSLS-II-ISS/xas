@@ -8,13 +8,19 @@ from . import xray
 
 
 def load_dataset_from_files(db,uid):
-    def load_adc_trace(filename=''):
+
+    def load_adc_trace(filename='', master = True):
         df=pd.DataFrame()
-        keys = ['times', 'timens', 'counter', 'adc']
+        keys = ['times', 'timens', 'counter', 'adc_master', 'adc_slave']
         if os.path.isfile(filename):
             df_raw = pd.read_table(filename, delim_whitespace=True, comment='#', names=keys, index_col=False)
             df['timestamp'] = df_raw['times'] + 1e-9 * df_raw['timens']
-            df['adc'] = df_raw['adc'].apply(lambda x: (int(x, 16) >> 8) - 0x40000 if (int(x, 16) >> 8) > 0x1FFFF else int(x, 16) >> 8) * 7.62939453125e-05
+            if master:
+                df['adc'] = df_raw['adc_master'].apply(lambda x: (int(x, 16) >> 8) -
+                                                                 0x40000 if (int(x, 16) >> 8) > 0x1FFFF else int(x, 16) >> 8) * 7.62939453125e-05
+            else:
+                df['adc'] = df_raw['adc_slave'].apply(lambda x: (int(x, 16) >> 8) -
+                                                                 0x40000 if (int(x, 16) >> 8) > 0x1FFFF else int(x, 16) >> 8) * 7.62939453125e-05
             return df
         else:
             return -1
@@ -54,26 +60,31 @@ def load_dataset_from_files(db,uid):
         if stream_source == 'pizzabox-di-file':
             data = load_trig_trace(stream_file)
         if stream_source == 'pizzabox-adc-file':
-            print(stream_device)
-            data = load_adc_trace(stream_file)
+            print(f'STREAM DEVICE {stream_device}')
+
+            #Monkey patch to deal with dual ADC
+            if ('adc4' in stream_device) or  ('adc6' in stream_device) or  ('adc8' in stream_device):
+                data = load_adc_trace(stream_file, master=False)
+            else:
+                data = load_adc_trace(stream_file, master=True)
             stream_offset = f'{stream_device} offset'
             if stream_offset in db[uid]['start']:
                 print("subtracting offset")
                 data.iloc[:, 1] = data.iloc[:, 1] - record['start'][stream_offset]
-            stream_gain =  f'{stream_device} gain'
-            if stream_gain in db[uid]['start']:
-                print("correcting for gain")
-                data.iloc[:, 1] = data.iloc[:, 1]/(10**record['start'][stream_gain])
+            #stream_gain =  f'{stream_device} gain'
+            # if stream_gain in db[uid]['start']:
+            #   print("correcting for gain")
+            #   data.iloc[:, 1] = data.iloc[:, 1]/(10**record['start'][stream_gain])
 
 
         if stream_source == 'pizzabox-enc-file':
             data = load_enc_trace(stream_file)
             print(stream_name)
-            if stream_name =='hhm_theta':
-                data.iloc[:,1] = xray.encoder2energy(data['encoder'], 360000,
+            if stream_name =='mono1_enc':
+                data.iloc[:,1] = xray.encoder2energy(data['encoder'], 26222.222222222223,
                                                        -float(record['start']['angle_offset']))
                 stream_name = 'energy'
-                print(stream_name)
+                print(f'STREAM NAME {stream_name}')
 
         arrays[stream_name] = data
 
@@ -221,7 +232,7 @@ def save_binned_df_as_file(path_to_file, df, comments):
 
     #print("changing permissions to 774")
     call(['chmod', '774', path_to_file])
-
+    return path_to_file
 
 
 

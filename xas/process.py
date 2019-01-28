@@ -14,13 +14,16 @@ def process_interpolate_bin(doc, db, draw_func_interp = None, draw_func_bin = No
             interpolated_df = interpolate(raw_df)
             e0 = find_e0(db,uid)
             comments = create_file_header(db,uid)
+
             validate_path_exists(db,uid)
             path_to_file = db[uid].start['interp_filename']
+            print(f' >>>>>>>>>>>.. {path_to_file}')
             path_to_file = validate_file_exists(path_to_file, file_type = 'interp')
             print(f'>>>Path to file {path_to_file}')
             save_interpolated_df_as_file(path_to_file, interpolated_df, comments)
             if e0 >0:
                 binned_df = bin(interpolated_df,e0)
+                binned_df = binned_df.iloc[:,::-1]
                 save_binned_df_as_file(path_to_file, binned_df, comments)
             else:
                 print('Energy E0 is not defined')
