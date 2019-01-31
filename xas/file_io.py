@@ -212,12 +212,13 @@ def save_binned_df_as_file(path_to_file, df, comments):
     cols = df.columns.tolist()[::-1]
     fmt = '%12.6f ' + (' '.join(['%12.6e' for i in range(len(cols) - 1)]))
     header = '  '.join(cols)
+
     df = df[cols]
     np.savetxt(path_to_file,
                df.values,
                fmt=fmt,
                delimiter=" ",
-               header=header,
+               header=f'# {header}',
                comments=comments)
 
     #print("changing permissions to 774")
@@ -236,6 +237,15 @@ def load_interpolated_df_from_file(filename):
     df = pd.read_table(filename, delim_whitespace=True, comment='#', names=keys, index_col=False).sort_values(keys[1])
     return df, header
 
+def load_binned_df_from_file(filename):
+    ''' Load interp file and return'''
+
+    if not os.path.exists(filename):
+        raise IOError(f'The file {filename} does not exist.')
+    header = read_header(filename)
+    keys = header[header.rfind('#'):][1:-1].split()
+    df = pd.read_table(filename, delim_whitespace=True, comment='#', names=keys, index_col=False).sort_values(keys[0])
+    return df, header
 
 def read_header(filename):
     header = ''
