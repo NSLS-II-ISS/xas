@@ -6,7 +6,20 @@ import pandas as pd
 
 
 def bin(interpolated_dataset, e0, edge_start=-30, edge_end=40, preedge_spacing=5,
-                        xanes_spacing=0.2, exafs_k_spacing = 0.04 ):
+                        xanes_spacing= -1, exafs_k_spacing = 0.04 ):
+
+    if  xanes_spacing==-1:
+        if e0 < 14000:
+            xanes_spacing = 0.2
+        elif e0 >= 14000 and e0 < 21000:
+            xanes_spacing = 0.3
+        elif e0 >= 21000:
+            xanes_spacing = 0.4
+        else:
+            xanes_spacing = 0.3
+
+
+
 
     # Constants for converting from hwhm -> gaussian parameters
     GAUSS_SIGMA_FACTOR = 1 / (2 * (2 * np.log(2)) ** .5)
