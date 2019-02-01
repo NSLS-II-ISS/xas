@@ -44,7 +44,7 @@ def process_interpolate_bin(doc, db, draw_func_interp = None, draw_func_bin = No
             if draw_func_interp is not None:
                 draw_func_interp(interpolated_df)
             if draw_func_bin is not None:
-                draw_func_bin(binned_df, path_to_file)
+                draw_func_bin(binned_df)
 
 
 def process_interpolate_only(doc, db):
