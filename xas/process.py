@@ -36,15 +36,16 @@ def process_interpolate_bin(doc, db, draw_func_interp = None, draw_func_bin = No
                     binned_df = bin(interpolated_df, e0)
                     logger.info(f'Binning successful for {path_to_file}')
                     save_binned_df_as_file(path_to_file, binned_df, comments)
+                    if draw_func_interp is not None:
+                        draw_func_interp(interpolated_df)
+                    if draw_func_bin is not None:
+                        draw_func_bin(binned_df)
                 else:
                     print('Energy E0 is not defined')
             except:
                 logger.info(f'Binning failed for {path_to_file}')
 
-            if draw_func_interp is not None:
-                draw_func_interp(interpolated_df)
-            if draw_func_bin is not None:
-                draw_func_bin(binned_df)
+
 
 
 def process_interpolate_only(doc, db):
