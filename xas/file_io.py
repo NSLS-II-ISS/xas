@@ -61,9 +61,9 @@ def load_dataset_from_files(db,uid):
                 print("subtracting offset")
                 data.iloc[:, 1] = data.iloc[:, 1] - record['start'][stream_offset]
             stream_gain =  f'{stream_device} gain'
-            if stream_gain in db[uid]['start']:
-                print("correcting for gain")
-                data.iloc[:, 1] = data.iloc[:, 1]/(10**record['start'][stream_gain])
+            # if stream_gain in db[uid]['start']:
+            #    print("correcting for gain")
+            #    data.iloc[:, 1] = data.iloc[:, 1]/(10**record['start'][stream_gain])
 
 
         if stream_source == 'pizzabox-enc-file':
