@@ -54,26 +54,26 @@ def load_dataset_from_files(db,uid):
         if stream_source == 'pizzabox-di-file':
             data = load_trig_trace(stream_file)
         if stream_source == 'pizzabox-adc-file':
-            print(stream_device)
+            #print(stream_device)
             data = load_adc_trace(stream_file)
             stream_offset = f'{stream_device} offset'
             if stream_offset in db[uid]['start']:
-                print("subtracting offset")
+                #print("subtracting offset")
                 data.iloc[:, 1] = data.iloc[:, 1] - record['start'][stream_offset]
             stream_gain =  f'{stream_device} gain'
             if stream_gain in db[uid]['start']:
-                print("correcting for gain")
+                #print("correcting for gain")
                 data.iloc[:, 1] = data.iloc[:, 1]/(10**record['start'][stream_gain])
 
 
         if stream_source == 'pizzabox-enc-file':
             data = load_enc_trace(stream_file)
-            print(stream_name)
+            #print(stream_name)
             if stream_name =='hhm_theta':
                 data.iloc[:,1] = xray.encoder2energy(data['encoder'], 360000,
                                                        -float(record['start']['angle_offset']))
                 stream_name = 'energy'
-                print(stream_name)
+                #print(stream_name)
 
         arrays[stream_name] = data
 
@@ -105,6 +105,7 @@ def validate_path_exists(db, uid):
         os.mkdir(path)
         call(['chmod', '777', path])
     else:
+
         print('...........Path exists')
 
 def create_file_header(db,uid):

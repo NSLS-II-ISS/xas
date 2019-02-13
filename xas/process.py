@@ -19,7 +19,7 @@ def process_interpolate_bin(doc, db, draw_func_interp = None, draw_func_bin = No
             validate_path_exists(db,uid)
 
             path_to_file = validate_file_exists(path_to_file, file_type = 'interp')
-            print(f'>>>Path to file {path_to_file}')
+            #print(f'>>>Path to file {path_to_file}')
             try:
                 raw_df = load_dataset_from_files(db, uid)
                 logger.info(f'Loading file successful for UID {uid}/{path_to_file}')
