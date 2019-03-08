@@ -49,7 +49,7 @@ def load_dataset_from_files(db,uid):
         stream_name = stream['data_keys'][stream['name']]['devname']
         stream_source = stream['data_keys'][stream['name']]['source']
         stream_file = stream['data_keys'][stream['name']]['filename']
-        print(stream_file)
+        #print(stream_file)
 
         if stream_source == 'pizzabox-di-file':
             data = load_trig_trace(stream_file)
@@ -104,9 +104,6 @@ def validate_path_exists(db, uid):
     if not os.path.isdir(path):
         os.mkdir(path)
         call(['chmod', '777', path])
-    else:
-
-        print('...........Path exists')
 
 def create_file_header(db,uid):
     facility = db[uid]['start']['Facility']
