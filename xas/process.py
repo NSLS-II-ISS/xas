@@ -5,8 +5,10 @@ from .interpolate import interpolate
 
 from .xas_logger import get_logger
 
+from datetime import datetime
 
-def process_interpolate_bin(doc, db, draw_func_interp = None, draw_func_bin = None):
+
+def process_interpolate_bin(doc, db, draw_func_interp = None, draw_func_binnned = None):
 
     logger = get_logger()
     if 'experiment' in db[doc['run_start']].start.keys():
@@ -33,13 +35,18 @@ def process_interpolate_bin(doc, db, draw_func_interp = None, draw_func_bin = No
 
             try:
                 if e0 > 0:
+                    print('Inside xas process try draw (e0 > 0) start time: ', datetime.now())
                     binned_df = bin(interpolated_df, e0)
                     logger.info(f'Binning successful for {path_to_file}')
                     save_binned_df_as_file(path_to_file, binned_df, comments)
+                    print('Just before IF')
                     if draw_func_interp is not None:
+                        print('Made the first IF')
                         draw_func_interp(interpolated_df)
-                    if draw_func_bin is not None:
-                        draw_func_bin(binned_df)
+                    if draw_func_binned is not None:
+                        print('Made the second IF')
+                        draw_func_binned(binned_df)
+                    print('Inside xas process try draw (e0 > 0) end time: ', datetime.now())
                 else:
                     print('Energy E0 is not defined')
             except:
