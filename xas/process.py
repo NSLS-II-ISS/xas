@@ -55,3 +55,9 @@ def process_interpolate_only(doc, db):
             raw_df = load_dataset_from_files(db, doc['run_start'])
             interpolated_df = interpolate(raw_df)
             return interpolated_df
+
+
+def process_interpolate_unsorted(uid, db):
+     raw_df = load_dataset_from_files(db, uid)
+     interpolated_df = interpolate(raw_df, sort=False)
+     return interpolated_df
