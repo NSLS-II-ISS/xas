@@ -3,7 +3,7 @@ import pandas as pd
 
 
 
-def interpolate(dataset,key_base = 'i0'):
+def interpolate(dataset,key_base = 'i0', sort=True):
     interpolated_dataset = {}
     min_timestamp = max([dataset.get(key).iloc[0, 0] for key in dataset])
     max_timestamp = min([dataset.get(key).iloc[len(dataset.get(key)) - 1, 0] for key in
@@ -38,5 +38,8 @@ def interpolate(dataset,key_base = 'i0'):
     keys = ['timestamp']
     keys.extend(interpolated_dataset.keys())
     intepolated_dataframe.columns = keys
-    return intepolated_dataframe.sort_values('energy')
+    if sort:
+        return intepolated_dataframe.sort_values('energy')
+    else:
+        return intepolated_dataframe
 
