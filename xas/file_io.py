@@ -80,6 +80,8 @@ def load_dataset_from_files(db, uid):
     return arrays
 
 def validate_file_exists(path_to_file,file_type = 'interp'):
+    """The function checks if the file exists or not. If exists, it adds an index to the file name.
+    """
     if file_type == 'interp':
         prefix = 'r'
     elif file_type == 'bin':
