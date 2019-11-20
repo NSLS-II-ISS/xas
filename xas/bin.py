@@ -86,6 +86,6 @@ def bin(interpolated_dataset, e0, edge_start=-30, edge_end=40, preedge_spacing=5
     ret = {k: convo_mat @ v.values for k, v in interpolated_dataset.items() if k != 'energy'}
     ret['energy'] = binned_energy_grid
     binned_df = pd.DataFrame(ret)
-    binned_df = binned_df.drop('timestamp', 1)
+    #binned_df = binned_df.drop('timestamp', 1)
 
     return binned_df
