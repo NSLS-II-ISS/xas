@@ -234,7 +234,7 @@ def load_interpolated_df_from_file(filename):
         raise IOError(f'The file {filename} does not exist.')
     header = read_header(filename)
     keys = header[header.rfind('#'):][1:-1].split()
-    df = pd.read_table(filename, delim_whitespace=True, comment='#', names=keys, index_col=False).sort_values(keys[1])
+    df = pd.read_csv(filename, delim_whitespace=True, comment='#', names=keys, index_col=False).sort_values(keys[1])
     return df, header
 
 def load_binned_df_from_file(filename):
@@ -244,7 +244,7 @@ def load_binned_df_from_file(filename):
         raise IOError(f'The file {filename} does not exist.')
     header = read_header(filename)
     keys = header[header.rfind('#'):][1:-1].split()
-    df = pd.read_table(filename, delim_whitespace=True, comment='#', names=keys, index_col=False).sort_values(keys[0])
+    df = pd.read_csv(filename, delim_whitespace=True, comment='#', names=keys, index_col=False).sort_values(keys[0])
     return df, header
 
 def read_header(filename):
