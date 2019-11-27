@@ -46,6 +46,10 @@ def process_interpolate_bin(doc, db, draw_func_interp = None, draw_func_bin = No
             except:
                 logger.info(f'Binning failed for {path_to_file}')
 
+        elif db[uid].start['experiment'] == 'fly_energy_scan_em':
+            logger.info('HAHAHAHHAHAH')
+
+
 
 
 
