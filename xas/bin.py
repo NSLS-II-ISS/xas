@@ -7,7 +7,7 @@ from scipy.interpolate import interp1d
 
 
 def bin(interpolated_dataset, e0, edge_start=-30, edge_end=40, preedge_spacing=5,
-                        xanes_spacing= -1, exafs_k_spacing = 0.04 ):
+                        xanes_spacing=-1, exafs_k_spacing=0.04, num_timestamp_points=20):
 
     if  xanes_spacing==-1:
         if e0 < 14000:
@@ -97,7 +97,8 @@ def bin(interpolated_dataset, e0, edge_start=-30, edge_end=40, preedge_spacing=5
     ret = {k: convo_mat @ v.values for k, v in interpolated_dataset.items() if k not in ['energy', 'timestamp']}
     ret['energy'] = binned_energy_grid
     if 'timestamp' in interpolated_dataset:
-        ret['timestamp'] = xas_timestamp_grid(interpolated_energy_grid, interpolated_dataset['timestamp'], binned_energy_grid)
+        ret['timestamp'] = xas_timestamp_grid(interpolated_energy_grid, interpolated_dataset['timestamp'],
+                                              binned_energy_grid, num_ts_point=num_timestamp_points)
     binned_df = pd.DataFrame(ret)
     #binned_df = binned_df.drop('timestamp', 1)
 
