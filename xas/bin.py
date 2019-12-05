@@ -2,6 +2,7 @@ import numpy as np
 from . import xray
 import numexpr as ne
 import pandas as pd
+from scipy.interpolate import interp1d
 
 
 
@@ -77,14 +78,25 @@ def bin(interpolated_dataset, e0, edge_start=-30, edge_end=40, preedge_spacing=5
             post_edge = np.append(post_edge, eenergy)
         return  np.concatenate((preedge, before_edge, edge, after_edge, post_edge))
 
+    def xas_timestamp_grid(interpolated_energy_grid, old_timestamp, binned_energy_grid, num_ts_point=20):
+        mean_window = old_timestamp.count() // num_ts_point
+        end_index = (old_timestamp.count() // mean_window) * mean_window
+        sparse_timestamps = old_timestamp.values[:end_index].reshape((-1, mean_window)).mean(axis=1)
+        sparse_energies = interpolated_energy_grid.values[:end_index].reshape((-1, mean_window)).mean(axis=1)
+        ts_func = interp1d(sparse_energies, sparse_timestamps, kind='linear', fill_value='extrapolate')
+        new_timestamp = ts_func(binned_energy_grid)
+        return new_timestamp
+
     interpolated_energy_grid = interpolated_dataset['energy'].values
     binned_energy_grid = xas_energy_grid(interpolated_energy_grid, e0, edge_start, edge_end,
                           preedge_spacing, xanes_spacing, exafs_k_spacing)
 
 
     convo_mat = _generate_convolution_bin_matrix(binned_energy_grid, interpolated_energy_grid)
-    ret = {k: convo_mat @ v.values for k, v in interpolated_dataset.items() if k != 'energy'}
+    ret = {k: convo_mat @ v.values for k, v in interpolated_dataset.items() if k not in ['energy', 'timestamp']}
     ret['energy'] = binned_energy_grid
+    if 'timestamp' in interpolated_dataset:
+        ret['timestamp'] = xas_timestamp_grid(interpolated_energy_grid, interpolated_dataset['timestamp'], binned_energy_grid)
     binned_df = pd.DataFrame(ret)
     #binned_df = binned_df.drop('timestamp', 1)
 
