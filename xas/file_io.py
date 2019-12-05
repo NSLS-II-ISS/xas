@@ -212,7 +212,10 @@ def save_binned_df_as_file(path_to_file, df, comments):
     #cols = df.columns.tolist()[::-1]
     cols = df.columns.tolist()
     cols = cols[-1:] + cols[:-1]
-    fmt = '%12.6f ' + (' '.join(['%12.6e' for i in range(len(cols) - 1)]))
+    fmt_2nd_col = '%12.6e '
+    if cols[1] == 'timestamp ':
+        fmt_2nd_col = '%12.6f '
+    fmt = '%12.6f ' + fmt_2nd_col + (' '.join(['%12.6e' for i in range(len(cols) - 2)]))
     header = '  '.join(cols)
 
     df = df[cols]
