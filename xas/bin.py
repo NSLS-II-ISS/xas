@@ -82,7 +82,8 @@ def bin(interpolated_dataset, e0, edge_start=-30, edge_end=40, preedge_spacing=5
         mean_window = old_timestamp.count() // num_ts_point
         end_index = (old_timestamp.count() // mean_window) * mean_window
         sparse_timestamps = old_timestamp.values[:end_index].reshape((-1, mean_window)).mean(axis=1)
-        sparse_energies = interpolated_energy_grid.values[:end_index].reshape((-1, mean_window)).mean(axis=1)
+        assert isinstance(interpolated_energy_grid, np.ndarray)
+        sparse_energies = interpolated_energy_grid[:end_index].reshape((-1, mean_window)).mean(axis=1)
         ts_func = interp1d(sparse_energies, sparse_timestamps, kind='linear', fill_value='extrapolate')
         new_timestamp = ts_func(binned_energy_grid)
         return new_timestamp
