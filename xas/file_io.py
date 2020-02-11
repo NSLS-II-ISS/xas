@@ -259,3 +259,25 @@ def read_header(filename):
     return header[:-len(line)]
 
 
+def save_stepscan_as_file(path_to_file, df, comments):
+    (path, extension) = os.path.splitext(path_to_file)
+    path_to_file = path + '.dat'
+    path_to_file = validate_file_exists(path_to_file,file_type = 'bin')
+    #cols = df.columns.tolist()[::-1]
+    cols = df.columns.tolist()
+    cols = cols[-1:] + cols[:-1]
+    fmt = '%12.6f ' + (' '.join(['%12.6e' for i in range(len(cols) - 1)]))
+    header = '  '.join(cols)
+
+    df = df[cols]
+    np.savetxt(path_to_file,
+               df.values,
+               fmt=fmt,
+               delimiter=" ",
+               header=f'# {header}',
+               comments=comments)
+
+    #print("changing permissions to 774")
+    call(['chmod', '774', path_to_file])
+
+
