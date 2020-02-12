@@ -1,7 +1,7 @@
 
 from .bin import bin
 from .file_io import (load_dataset_from_files, create_file_header, validate_file_exists, validate_path_exists,
-                      save_interpolated_df_as_file, save_binned_df_as_file, find_e0)
+                      save_interpolated_df_as_file, save_binned_df_as_file, find_e0, save_stepscan_as_file)
 from .interpolate import interpolate
 
 from .xas_logger import get_logger
@@ -49,16 +49,14 @@ def process_interpolate_bin(doc, db, draw_func_interp = None, draw_func_bin = No
 
         elif db[uid].start['experiment'] == 'fly_energy_scan_em':
             logger.info('HAHAHAHHAHAH')
-        #
-        # elif db[uid].start['experiment'] == 'step_scan':
-        #     table = db[uid].table()
-        #     plt.plot(db[-1].start["plan_pattern_args"]["object"], np.log(((table.adaq_pb_step_ch1_mean-8.95) /
-        #                                                                   (table.adaq_pb_step_ch2_mean-56.63))))
-        #
 
-
-
-
+        elif db[uid].start['experiment'] == 'step_scan':
+            path_to_file = db[uid].start['interp_filename']
+            validate_path_exists(db,uid)
+            path_to_file = validate_file_exists(path_to_file, file_type = 'interp')
+            comments = create_file_header(db, uid)
+            df = db[uid].table()
+            save_stepscan_as_file(path_to_file, df, comments)
 
 def process_interpolate_only(doc, db):
     if 'experiment' in db[doc['run_start']].start.keys():
