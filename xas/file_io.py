@@ -260,18 +260,33 @@ def read_header(filename):
 
 
 def save_stepscan_as_file(path_to_file, df, comments):
-    (path, extension) = os.path.splitext(path_to_file)
-    path_to_file = path + '.dat'
-    path_to_file = validate_file_exists(path_to_file,file_type = 'bin')
-    #cols = df.columns.tolist()[::-1]
-    cols = df.columns.tolist()
-    cols = cols[-1:] + cols[:-1]
+    channel_dict ={
+        'hhm_energy': 'energy',
+        'adaq_pb_step_ch1_mean':'i0',
+        'adaq_pb_step_ch2_mean': 'it',
+        'adaq_pb_step_ch3_mean': 'ir',
+        'adaq_pb_step_ch4_mean': 'iff',
+        'adaq_pb_step_ch5_mean': 'aux1',
+        'adaq_pb_step_ch6_mean': 'aux2',
+        'adaq_pb_step_ch7_mean': 'aux3',
+        'adaq_pb_step_ch8_mean': 'aux4',
+    }
+
+
+    # assuming channel_dict keys and values are ordered as above
+    # select all columns from df with names in channel_dict.keys()
+    # and rename
+    data = df[channel_dict.keys()]
+    data.columns = [channel_dict[k] for k in data.columns]
+
+    cols = data.columns.tolist()
+
     fmt = '%12.6f ' + (' '.join(['%12.6e' for i in range(len(cols) - 1)]))
     header = '  '.join(cols)
 
-    df = df[cols]
+    #df = df[cols]
     np.savetxt(path_to_file,
-               df.values,
+               data.values,
                fmt=fmt,
                delimiter=" ",
                header=f'# {header}',
