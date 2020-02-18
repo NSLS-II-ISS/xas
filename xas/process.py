@@ -49,12 +49,12 @@ def process_interpolate_bin(doc, db, draw_func_interp = None, draw_func_bin = No
 
         elif db[uid].start['experiment'] == 'fly_energy_scan_em':
             logger.info('HAHAHAHHAHAH')
-        #
-        # elif db[uid].start['experiment'] == 'step_scan':
-        #     table = db[uid].table()
-        #     plt.plot(db[-1].start["plan_pattern_args"]["object"], np.log(((table.adaq_pb_step_ch1_mean-8.95) /
-        #                                                                   (table.adaq_pb_step_ch2_mean-56.63))))
-        #
+
+        elif db[uid].start['experiment'] == 'step_scan':
+            table = db[uid].table()
+            plt.plot(db[-1].start["plan_pattern_args"]["object"], (((table.adaq_pb_step_ch2_mean-50.25) /
+                                                                           (table.adaq_pb_step_ch1_mean-9.04))))
+
 
 
 
