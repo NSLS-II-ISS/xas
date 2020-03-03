@@ -259,25 +259,36 @@ def read_header(filename):
     return header[:-len(line)]
 
 
+stepscan_channel_dict = {
+    'hhm_energy': 'energy',
+    'apb_ave_ch1_mean': 'i0',
+    'apb_ave_ch2_mean': 'it',
+    'apb_ave_ch3_mean': 'ir',
+    'apb_ave_ch4_mean': 'iff',
+    'apb_ave_ch5_mean': 'aux1',
+    'apb_ave_ch6_mean': 'aux2',
+    'apb_ave_ch7_mean': 'aux3',
+    'apb_ave_ch8_mean': 'aux4',
+}
+
+
+def stepscan_remove_offsets(hdr):
+    df = hdr.table()
+
+    for channel_name, _ in stepscan_channel_dict.items():
+        if channel_name == "hhm_energy":
+            pass
+        else:
+            offset = hdr.descriptors[0]["configuration"]['apb_ave']['data'][channel_name.replace("_mean", "_offset")]
+            df[channel_name] = df[channel_name] - offset
+    return df
+
 def save_stepscan_as_file(path_to_file, df, comments):
-    channel_dict ={
-        'hhm_energy': 'energy',
-        'adaq_pb_step_ch1_mean':'i0',
-        'adaq_pb_step_ch2_mean': 'it',
-        'adaq_pb_step_ch3_mean': 'ir',
-        'adaq_pb_step_ch4_mean': 'iff',
-        'adaq_pb_step_ch5_mean': 'aux1',
-        'adaq_pb_step_ch6_mean': 'aux2',
-        'adaq_pb_step_ch7_mean': 'aux3',
-        'adaq_pb_step_ch8_mean': 'aux4',
-    }
-
-
-    # assuming channel_dict keys and values are ordered as above
-    # select all columns from df with names in channel_dict.keys()
+    # assuming stepscan_channel_dict keys and values are ordered as above
+    # select all columns from df with names in stepscan_channel_dict.keys()
     # and rename
-    data = df[channel_dict.keys()]
-    data.columns = [channel_dict[k] for k in data.columns]
+    data = df[stepscan_channel_dict.keys()]
+    data.columns = [stepscan_channel_dict[k] for k in data.columns]
 
     cols = data.columns.tolist()
 
