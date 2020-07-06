@@ -49,7 +49,35 @@ def process_interpolate_bin(doc, db, draw_func_interp = None, draw_func_bin = No
                 logger.info(f'Binning failed for {path_to_file}')
 
         elif db[uid].start['experiment'] == 'fly_energy_scan_em':
-            logger.info('HAHAHAHHAHAH')
+            path_to_file = db[uid].start['interp_filename']
+            validate_path_exists(db,uid)
+            path_to_file = validate_file_exists(path_to_file, file_type = 'interp')
+            try:
+                raw_df = load_apb_dataset_from_db(db, uid)
+                logger.info(f'Loading file successful for UID {uid}/{path_to_file}')
+            except:
+                logger.info(f'Loading file failed for UID {uid}/{path_to_file}')
+            # try:
+            #     interpolated_df = interpolate(raw_df)
+            #     logger.info(f'Interpolation successful for {path_to_file}')
+            #     save_interpolated_df_as_file(path_to_file, interpolated_df, comments)
+            # except:
+            #     logger.info(f'Interpolation failed for {path_to_file}')
+            #
+            # try:
+            #     if e0 > 0:
+            #         binned_df = bin(interpolated_df, e0)
+            #         logger.info(f'Binning successful for {path_to_file}')
+            #         save_binned_df_as_file(path_to_file, binned_df, comments)
+            #         if draw_func_interp is not None:
+            #             draw_func_interp(interpolated_df)
+            #         if draw_func_bin is not None:
+            #             draw_func_bin(binned_df, path_to_file)
+            #     else:
+            #         print('Energy E0 is not defined')
+            # except:
+            #     logger.info(f'Binning failed for {path_to_file}')
+
 
         elif db[uid].start['experiment'] == 'step_scan':
             path_to_file = db[uid].start['interp_filename']
