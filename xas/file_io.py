@@ -259,3 +259,51 @@ def read_header(filename):
     return header[:-len(line)]
 
 
+stepscan_channel_dict = {
+    'hhm_energy': 'energy',
+    'apb_ave_ch1_mean': 'i0',
+    'apb_ave_ch2_mean': 'it',
+    'apb_ave_ch3_mean': 'ir',
+    'apb_ave_ch4_mean': 'iff',
+    'apb_ave_ch5_mean': 'aux1',
+    'apb_ave_ch6_mean': 'aux2',
+    'apb_ave_ch7_mean': 'aux3',
+    'apb_ave_ch8_mean': 'aux4',
+}
+
+
+def stepscan_remove_offsets(hdr):
+    df = hdr.table()
+
+    for channel_name, _ in stepscan_channel_dict.items():
+        if channel_name == "hhm_energy":
+            pass
+        else:
+            offset = hdr.descriptors[0]["configuration"]['apb_ave']['data'][channel_name.replace("_mean", "_offset")]
+            df[channel_name] = df[channel_name] - offset
+    return df
+
+def save_stepscan_as_file(path_to_file, df, comments):
+    # assuming stepscan_channel_dict keys and values are ordered as above
+    # select all columns from df with names in stepscan_channel_dict.keys()
+    # and rename
+    data = df[stepscan_channel_dict.keys()]
+    data.columns = [stepscan_channel_dict[k] for k in data.columns]
+
+    cols = data.columns.tolist()
+
+    fmt = '%12.6f ' + (' '.join(['%12.6e' for i in range(len(cols) - 1)]))
+    header = '  '.join(cols)
+
+    #df = df[cols]
+    np.savetxt(path_to_file,
+               data.values,
+               fmt=fmt,
+               delimiter=" ",
+               header=f'# {header}',
+               comments=comments)
+
+    #print("changing permissions to 774")
+    call(['chmod', '774', path_to_file])
+
+
