@@ -11,7 +11,7 @@ def load_apb_dataset_from_db(db, uid):
     # ch_offset_keys = [key for key in hdr.start.keys() if key.startswith('ch') and key.endswith('_offset')]
     # ch_offsets = np.array([hdr.start[key] for key in ch_offset_keys])
 
-    ch_offsets = get_ch_properties(hdr.start, 'ch', '_offset')
+    ch_offsets = get_ch_properties(hdr.start, 'ch', '_offset')*1e3 #offsets are ib mV but the readings are in uV
     ch_gains = get_ch_properties(hdr.start, 'ch', '_amp_gain')
 
     apb_dataset.iloc[:, 1:] -= ch_offsets
@@ -49,6 +49,20 @@ def translate_apb_dataset(apb_dataset, energy_dataset, angle_offset):
     return data_dict
 
 
+
+def plot_normalized(x, y, factor=1):
+    x = np.array(x)
+    y = np.array(y)
+
+    y_norm = (y - y.min())/factor
+    plt.plot(x, y_norm)
+
+
+def plot_normalized_scan(db, uid, factor=1):
+    hdr = db[uid]
+    x = list(hdr.data('hhm_energy'))
+    y = list(hdr.data('pil100k_stats1_total'))
+    plot_normalized(x, y, factor)
 
 
 

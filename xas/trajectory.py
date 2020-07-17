@@ -408,22 +408,22 @@ class trajectory_manager():
         self.hhm.lut_number.put(lut_number)
 
         ttime.sleep(0.5)
-        while (int(self.hhm.lut_number_rbv.value) != int(lut_number)):
+        while (int(self.hhm.lut_number_rbv.get()) != int(lut_number)):
             ttime.sleep(.001)
             QtCore.QCoreApplication.processEvents()
     
         self.hhm.lut_start_transfer.put("1")    
-        while (self.hhm.lut_transfering.value == 0):
+        while (self.hhm.lut_transfering.get() == 0):
             ttime.sleep(.001)
             QtCore.QCoreApplication.processEvents()
-        while (self.hhm.lut_transfering.value == 1):
+        while (self.hhm.lut_transfering.get() == 1):
             ttime.sleep(.001)
             QtCore.QCoreApplication.processEvents()
         ttime.sleep(.25)
-        #while (self.hhm.trajectory_loading.value == 0):
+        #while (self.hhm.trajectory_loading.get() == 0):
         #    ttime.sleep(.001)
         #    QtCore.QCoreApplication.processEvents()
-        while (self.hhm.trajectory_loading.value == 1):
+        while (self.hhm.trajectory_loading.get() == 1):
             ttime.sleep(.001)
             QtCore.QCoreApplication.processEvents()
     
@@ -461,7 +461,7 @@ class trajectory_manager():
                 return False
             else:
                 self.hhm.cycle_limit.put(size)
-                while (self.hhm.cycle_limit_rbv.value != size):
+                while (self.hhm.cycle_limit_rbv.get() != size):
                     ttime.sleep(.01)
                 print('[Init Trajectory] New lut number: {}'.format(lut_number))
                 print('[Init Trajectory] Trajectory name: {}'.format(name))
@@ -532,5 +532,4 @@ class trajectory_manager():
     
 
     def current_lut(self):
-        return self.hhm.lut_number_rbv.value
-        
+        return self.hhm.lut_number_rbv.get()
