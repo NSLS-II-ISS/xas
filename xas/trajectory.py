@@ -11,9 +11,11 @@ import time as ttime
 #import pexpect
 from pexpect import pxssh
 from ftplib import FTP
+from subprocess import call
 
 from . import xray
 import pandas as pd
+from isstools.dialogs.BasicDialogs import question_message_box
 
 class trajectory():
     def __init__(self, hhm):
@@ -248,6 +250,31 @@ class trajectory():
             self.energy_grid_loaded = array_out
         else:
             self.energy_grid_loaded = -xray.encoder2energy(array_out, self.hhm.pulses_per_deg, offset)
+
+
+    def save(self, filename):
+        # if filename[-4:] == '.txt':
+        #     filename = filename[:-4]
+        # print(filename)
+        # if len(filename):
+        #     fileName, fileExtension = os.path.splitext(filename)
+        #     if fileExtension is not '.txt':
+        #         filename = fileName + '.txt'
+        #     print(filename)
+        #     if (os.path.isfile(filename)):
+        #         ret = question_message_box('Save trajectory...', '{} already exists. Do you want to replace it?'.format(
+        #             filename.rsplit('/', 1)[1]))
+        #         if not ret:
+        #             print('Aborted!')
+        #             return
+            np.savetxt(filename,
+                       self.energy_grid, fmt='%.6f',
+                       header = f'element: {self.elem}, edge: {self.edge}, E0: {self.e0}')
+            call(['chmod', '666', filename])
+            # self.trajectory_path = filename[:filename.rfind('/')] + '/'
+            # self.label_current_trajectory.setText(filename.rsplit('/', 1)[1])
+            # self.push_plot_traj.setEnabled(True)
+            print('Trajectory saved! [{}]'.format(filename))
 
 
 class trajectory_manager():
