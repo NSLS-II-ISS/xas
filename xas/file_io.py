@@ -269,6 +269,11 @@ stepscan_channel_dict = {
     'apb_ave_ch6_mean': 'aux2',
     'apb_ave_ch7_mean': 'aux3',
     'apb_ave_ch8_mean': 'aux4',
+    'pil100k_stats1_total': 'pil100_ROI1',
+    'pil100k_stats2_total': 'pil100_ROI2',
+    'pil100k_stats3_total': 'pil100_ROI3',
+    'pil100k_stats4_total': 'pil100_ROI4'
+
 }
 
 
@@ -276,9 +281,7 @@ def stepscan_remove_offsets(hdr):
     df = hdr.table()
 
     for channel_name, _ in stepscan_channel_dict.items():
-        if channel_name == "hhm_energy":
-            pass
-        else:
+        if channel_name.startswith('apb'):
             offset = hdr.descriptors[0]["configuration"]['apb_ave']['data'][channel_name.replace("_mean", "_offset")]
             df[channel_name] = df[channel_name] - offset
     return df

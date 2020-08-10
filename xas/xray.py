@@ -66,7 +66,7 @@ def encoder2energy(encoder, pulses_per_deg, offset = 0):
     --------
     :func:`isstools.conversions.xray.energy2encoder`
     """
-    return -12400 / (2 * 3.1356 * np.sin(np.deg2rad((encoder/pulses_per_deg) - float(offset))))
+    return -12398.42 / (2 * 3.1356 * np.sin(np.deg2rad((encoder/pulses_per_deg) - float(offset))))
 
 def energy2encoder(energy, pulses_per_deg, offset = 0):
     """
@@ -88,7 +88,7 @@ def energy2encoder(energy, pulses_per_deg, offset = 0):
     --------
     :func:`isstools.conversions.xray.encoder2energy`
     """
-    return pulses_per_deg * (np.degrees(np.arcsin(-12400 / (2 * 3.1356 * energy))) - float(offset))
+    return pulses_per_deg * (np.degrees(np.arcsin(-12398.42 / (2 * 3.1356 * energy))) - float(offset))
 
 
 
