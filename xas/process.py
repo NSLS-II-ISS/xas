@@ -9,9 +9,10 @@ from .interpolate import interpolate
 from .xas_logger import get_logger
 import matplotlib.pyplot as plt
 import numpy as np
+import os
 
 
-def process_interpolate_bin(doc, db, draw_func_interp = None, draw_func_bin = None):
+def process_interpolate_bin(doc, db, draw_func_interp = None, draw_func_bin = None, cloud_dispatcher = None):
     logger = get_logger()
     if 'experiment' in db[doc['run_start']].start.keys():
         uid = doc['run_start']
@@ -49,10 +50,19 @@ def process_interpolate_bin(doc, db, draw_func_interp = None, draw_func_bin = No
                         draw_func_interp(interpolated_df)
                     if draw_func_bin is not None:
                         draw_func_bin(binned_df, path_to_file)
+
                 else:
                     print('Energy E0 is not defined')
             except:
                 logger.info(f'Binning failed for {path_to_file}')
+            (path, extension) = os.path.splitext(path_to_file)
+            path_to_binned = path + '.dat'
+            try:
+                if cloud_dispatcher is not None:
+                    cloud_dispatcher.load_to_dropbox(path_to_binned)
+                    logger.info(f'Sending data to the cloud successful for {path_to_binned}')
+            except:
+                logger.info(f'Sending data to the cloud failed for {path_to_binned}')
 
 
         elif experiment.startswith('step'):
