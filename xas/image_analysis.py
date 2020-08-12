@@ -1,4 +1,6 @@
-def get_mus(uid):
+
+
+def get_mus(db, uid):
     data = db[uid].table()
     x = data['giantxy_x']
     y = data['giantxy_y']
@@ -7,25 +9,21 @@ def get_mus(uid):
     return x,y, mut, muf
 
 
-def analyze_spiral_scan(uid, conc, ax_t=None, ax_f=None):
-    x, y, mut, muf = get_mus(uid)
+def analyze_spiral_scan(db, uid, conc, ax):
+    x, y, mut, muf = get_mus(db, uid)
 
     if conc>5:
         x_max, y_max = _analyze_measurement(x, y, mut)
+        plot_xyz(x, y, mut, x_max, y_max, ax)
     else:
         x_max, y_max = _analyze_measurement(x, y, muf)
-
-    if ax_t:
-        plot_xyz(x, y, mut, x_max, y_max, ax)
-
-    if ax_f:
         plot_xyz(x, y, muf, x_max, y_max, ax)
 
     return x_max, y_max
 
 
 
-def _analyze_measurement(x, y, z):
+def _analyze_measurement(x, y, z, r1=5, r2=(13.4/2-1)):
     x_im_center = x.iloc[0]
     y_im_center = y.iloc[0]
 
@@ -43,8 +41,9 @@ def _analyze_measurement(x, y, z):
     # x_max = x[xy_mask_recen][np.argmax(z[xy_mask_recen])]
     # y_max = y[xy_mask_recen][np.argmax(z[xy_mask_recen])]
 
-    x_max = com(x, (z - z.min()) ** 2, xy_mask_recen) # square it to bring the center closer to the maximum
-    y_max = com(y, (z - z.min()) ** 2, xy_mask_recen) # square it to bring the center closer to the maximum
+    x_max = com(x, (z - z.min()) ** 3, xy_mask_recen) # square it to bring the center closer to the maximum
+    y_max = com(y, (z - z.min()) ** 3, xy_mask_recen) # square it to bring the center closer to the maximum
+
     return x_max, y_max
 
 
@@ -63,4 +62,27 @@ def com(a_orig, w_orig, mask=None):
 def plot_xyz(x, y, z, x_max, y_max, ax, r1=5, r2=(13.4/2-1)):
 
     ax.tricontourf(x, y, z, 50)
-    ax.plot(x_max, y_max, 'mx', ms=25, markeredgewidth=5)
+    ax.plot(x_max, y_max, 'mx', ms=12, markeredgewidth=2)
+
+
+def show_spiral_result(db,uid):
+
+    fig, (ax1, ax2) = plt.subplots(1,2, figsize=(6,3))
+    fig.set_tight_layout(True)
+    analyze_spiral_scan(db, uid, 10, ax1)
+    analyze_spiral_scan(db, uid, 1, ax2)
+
+    ax1.set_xlabel('giant_x')
+    ax1.set_ylabel('giant_y')
+    ax1.set_title('Transmission')
+
+    ax2.set_xlabel('giant_x')
+    ax2.set_ylabel('giant_y')
+    ax2.set_title('Fluorescence')
+
+    plt.savefig(r'/home/xf08id/Desktop/spiral_scan_1.png', dpi=600)
+
+# -458 rel_spiral_square a467cce4-30a3-4796-9b87-f176982b15d1
+# -459 rel_spiral_square efcb65d4-6852-4941-9a2d-125d17ae1a31
+# -460 rel_spiral_square d23e1168-f97e-4f58-9a40-2160a926afd8
+# -461 rel_spiral_square 283a1052-f0e6-4b3f-8a0d-64551375d03c
