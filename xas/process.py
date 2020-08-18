@@ -60,6 +60,7 @@ def process_interpolate_bin(doc, db, draw_func_interp = None, draw_func_bin = No
             try:
                 if cloud_dispatcher is not None:
                     cloud_dispatcher.load_to_dropbox(path_to_binned)
+                    cloud_dispatcher.post_to_slack(path_to_binned,db[uid].start['slack_channel'])
                     logger.info(f'Sending data to the cloud successful for {path_to_binned}')
             except:
                 logger.info(f'Sending data to the cloud failed for {path_to_binned}')
