@@ -34,7 +34,7 @@ def bin(interpolated_dataset, e0, edge_start=-25, edge_end=40, preedge_spacing=5
             xanes_spacing = 0.4
         else:
             xanes_spacing = 0.3
-
+#
     # Constants for converting from hwhm -> gaussian parameters
     GAUSS_SIGMA_FACTOR = 1 / (2 * (2 * np.log(2)) ** .5)
 
