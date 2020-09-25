@@ -52,7 +52,6 @@ def process_interpolate_bin(doc, db, draw_func_interp = None, draw_func_bin = No
                         draw_func_interp(interpolated_df)
                     if draw_func_bin is not None:
                         draw_func_bin(binned_df, path_to_file)
-
                 else:
                     print('Energy E0 is not defined')
             except:
