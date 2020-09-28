@@ -38,6 +38,11 @@ def interpolate(dataset,key_base = 'i0', sort=True):
     keys = ['timestamp']
     keys.extend(interpolated_dataset.keys())
     intepolated_dataframe.columns = keys
+
+    intepolated_dataframe['mu_t'] = np.log( intepolated_dataframe['i0'] / intepolated_dataframe['it'] )
+    intepolated_dataframe['mu_f'] = intepolated_dataframe['iff'] / intepolated_dataframe['i0']
+    intepolated_dataframe['mu_r'] = np.log( intepolated_dataframe['it'] / intepolated_dataframe['ir'] )
+
     if sort:
         return intepolated_dataframe.sort_values('energy')
     else:
