@@ -190,7 +190,7 @@ def find_e0(db, uid):
 
 def save_interpolated_df_as_file(path_to_file, df, comments):
     cols = df.columns.tolist()
-    fmt = '%17.6f ' + '%12.6f ' + (' '.join(['%12.6e' for i in range(len(cols)-2)]))
+    fmt = '%17.6f ' + '%12.6e ' + (' '.join(['%12.6e' for i in range(len(cols)-2)]))
     header = '  '.join(cols)
 
     df = df[cols]
