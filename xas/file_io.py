@@ -292,7 +292,11 @@ def save_stepscan_as_file(path_to_file, df, comments):
     # assuming stepscan_channel_dict keys and values are ordered as above
     # select all columns from df with names in stepscan_channel_dict.keys()
     # and rename
-    data = df[stepscan_channel_dict.keys()]
+
+    valid_keys = set(stepscan_channel_dict.keys()) & set(df.columns)
+    valid_keys = [key for key in stepscan_channel_dict.keys() if key in df.columns]
+    data = df[valid_keys]
+
     data.columns = [stepscan_channel_dict[k] for k in data.columns]
 
     cols = data.columns.tolist()
