@@ -85,6 +85,6 @@ def average_scans(path, base, ext=''):
 
 
 
-def test_interpolation(fpath):
+# def test_interpolation(fpath):
 
 

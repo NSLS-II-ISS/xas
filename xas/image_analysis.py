@@ -60,9 +60,9 @@ def com(a_orig, w_orig, mask=None):
 
 
 def plot_xyz(x, y, z, x_max, y_max, ax, r1=5, r2=(13.4/2-1)):
-
-    ax.tricontourf(x, y, z, 50)
-    ax.plot(x_max, y_max, 'mx', ms=12, markeredgewidth=2)
+    if ax:
+        ax.tricontourf(x, y, z, 50)
+        ax.plot(x_max, y_max, 'mx', ms=12, markeredgewidth=2)
 
 
 def show_spiral_result(db,uid):
