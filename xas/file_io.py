@@ -274,7 +274,23 @@ stepscan_channel_dict = {
     'pil100k_stats1_total': 'pil100_ROI1',
     'pil100k_stats2_total': 'pil100_ROI2',
     'pil100k_stats3_total': 'pil100_ROI3',
-    'pil100k_stats4_total': 'pil100_ROI4'
+    'pil100k_stats4_total': 'pil100_ROI4',
+    'xs_channel1_rois_roi01_value' : 'xs_ch1_ROI1',
+    # 'xs_channel1_rois_roi02_value' : 'xs_ch1_ROI2',
+    # 'xs_channel1_rois_roi03_value' : 'xs_ch1_ROI3',
+    # 'xs_channel1_rois_roi04_value' : 'xs_ch1_ROI4',
+    # 'xs_channel2_rois_roi01_value' : 'xs_ch2_ROI1',
+    # 'xs_channel2_rois_roi02_value' : 'xs_ch2_ROI2',
+    # 'xs_channel2_rois_roi03_value' : 'xs_ch2_ROI3',
+    # 'xs_channel2_rois_roi04_value' : 'xs_ch2_ROI4',
+    # 'xs_channel3_rois_roi01_value' : 'xs_ch3_ROI1',
+    # 'xs_channel3_rois_roi02_value' : 'xs_ch3_ROI2',
+    # 'xs_channel3_rois_roi03_value' : 'xs_ch3_ROI3',
+    # 'xs_channel3_rois_roi04_value' : 'xs_ch3_ROI4',
+    # 'xs_channel4_rois_roi01_value' : 'xs_ch4_ROI1',
+    # 'xs_channel4_rois_roi02_value' : 'xs_ch4_ROI2',
+    # 'xs_channel4_rois_roi03_value' : 'xs_ch4_ROI3',
+    # 'xs_channel4_rois_roi04_value' : 'xs_ch4_ROI4'
 
 }
 
