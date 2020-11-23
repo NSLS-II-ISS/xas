@@ -275,6 +275,10 @@ stepscan_channel_dict = {
     'pil100k_stats2_total': 'pil100_ROI2',
     'pil100k_stats3_total': 'pil100_ROI3',
     'pil100k_stats4_total': 'pil100_ROI4',
+    'xs_channel1_rois_roi01_value' : 'xs_channel1_rois_roi01_value',
+    'xs_channel2_rois_roi01_value' : 'xs_channel2_rois_roi01_value',
+    'xs_channel3_rois_roi01_value' : 'xs_channel3_rois_roi01_value',
+    'xs_channel4_rois_roi01_value' : 'xs_channel4_rois_roi01_value',
     'xs_ROI1': 'xs_ROI1',
     'xs_ROI2': 'xs_ROI2',
     'xs_ROI3': 'xs_ROI3',
@@ -298,22 +302,22 @@ xs_channel_list = [
     'xs_channel4_rois_roi03_value',
     'xs_channel4_rois_roi04_value']
 
-xs_channel_comb_dict = {'xs_ROI1' : ['xs_channel1_rois_roi01_value',
+xs_channel_comb_dict = {'xs_ROI1' : [#'xs_channel1_rois_roi01_value',
                                      'xs_channel2_rois_roi01_value',
-                                     'xs_channel3_rois_roi01_value',
-                                     'xs_channel4_rois_roi01_value'],
-                        'xs_ROI2': ['xs_channel1_rois_roi02_value',
-                                    'xs_channel2_rois_roi02_value',
-                                    'xs_channel3_rois_roi02_value',
-                                    'xs_channel4_rois_roi02_value'],
-                        'xs_ROI3': ['xs_channel1_rois_roi03_value',
-                                    'xs_channel2_rois_roi03_value',
-                                    'xs_channel3_rois_roi03_value',
-                                    'xs_channel4_rois_roi03_value'],
-                        'xs_ROI4': ['xs_channel1_rois_roi04_value',
-                                    'xs_channel2_rois_roi04_value',
-                                    'xs_channel3_rois_roi04_value',
-                                    'xs_channel4_rois_roi04_value'],
+                                     'xs_channel3_rois_roi01_value',]
+                                     #'xs_channel4_rois_roi01_value'],
+                        # 'xs_ROI2': [#'xs_channel1_rois_roi02_value',
+                        #             'xs_channel2_rois_roi02_value',
+                        #             'xs_channel3_rois_roi02_value',]
+                        #             #'xs_channel4_rois_roi02_value'],
+                        # 'xs_ROI3': [#'xs_channel1_rois_roi03_value',
+                        #             'xs_channel2_rois_roi03_value',
+                        #             'xs_channel3_rois_roi03_value',]
+                        #             #'xs_channel4_rois_roi03_value'],
+                        # 'xs_ROI4': [#'xs_channel1_rois_roi04_value',
+                        #             'xs_channel2_rois_roi04_value',
+                        #             'xs_channel3_rois_roi04_value',]
+                                    #'xs_channel4_rois_roi04_value'],
                         }
 
 
@@ -337,16 +341,17 @@ def stepscan_normalize_xs(df):
 
 def combine_xspress3_channels(df):
 
-    if xs_channel_list[0] in df.columns:
-        df_out = df.copy()
-        for k in xs_channel_comb_dict.keys():
-            df_out[k] = 0
-            for channel in xs_channel_comb_dict[k]:
-                df_out[k] += df_out[channel]
-        return df_out
-
-    else:
-        return df
+    # if xs_channel_list[0] in df.columns:
+    #     df_out = df.copy()
+    #     for k in xs_channel_comb_dict.keys():
+    #         df_out[k] = 0
+    #         for channel in xs_channel_comb_dict[k]:
+    #             df_out[k] += df_out[channel]
+    #     return df_out
+    #
+    # else:
+    #     return df
+    return df
 
 
 
