@@ -2,7 +2,7 @@
 from .bin import bin
 from .file_io import (load_dataset_from_files, create_file_header, validate_file_exists, validate_path_exists,
                       save_interpolated_df_as_file, save_binned_df_as_file, find_e0, save_stepscan_as_file,
-                      stepscan_remove_offsets)
+                      stepscan_remove_offsets, stepscan_normalize_xs, combine_xspress3_channels)
 from .db_io import load_apb_dataset_from_db, translate_apb_dataset
 from .interpolate import interpolate
 
@@ -59,25 +59,25 @@ def process_interpolate_bin(doc, db, draw_func_interp = None, draw_func_bin = No
             (path, extension) = os.path.splitext(path_to_file)
             path_to_binned = path + '.dat'
 
-            try:
-                if cloud_dispatcher is not None:
-                    cloud_dispatcher.load_to_dropbox(path_to_binned)
-                    #WIP workaround
-                    channel = db[uid].start['slack_channel']
-                    slack_service = cloud_dispatcher.slack_service
-                    image_path = os.path.splitext(path_to_binned)[0] + '.png'
-                    generate_output_figures(path_to_binned, image_path)
-                    label = os.path.basename(path).split('.')[0]
-                    slack_upload_image(slack_service,channel,image_path,label)
-                    #cloud_dispatcher.post_to_slack(path_to_binned ,db[uid].start['slack_channel'])
-                    logger.info(f'Sending data to the cloud successful for {path_to_binned}')
-            except:
-                logger.info(f'Sending data to the cloud failed for {path_to_binned}')
-
-            # if cloud_dispatcher is not None:
-            #     cloud_dispatcher.load_to_dropbox(path_to_binned)
-            #     cloud_dispatcher.post_to_slack(path_to_binned ,db[uid].start['slack_channel'])
-            #     logger.info(f'Sending data to the cloud successful for {path_to_binned}')
+            # try:
+            #     if cloud_dispatcher is not None:
+            #         cloud_dispatcher.load_to_dropbox(path_to_binned)
+            #         #WIP workaround
+            #         #channel = db[uid].start['slack_channel']
+            #         #slack_service = cloud_dispatcher.slack_service
+            #         #image_path = os.path.splitext(path_to_binned)[0] + '.png'
+            #         #generate_output_figures(path_to_binned, image_path)
+            #         #label = os.path.basename(path).split('.')[0]
+            #         #slack_upload_image(slack_service,channel,image_path,label)
+            #         #cloud_dispatcher.post_to_slack(path_to_binned ,db[uid].start['slack_channel'])
+            #         logger.info(f'Sending data to the cloud successful for {path_to_binned}')
+            # except:
+            #     logger.info(f'Sending data to the cloud failed for {path_to_binned}')
+            #
+            # # if cloud_dispatcher is not None:
+            # #     cloud_dispatcher.load_to_dropbox(path_to_binned)
+            # #     cloud_dispatcher.post_to_slack(path_to_binned ,db[uid].start['slack_channel'])
+            # #     logger.info(f'Sending data to the cloud successful for {path_to_binned}')
         elif experiment.startswith('step'):
             path_to_file = db[uid].start['interp_filename']
             validate_path_exists(db,uid)
@@ -85,7 +85,12 @@ def process_interpolate_bin(doc, db, draw_func_interp = None, draw_func_bin = No
             comments = create_file_header(db, uid)
             df = stepscan_remove_offsets(db[uid])
 
+
+            df = stepscan_normalize_xs(df)
+            df = combine_xspress3_channels(df)
+            # ghnfg
             save_stepscan_as_file(path_to_file, df, comments)
+
 
 
 def process_interpolate_only(doc, db):
