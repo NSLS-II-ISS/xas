@@ -57,6 +57,8 @@ class trajectory():
         self.encoder_grid = []
         self.hhm = hhm
         self.servocycle = servocycle
+
+
         self.e0 =  None
         self.edge_start = -30
         self.edge_end = 50
@@ -67,39 +69,51 @@ class trajectory():
                dsine_edge_duration=8,
               dsine_postedge_duration = 20,
                dsine_preedge_frac=0.15,
-               dsine_postedge_frac=0.85):
+               dsine_postedge_frac=0.85,
+               pad_time=0):
 
         # self.servocycle=servocycle
         self.e0 = edge_energy
         self.edge_start = offsets[1]
         self.edge_end = offsets[2]
+        self.gen_t_step = 1 / self.servocycle * 100
 
         if trajectory_type == 'Double Sine/Constant Edge':
-
             t_pre = dsine_preedge_duration
             t_xanes = dsine_edge_duration
             t_exafs = dsine_postedge_duration
             print(t_pre, t_xanes, t_exafs)
             t_all = t_pre + t_xanes + t_exafs
-
             e_preedge_lo = edge_energy + offsets[0]
             e_preedge_hi = edge_energy + offsets[1]
             e_postedge_lo = edge_energy + offsets[2]
             e_postedge_hi = edge_energy + offsets[3]
+            self.gen_t_step *= t_all/30
 
-            t = np.arange(0, t_all, 1/self.servocycle*100)
+            t = np.arange(0, t_all, self.gen_t_step)
             e = np.zeros(t.shape)
-
-            t_sel = (t>=t_pre) & (t<=(t_pre+t_xanes))
+            t_sel = (t >= t_pre) & (t <= (t_pre + t_xanes))
             e_velocity = (e_postedge_lo - e_preedge_hi) / (t[t_sel][-1] - t[t_sel][0])
             e_offset = e_preedge_hi - e_velocity * t_pre
-            e[t_sel] = e_velocity * t[t_sel] + e_offset
+            # e[t_sel] = e_velocity * t[t_sel] + e_offset
+            e[t_sel] = np.linspace(e_preedge_hi, e_postedge_lo, int(np.sum(t_sel)))
 
-            t_sel = (t <= t_pre)
-            e[t_sel] = stitch_two_points(t[t_sel], e_preedge_lo, 0, e_preedge_hi, e_velocity, frac=dsine_preedge_frac)
+            # t_sel = (t <= t_pre)
+            # e[t_sel] = stitch_two_points(t[t_sel], e_preedge_lo, 0, e_preedge_hi,
+            #                              e_velocity, frac=dsine_preedge_frac)
+            # t_sel = (t >= (t_pre + t_xanes))
+            # e[t_sel] = stitch_two_points(t[t_sel], e_postedge_lo, e_velocity,
+            #                              e_postedge_hi, 0, frac=dsine_postedge_frac)
 
-            t_sel = (t >= (t_pre + t_xanes))
-            e[t_sel] = stitch_two_points(t[t_sel], e_postedge_lo, e_velocity, e_postedge_hi, 0, frac=dsine_postedge_frac)
+            e_preedge_hi_act = e[t_sel][0]
+            e_postedge_lo_act = e[t_sel][-1]
+            t_sel = (t < t_pre)
+            e[t_sel] = stitch_two_points(t[t_sel], e_preedge_lo, 0, e_preedge_hi_act - e_velocity * self.gen_t_step,
+                                         e_velocity, frac=dsine_preedge_frac)
+            t_sel = (t > (t_pre + t_xanes))
+            e[t_sel] = stitch_two_points(t[t_sel], e_postedge_lo_act + e_velocity * self.gen_t_step, e_velocity,
+                                         e_postedge_hi, 0, frac=dsine_postedge_frac)
+
             self.time = t
             self.energy = e
 
@@ -229,6 +243,7 @@ class trajectory():
             time = np.linspace(0, total_time, 100)
             self.energy = energy
             self.time = time
+            self.gen_t_step *= total_time / 30
 
         # elif trajectory_type == 'Double Sine/Constant Edge':
         #     edge_duration = (offsets[2] - offsets[1]) / vel_edge
@@ -307,6 +322,8 @@ class trajectory():
             postedge_hi = edge_energy + offsets[3]
             edge = edge_energy
 
+            self.gen_t_step *= total_time / 30
+
             x1_num = np.round(half * 100)
             x2_num = np.round((1 - half) * 100)
             x1 = np.linspace(-np.pi / 2, (3 * np.pi / 2), x1_num) #2 * half / x_step1)
@@ -329,6 +346,16 @@ class trajectory():
             time = np.linspace(0, (half * total_time), 2 * len(x1))
             time2 = np.linspace((half * total_time) + (time[1] - time[0]), total_time, 2 * len(x2))
             self.time = np.concatenate((time, time2))
+
+        if pad_time > 0:
+            t_pad_pre = np.arange(-pad_time, 0, self.gen_t_step/100)
+            t_pad_post = self.time[-1]-np.arange(-pad_time, 0, self.gen_t_step/100)[::-1]
+
+            self.time = np.hstack((t_pad_pre, self.time, t_pad_post))
+            self.time += pad_time
+            self.energy = np.hstack((self.energy[0]*np.ones(t_pad_pre.shape),
+                                     self.energy,
+                                     self.energy[-1]*np.ones(t_pad_post.shape)))
 
 
 
