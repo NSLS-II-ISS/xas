@@ -1,4 +1,5 @@
-
+import matplotlib.pyplot as plt
+import numpy as np
 
 def get_mus(db, uid):
     data = db[uid].table()
@@ -9,15 +10,15 @@ def get_mus(db, uid):
     return x,y, mut, muf
 
 
-def analyze_spiral_scan(db, uid, conc, ax):
+def analyze_spiral_scan(db, uid, conc, ax, save_fig_path=None):
     x, y, mut, muf = get_mus(db, uid)
 
     if conc>5:
         x_max, y_max = _analyze_measurement(x, y, mut)
-        plot_xyz(x, y, mut, x_max, y_max, ax)
+        plot_xyz(x, y, mut, x_max, y_max, ax, save_fig_path=save_fig_path, label='mut')
     else:
         x_max, y_max = _analyze_measurement(x, y, muf)
-        plot_xyz(x, y, muf, x_max, y_max, ax)
+        plot_xyz(x, y, muf, x_max, y_max, ax, save_fig_path=save_fig_path, label='muf')
 
     return x_max, y_max
 
@@ -59,10 +60,23 @@ def com(a_orig, w_orig, mask=None):
 
 
 
-def plot_xyz(x, y, z, x_max, y_max, ax, r1=5, r2=(13.4/2-1)):
+def plot_xyz(x, y, z, x_max, y_max, ax, save_fig_path=None, label=None):
+
+    if save_fig_path:
+        plt.ioff()
+        fig, ax = plt.subplots(1, 1, figsize=(3, 3))
+
     if ax:
         ax.tricontourf(x, y, z, 50)
         ax.plot(x_max, y_max, 'mx', ms=12, markeredgewidth=2)
+        if label:
+            plt.title(label)
+            plt.xlabel('giantxy_x')
+            plt.ylabel('giantxy_y')
+    if save_fig_path:
+        plt.savefig(save_fig_path, dpi=200)
+        plt.ion()
+        plt.close(fig)
 
 
 def show_spiral_result(db,uid):
