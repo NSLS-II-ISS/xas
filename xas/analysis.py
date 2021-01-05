@@ -73,15 +73,13 @@ def average_scans(path, base, ext=''):
     # dfgd
     # save_binned_df_as_file(path_av, df_av, header_av)
 
-
+ 
     # plt.figure(1)
     # plt.clf()
     # for each_df in df_list:
     #     plt.plot(each_df['energy'], each_df['iff'])
     # plt.plot(df_av['energy'], df_av['iff'], 'r-')
     # dfgef
-
-
 
 
 
