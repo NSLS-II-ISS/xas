@@ -324,8 +324,8 @@ class trajectory():
 
             self.gen_t_step *= total_time / 30
 
-            x1_num = np.round(half * 100)
-            x2_num = np.round((1 - half) * 100)
+            x1_num = int(np.round(half * 100))
+            x2_num = int(np.round((1 - half) * 100))
             x1 = np.linspace(-np.pi / 2, (3 * np.pi / 2), x1_num) #2 * half / x_step1)
             x2 = np.linspace(-np.pi / 2, (3 * np.pi / 2), x2_num) #2 * (1 - half) / x_step1)
 

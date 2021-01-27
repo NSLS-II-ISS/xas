@@ -118,3 +118,10 @@ def generate_energy_grid(e0, preedge_start, xanes_start, xanes_end, exafs_end, p
     grid = np.append(np.append(preedge, edge), postedge)
     return grid, integration_times
     #return np.append(np.append(preedge, edge), postedge)
+
+
+
+
+
+
+
