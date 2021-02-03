@@ -1,5 +1,7 @@
 from xas.fitting import (get_normalized_gaussian_scan, estimate_center_and_width_of_peak, fit_gaussian,
                          Nominal2ActualConverter)
+from xas.file_io import  load_binned_df_from_file
+
 import numpy as np
 from matplotlib import pyplot as plt
 
@@ -54,6 +56,78 @@ def analyze_many_elastic_scans(db, uids, E_nominal, plotting=False):
 
     return energy_converter
 
+
+
+def get_xes_data(db, uid, offset=-10):
+    t = db[uid].table()
+    xes = t['pil100k_stats1_total']/(np.abs(t['apb_ave_ch1_mean']) - offset)
+    return xes
+
+
+def parse_file_with_uids(file_with_uids):
+    uids_herfd, uids_xes = [], []
+    with open(file_with_uids, "r") as f:
+        lines = f.readlines()
+    for line in lines:
+        words = line.split(' ')
+        uids_herfd.append(words[-2])
+        uids_xes.append(words[-1][:-2])
+    return uids_herfd, uids_xes
+
+
+def get_herfd_data(db, uid):
+    filename = db[uid].start['interp_filename']
+    df, _ = load_binned_df_from_file(filename)
+    energy = df['energy']
+    herfd = np.abs((df['pil100_ROI1'] - df['pil100_ROI2'])/ df['i0']).values
+    return energy, herfd
+
+
+
+def parse_rixs_scan(db, file_with_uids):
+    uids_herfd, uids_xes = parse_file_with_uids(file_with_uids)
+    xes_data = []
+    herfd_data = []
+    for uid_herfd, uid_xes in zip(uids_herfd, uids_xes):
+        energy, herfd = get_herfd_data(db, uid_herfd)
+        xes = get_xes_data(db, uid_xes)
+        herfd_data.append(herfd)
+        xes_data.append(xes)
+    herfd_data = np.array(herfd_data).T
+    xes_data = np.array(xes_data).T
+    # linear algebra magic for scaling purposes
+    c, _, _, _ = np.linalg.lstsq(xes_data[:,:1], xes_data, rcond=-1)
+    herfd_data /= c
+    return herfd_data, xes_data, energy
+
+
+def convert_rixs_to_energy_transfer(Ein, Eout, herfd):
+    dEmin = Ein.min() - Eout.max()
+    dEmax = Ein.max() - Eout.min()
+
+    transfer_step = np.min([np.min(np.abs(np.diff(Ein))), np.abs(Eout[1] - Eout[0])])*np.sqrt(2)
+    dE = np.arange(dEmin, dEmax, transfer_step)
+    # dE = np.linspace(dEmin, dEmax, 601)
+    rixs = np.zeros((Ein.size, dE.size))
+
+    for idx in range(Ein.size):
+        each_Ein = Ein[idx]
+        each_transfer = (each_Ein - Eout)
+        idx_ord = np.argsort(each_transfer)
+        rixs[idx, :] = np.interp(dE, each_transfer[idx_ord], herfd[idx_ord, idx], left=0, right=0)
+
+    return dE, rixs
+
+plt.figure()
+plt.plot(energies_vtc_cubanes, xes_co3mno4_all, 'k-', lw=1, alpha=0.3)
+plt.plot(energies_vtc_cubanes, np.mean(xes_co3mno4_all, axis=1), 'r-', lw=2)
+
+# herfd_data, xes_data, energy_in = parse_rixs_scan(db, '/nsls2/xf08id/users/2021/1/308190/rixs_uids_ebce49.txt')
+# energy_transfer, rixs = convert_rixs_to_energy_transfer(energy_in, energies_emission[:herfd_data.shape[1]], herfd_data.T)
+# plt.figure()
+# plt.figure(); plt.contourf(energy_in, energy_transfer, (rixs/rixs.max()).T, 251, vmin=0.0, vmax=0.15, cmap='jet')
+# plt.axis('image')
+# plt.xlim(7706, 7715); plt.ylim(56, 65)
 
 
 
