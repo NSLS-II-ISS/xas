@@ -84,8 +84,6 @@ def process_interpolate_bin(doc, db, draw_func_interp = None, draw_func_bin = No
             path_to_file = validate_file_exists(path_to_file, file_type = 'interp')
             comments = create_file_header(db, uid)
             df = stepscan_remove_offsets(db[uid])
-
-
             df = stepscan_normalize_xs(df)
             df = combine_xspress3_channels(df)
             # ghnfg

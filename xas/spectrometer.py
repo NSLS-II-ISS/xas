@@ -204,7 +204,18 @@ class Crystal:
         # self.rowland_circle_y = self.Oy + self.R / 2 * np.sin(phi)
         # self.rowland_circle_z = 0
 
-        self.x = self.R/2 * (1 + np.cos(np.pi - 2*self.ba))
+        self.x = self.R / 2 * (1 + np.cos(np.pi - 2*self.ba))
         self.y = self.R / 2 * np.sin(np.pi - 2 * self.ba)
         self.d_y = self.R  * np.sin(np.pi - 2 * self.ba)
+
+    def compute_energy_from_positions(self, x, y, d_y):
+        ba1 = - 0.5 * (np.arccos(x / (self.R / 2) - 1) - np.pi)
+        ba2 = - 0.5 * (np.arcsin(y / (self.R / 2)) - np.pi)
+        ba3 = - 0.5 * (np.arcsin(d_y / (self.R)) - np.pi)
+        e1 = self.bragg_energy(ba1)
+        e2 = self.bragg_energy(ba2)
+        e3 = self.bragg_energy(ba3)
+        return np.mean([e1, e2, e3])
+
+
 

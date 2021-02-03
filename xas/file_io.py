@@ -263,6 +263,7 @@ def read_header(filename):
 
 stepscan_channel_dict = {
     'hhm_energy': 'energy',
+    'motor_emission_energy' : 'energy',
     'apb_ave_ch1_mean': 'i0',
     'apb_ave_ch2_mean': 'it',
     'apb_ave_ch3_mean': 'ir',
