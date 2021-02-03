@@ -73,7 +73,7 @@ def average_scans(path, base, ext=''):
     # dfgd
     # save_binned_df_as_file(path_av, df_av, header_av)
 
-
+ 
     # plt.figure(1)
     # plt.clf()
     # for each_df in df_list:
@@ -83,8 +83,43 @@ def average_scans(path, base, ext=''):
 
 
 
-
-
 # def test_interpolation(fpath):
 
 
+# def read_offsets_from_folder(folder):
+#     files = filenames_from_dir(folder,base='', ext='.dat')
+#     gains = np.array([3, 4, 5, 6, 7])
+#     data_dict = {'apb_ave_ch1_mean' : [[], [], [], [], []],
+#                  'apb_ave_ch2_mean' : [[], [], [], [], []],
+#                  'apb_ave_ch3_mean' : [[], [], [], [], []],
+#                  'apb_ave_ch4_mean' : [[], [], [], [], []],
+#                  'apb_ave_ch5_mean' : [[], [], [], [], []],
+#                  'apb_ave_ch6_mean' : [[], [], [], [], []],
+#                  'apb_ave_ch7_mean' : [[], [], [], [], []],
+#                  'apb_ave_ch8_mean' : [[], [], [], [], []]}
+#
+#     for file in files:
+#         df = pd.read_csv(file)
+#         this_gain = int(file[-5])
+#         idx_gain = np.where(this_gain == gains)[0][0]
+#         for key in data_dict.keys():
+#             offset_value = df[key].values[0]
+#             # print(key, idx_gain)
+#             data_dict[key][idx_gain].append(offset_value)
+#
+#     return gains, data_dict
+#
+#
+#
+# ggg = dd['apb_ave_ch3_mean'][1]
+# plt.figure(1)
+# plt.close()
+# plt.plot(ggg, 'k.')
+# plt.plot([0, len(ggg)], [np.median(ggg), np.median(ggg)], 'r-')
+#
+# out_dict = {}
+# for key in dd.keys():
+#     bla = {}
+#     for i, gain in enumerate(gains):
+#         bla[int(gain)] = float(np.median(dd[key][i]))
+#     out_dict[key] = bla

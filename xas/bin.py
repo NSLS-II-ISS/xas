@@ -117,3 +117,68 @@ def bin(interpolated_dataset, e0, edge_start=-30, edge_end=50, preedge_spacing=5
     binned_df = binned_df.drop('timestamp', 1)
 
     return binned_df
+
+#
+# fname = '/nsls2/xf08id/users/2020/3/300001/Cu_sine_1s_ud_10x 0001.raw'
+# N = 10
+# output_fname = '/nsls2/xf08id/Sandbox/ISS_beamline_paper/Cu_sine_1s_ud_x10.dat'
+# T = 1
+# T_offset = -0.1
+#
+# columns = ['timestamp',  'i0',  'it',  'ir',  'iff',  'aux1',  'aux2',  'aux3',  'aux4',  'energy',  'mu_t',  'mu_f',  'mu_r']
+#
+# data = np.genfromtxt(fname)
+# df = pd.DataFrame(data, columns=columns)
+# df.sort_values('timestamp', inplace=True)
+# df['timestamp'] -= df['timestamp'].min()
+# # T = df['timestamp'].max() / N / 2
+#
+#
+# mus = []
+#
+# plt.figure(1)
+# plt.clf()
+#
+# plt.figure(2)
+# plt.clf()
+#
+# for i in range(N*2):
+#     print(i)
+#     df_loc = df[((df['timestamp']-T_offset) >= i*T) &
+#                 ((df['timestamp']-T_offset) < (i+1)*T)]
+#
+#     plt.figure(1)
+#     plt.plot(df_loc['timestamp'], df_loc['energy'])
+#
+#     df_int = bin(df_loc, 8979)
+#     _e = df_int['energy'].values
+#     _mu = np.log(df_int['it'] / df_int['ir']).values
+#     plt.figure(2)
+#     plt.plot(_e, _mu)
+#     if i == 0:
+#         energy = _e.copy()
+#     _mu = np.interp(energy, _e, _mu)
+#     _mu -= np.mean(_mu[energy<8900])
+#     _mu /= np.mean(_mu[energy>9800])
+#     mus.append(_mu)
+#
+# mus = np.array(mus).T
+#
+# ddd = np.hstack((energy[:, None], mus))
+# np.savetxt(output_fname, ddd, header=('energy ' + 'd u '*N))
+#
+# #
+# #
+# # df_down_1 =
+# # df_up_1 =
+# #
+# # df_down_5 = df[(df['timestamp'] >= 8*T) & (df['timestamp'] < 9*T)]
+# # df_up_5 = df[(df['timestamp'] >= 9*T) & (df['timestamp'] < 10*T)]
+# #
+
+
+
+
+
+
+
