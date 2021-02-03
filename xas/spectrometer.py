@@ -118,9 +118,9 @@ def convert_rixs_to_energy_transfer(Ein, Eout, herfd):
 
     return dE, rixs
 
-plt.figure()
-plt.plot(energies_vtc_cubanes, xes_co3mno4_all, 'k-', lw=1, alpha=0.3)
-plt.plot(energies_vtc_cubanes, np.mean(xes_co3mno4_all, axis=1), 'r-', lw=2)
+# plt.figure()
+# plt.plot(energies_vtc_cubanes, xes_co3mno4_all, 'k-', lw=1, alpha=0.3)
+# plt.plot(energies_vtc_cubanes, np.mean(xes_co3mno4_all, axis=1), 'r-', lw=2)
 
 # herfd_data, xes_data, energy_in = parse_rixs_scan(db, '/nsls2/xf08id/users/2021/1/308190/rixs_uids_ebce49.txt')
 # energy_transfer, rixs = convert_rixs_to_energy_transfer(energy_in, energies_emission[:herfd_data.shape[1]], herfd_data.T)
