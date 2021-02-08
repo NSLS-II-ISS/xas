@@ -4,6 +4,8 @@ from xas.file_io import  load_binned_df_from_file
 
 import numpy as np
 from matplotlib import pyplot as plt
+from scipy.signal import savgol_filter
+
 
 def analyze_elastic_scan(db, uid):
     E, I = get_normalized_gaussian_scan(db, uid)
@@ -130,8 +132,142 @@ def convert_rixs_to_energy_transfer(Ein, Eout, herfd):
 # plt.xlim(7706, 7715); plt.ylim(56, 65)
 
 
+def process_rixs_von_hamos(db, uid, roi, subtract_bkg=False):
+    t = db[uid].table(fill=True)
+    try:
+        energies_in = t['hhm_energy'].values
+    except:
+        energies_in = None
+    images_pandas = t['pil100k_image']
+    images = np.array([im[0, :, :] for im in images_pandas])
+    spectra = []
+    for image in images:
+        spectrum = process_image_von_hamos(image, roi, subtract_bkg=subtract_bkg)
+        spectra.append(spectrum)
+    spectra = np.array(spectra)
+    return energies_in, spectra
 
 
+def process_image_von_hamos(image, roi, subtract_bkg=False):
+    roi_x1, roi_x2, roi_y1, roi_y2, int_axis = roi
+    image_roi = image[roi_x1: roi_x2, roi_y1: roi_y2]
+    if subtract_bkg:
+        if int_axis == 0:
+            bkg_roi = image[roi_x1: roi_x2, roi_y1 + roi_y2: roi_y2 + roi_y2]
+        if int_axis == 1:
+            bkg_roi = image[roi_x1 + roi_x2: roi_x2 + roi_x2, roi_y1: roi_y2]
+        bkg = np.sum(bkg_roi, axis=int_axis)
+        bkg = savgol_filter(bkg, 21, 3)
+    else:
+        bkg = None
+
+    spectrum = np.sum(image_roi, axis=int_axis)
+    if bkg is not None:
+        spectrum = spectrum - bkg
+
+    return spectrum
+
+
+# VTC
+roi_x1, roi_x2, roi_y1, roi_y2, int_axis =  10, 30, 0, 300, 0
+roi = (roi_x1, roi_x2, roi_y1, roi_y2, int_axis)
+uid_ti_foil = 'b9008469-e6e7-4345-8872-5b632a90e29a'
+_, spectra = process_rixs_von_hamos(db, uid_ti_foil, roi, subtract_bkg=True)
+spectrum_av_Ti = np.mean(spectra, axis=0)
+spectrum_av_Ti /= spectrum_av_Ti.max()
+
+uid_tin = 'ead8b8e4-3171-4bbc-ab34-8dfff3bcac8c'
+_, spectra = process_rixs_von_hamos(db, uid_tin, roi, subtract_bkg=True)
+spectrum_av_TiN = np.mean(spectra, axis=0)
+spectrum_av_TiN /= spectrum_av_TiN.max()
+
+uid_fetio3 = '2dd621a7-8690-4efc-82ab-0b18fbeb1fa8'
+_, spectra = process_rixs_von_hamos(db, uid_fetio3, roi, subtract_bkg=True)
+spectrum_av_FeTiO3 = np.mean(spectra, axis=0)
+spectrum_av_FeTiO3 /= spectrum_av_FeTiO3.max()
+
+uid_liti2o3 = 'b0aa6acb-a341-4bef-8b07-631009a610c3'
+_, spectra = process_rixs_von_hamos(db, uid_liti2o3, roi, subtract_bkg=True)
+spectrum_av_LiTi2O3 = np.mean(spectra, axis=0)
+spectrum_av_LiTi2O3 /= spectrum_av_LiTi2O3.max()
+
+
+uid_TiO2 = '53c3ae46-6195-403e-9eca-93283cbf9c2b'
+_, spectra = process_rixs_von_hamos(db, uid_TiO2, roi, subtract_bkg=True)
+spectrum_av_TiO2 = np.mean(spectra, axis=0)
+spectrum_av_TiO2 /= spectrum_av_TiO2.max()
+
+
+uid_Ti2O3 = 'eefcc422-e82f-4279-a6fd-054a9902ca49'
+_, spectra = process_rixs_von_hamos(db, uid_Ti2O3, roi, subtract_bkg=True)
+spectrum_av_Ti2O3 = np.mean(spectra, axis=0)
+spectrum_av_Ti2O3 /= spectrum_av_Ti2O3.max()
+
+fig, ax = plt.subplots(1,1)
+# ax.plot(spectrum_av_Ti[::-1], label='Ti')
+# ax.plot(spectrum_av_TiN[::-1], label='TiN')
+# ax.plot(spectrum_av_FeTiO3[::-1], label='FeTiO3')
+# ax.plot(spectrum_av_LiTi2O3[::-1], label='LiTi2O3')
+ax.plot(spectrum_av_TiO2[::-1], label='TiO2')
+ax.plot(spectrum_av_Ti2O3[::-1], label='Ti2O3')
+ax.legend()
+
+
+
+
+# RIXS
+roi_x1, roi_x2, roi_y1, roi_y2, int_axis = 0, 192, 200, 300, 1
+roi = (roi_x1, roi_x2, roi_y1, roi_y2, int_axis)
+# uid_ti_foil = 'fbba85fc-383b-42d0-9f51-2d7552da919c'
+# uid_srtio3 = '6820fc1b-80ef-4c4b-8218-577c395f4162'
+
+uid_fetio3 = 'd537688b-ca25-41fa-8f39-ae926db7860e'
+energies_out = (np.arange(192) - 130) * 0.2 + 4513
+# # energies_in, herfds = process_rixs_von_hamos(db, uid_ti_foil, roi)
+# # energies_in, herfds = process_rixs_von_hamos(db, uid_srtio3, roi)
+energies_in, herfds = process_rixs_von_hamos(db, uid_fetio3, roi)
+#
+# from scipy.signal import savgol_filter
+#
+herfds_smooth = savgol_filter(herfds.T, 1, 0).T
+
+energies_transfer, rixs = convert_rixs_to_energy_transfer(energies_in, energies_out, herfds.T)
+_, rixs_smooth = convert_rixs_to_energy_transfer(energies_in, energies_out, herfds_smooth.T)
+
+
+plt.figure(1)
+plt.clf()
+# plt.contourf(energies_in, energies_transfer, np.log10((rixs/rixs.max())).T, 51, cmap='jet')
+# plt.contour(energies_in, energies_transfer, np.log10((rixs/rixs.max())).T, 51, colors='k', linewidths=0.5)
+plt.contourf(energies_in, energies_transfer, np.log10((rixs_smooth/rixs_smooth.max())).T, 31, cmap='jet')
+plt.contour(energies_in, energies_transfer, np.log10((rixs_smooth/rixs_smooth.max())).T, 31, colors='k', linewidths=0.5)
+plt.axis('image')
+plt.ylim(454, 491)
+plt.xlim(4964, 4986)
+#
+# plt.figure(2)
+# plt.clf()
+# plt.contourf(energies_in, energies_out, np.log10((herfds/herfds.max()).T), 999, cmap='jet')
+# # plt.contour(energies_in, energies_out, herfds.T, 21, colors='k', linewidths=0.5, vmin=0, vmax=0.1)
+# plt.axis('image')
+# plt.ylim(4487, 4525.2)
+# # plt.xlim(4964, 4976)
+#
+# herfd_kalpha_1 = np.sum(herfds_smooth[:, 65:82], axis=1)
+# herfd_kalpha_2 = np.sum(herfds_smooth[:, 98:115], axis=1)
+# herfd_kalpha_1 -= herfd_kalpha_1[0]
+# herfd_kalpha_1 = herfd_kalpha_1 / herfd_kalpha_1.max()
+# herfd_kalpha_2 -= herfd_kalpha_2[0]
+# herfd_kalpha_2 = herfd_kalpha_2/ herfd_kalpha_2.max()
+# plt.figure(3)
+# plt.clf()
+# plt.plot(energies_in, herfd_kalpha_1)
+# plt.plot(energies_in, herfd_kalpha_2)
+
+
+
+# plt.figure(1); plt.clf();
+# plt.imshow(images[-1, roi_x1:roi_x2, roi_y1:roi_y2], vmin=0, vmax=1000)
 
 
 class Crystal:
