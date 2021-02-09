@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from . import xray
+from itertools import product
 
 def load_apb_dataset_from_db(db, uid):
     hdr = db[uid]
@@ -28,7 +29,7 @@ def get_ch_properties(hdr_start, start, end):
 
 
 
-def translate_apb_dataset(apb_dataset, energy_dataset, angle_offset):
+def translate_apb_dataset(apb_dataset, energy_dataset, angle_offset,):
     data_dict= {}
     for column in apb_dataset.columns:
         if column != 'timestamp':
@@ -47,6 +48,38 @@ def translate_apb_dataset(apb_dataset, energy_dataset, angle_offset):
 
     data_dict['energy'] = energy
     return data_dict
+
+
+def load_apb_trig_dataset_from_db(db, uid):
+
+    hdr = db[uid]
+    t = hdr.table(stream_name='apb_trigger', fill=True)
+    timestamps = t['apb_trigger'][1]['timestamp'].values
+    transitions = t['apb_trigger'][1]['transition'].values
+    n_0 = np.sum(transitions == 0)
+    n_1 = np.sum(transitions == 1)
+    n_all = np.min([n_0, n_1])
+    apb_trig_timestamps = (timestamps[transitions == 1][:n_all] + timestamps[transitions == 0][:n_all])/2
+    return apb_trig_timestamps
+
+
+def load_xs3_dataset_from_db(db, uid, apb_trig_timestamps):
+    hdr = db[uid]
+    t = hdr.table(stream_name='xs_stream', fill=True)['xs_stream']
+    n_spectra = t.size
+    xs_timestamps = apb_trig_timestamps[:n_spectra]
+    chan_roi_names = [f'CHAN{c}ROI{r}' for c, r in product([1, 2, 3, 4], [1, 2, 3, 4])]
+    spectra = {}
+
+    for j, chan_roi in enumerate(chan_roi_names):
+        this_spectrum = np.zeros(n_spectra)
+
+        for i in range(n_spectra):
+            this_spectrum[i] = t[i+1][chan_roi]
+
+        spectra[chan_roi] = pd.DataFrame(np.vstack((xs_timestamps, this_spectrum)).T, columns=['timestamp', chan_roi])
+
+    return spectra
 
 
 

@@ -167,7 +167,7 @@ def process_image_von_hamos(image, roi, subtract_bkg=False):
 
     return spectrum
 
-
+'''
 # VTC
 roi_x1, roi_x2, roi_y1, roi_y2, int_axis =  10, 30, 0, 300, 0
 roi = (roi_x1, roi_x2, roi_y1, roi_y2, int_axis)
@@ -268,7 +268,7 @@ plt.xlim(4964, 4986)
 
 # plt.figure(1); plt.clf();
 # plt.imshow(images[-1, roi_x1:roi_x2, roi_y1:roi_y2], vmin=0, vmax=1000)
-
+'''
 
 class Crystal:
 
