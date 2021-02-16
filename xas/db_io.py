@@ -50,7 +50,7 @@ def translate_apb_dataset(apb_dataset, energy_dataset, angle_offset,):
     return data_dict
 
 
-def load_apb_trig_dataset_from_db(db, uid):
+def load_apb_trig_dataset_from_db(db, uid, use_fall=True):
 
     hdr = db[uid]
     t = hdr.table(stream_name='apb_trigger', fill=True)
@@ -59,7 +59,11 @@ def load_apb_trig_dataset_from_db(db, uid):
     n_0 = np.sum(transitions == 0)
     n_1 = np.sum(transitions == 1)
     n_all = np.min([n_0, n_1])
-    apb_trig_timestamps = (timestamps[transitions == 1][:n_all] + timestamps[transitions == 0][:n_all])/2
+    if use_fall:
+        apb_trig_timestamps = (timestamps[transitions == 1][:n_all] + timestamps[transitions == 0][:n_all])/2
+    else:
+        rises = timestamps[transitions == 1]
+        apb_trig_timestamps = rises[:n_all] + np.mean(np.diff(rises))/2
     return apb_trig_timestamps
 
 
@@ -80,6 +84,29 @@ def load_xs3_dataset_from_db(db, uid, apb_trig_timestamps):
         spectra[chan_roi] = pd.DataFrame(np.vstack((xs_timestamps, this_spectrum)).T, columns=['timestamp', chan_roi])
 
     return spectra
+
+
+
+def load_pil100k_dataset_from_db(db, uid, apb_trig_timestamps):
+    hdr = db[uid]
+    t = hdr.table(stream_name='pil100k_stream', fill=True)['pil100k_stream']
+    image_array = np.array([i for i in t])
+
+    n_images = t.size
+    pil100k_timestamps = apb_trig_timestamps[:n_images]
+    rois = hdr.start['roi']
+    spectra = {}
+
+    for j in range(4):
+        x, y, dx, dy = rois[j]
+        this_spectrum = np.sum(image_array[:, y: (y + dy), x: (x + dx)], axis=(1,2)) # NOTE : flipped X and Y
+
+        spectra[f'pil100k_ROI{j+1}'] = pd.DataFrame(np.vstack((pil100k_timestamps, this_spectrum)).T, columns=['timestamp', f'pil100k_ROI{j+1}'])
+
+    return spectra
+
+
+
 
 
 
