@@ -174,3 +174,49 @@ def process_interpolate_unsorted(uid, db):
      raw_df = load_dataset_from_files(db, uid)
      interpolated_df = interpolate(raw_df, sort=False)
      return interpolated_df
+
+
+
+################
+
+
+
+
+# scratch
+
+# import math
+# from xas.math import gauss
+# from scipy.optimize import curve_fit
+#
+#
+# def get_image_data():
+#     image = bpm_es.image.array_data.read()['bpm_es_image_array_data']['value'].reshape((960,1280))
+#     image = image.astype(np.int16)
+#     sum_lines = sum(image[:, [i for i in range(line - math.floor(n_lines/2), line + math.ceil(n_lines/2))]].transpose())
+#     sum_lines = sum_lines - np.mean(sum_lines[:200])
+#     index_max = sum_lines.argmax()
+#     max_value = sum_lines.max()
+#     min_value = sum_lines.min()
+#     sum_lines_t = sum_lines.copy()
+#     mask = sum_lines_t>max_value/2
+#     idx_to_fit = np.where(mask)
+#     sum_lines_t[~mask] = 0
+#     x = np.arange(960)
+#     coeff, var_matrix = curve_fit(gauss, x[idx_to_fit], sum_lines_t[idx_to_fit], p0=[1, index_max, 5])
+#     return sum_lines, sum_lines_t, gauss(x, *coeff)
+#
+# data1, data1_t, fit1 = get_image_data()
+#
+# plt.figure()
+# plt.plot(data1, label = 'Data 1')
+# plt.plot(data1_t, label = 'Data 1 t')
+# plt.plot(fit1, label = 'Fit 1')
+# plt.legend()
+# plt.grid()
+#
+#
+# data2, data1_2, fit2 = get_image_data()
+#
+# plt.plot(data1, 'k-', label = 'Data 1')
+# plt.plot(data1_t, 'k--', label = 'Data 1 t')
+# plt.plot(fit1, 'r-', label = 'Fit 1')
