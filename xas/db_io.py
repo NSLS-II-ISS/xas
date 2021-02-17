@@ -2,10 +2,13 @@ import pandas as pd
 import numpy as np
 from . import xray
 from itertools import product
+from copy import deepcopy
+
 
 def load_apb_dataset_from_db(db, uid):
     hdr = db[uid]
-    apb_dataset = list(hdr.data(stream_name='apb_stream', field='apb_stream'))[0]
+    apb_dataset = deepcopy(list(hdr.data(stream_name='apb_stream', field='apb_stream'))[0])
+    # apb_dataset = list(hdr.data(stream_name='apb_stream', field='apb_stream'))[0]
     energy_dataset =  list(hdr.data(stream_name='pb9_enc1',field='pb9_enc1'))[0]
     angle_offset = -float(hdr['start']['angle_offset'])
 

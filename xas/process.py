@@ -123,7 +123,7 @@ def process_interpolate_bin_offline_pilatus_fly(uid, db, draw_func_interp = None
             apb_df, energy_df, energy_offset = load_apb_dataset_from_db(db, uid)
             raw_dict = translate_apb_dataset(apb_df, energy_df, energy_offset)
 
-            apb_trig_timestamps = load_apb_trig_dataset_from_db(db, uid)
+            apb_trig_timestamps = load_apb_trig_dataset_from_db(db, uid, use_fall=False)
             pil100k_dict = load_pil100k_dataset_from_db(db, uid, apb_trig_timestamps)
 
             raw_dict = {**raw_dict, **pil100k_dict}
@@ -133,7 +133,9 @@ def process_interpolate_bin_offline_pilatus_fly(uid, db, draw_func_interp = None
         except:
             logger.info(f'Loading file failed for UID {uid}/{path_to_file}')
         try:
+        # return raw_dict
             interpolated_df = interpolate(raw_dict, key_base = key_base)
+
             logger.info(f'Interpolation successful for {path_to_file}')
             save_interpolated_df_as_file(path_to_file, interpolated_df, comments)
         except:
@@ -141,8 +143,9 @@ def process_interpolate_bin_offline_pilatus_fly(uid, db, draw_func_interp = None
 
         try:
             if e0 >0:
-                binned_df = bin(interpolated_df,e0)
+                binned_df = bin(interpolated_df, e0, skip_binning=True)
                 logger.info(f'Binning successful for {path_to_file}')
+                # return interpolated_df, binned_df
                 save_binned_df_as_file(path_to_file, binned_df, comments)
                 if draw_func_interp is not None:
                     draw_func_interp(interpolated_df)

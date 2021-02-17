@@ -70,6 +70,8 @@ def _generate_sampled_gauss_window(x, fwhm, x0):
     sigma = fwhm * _GAUSS_SIGMA_FACTOR
     a = 1 / (sigma * (2 * np.pi) ** .5)
     data_y = ne.evaluate('a * exp(-.5 * ((x - x0) / sigma) ** 2)')
+    # data_y = np.exp(-.5 * ((x - x0) / sigma) ** 2)
+    # data_y /= np.sum(data_y)
     return data_y
 
 def _compute_window_width(sample_points):
@@ -93,29 +95,35 @@ def _compute_window_width(sample_points):
 
 
 def bin(interpolated_dataset, e0, edge_start=-30, edge_end=50, preedge_spacing=5,
-                        xanes_spacing= -1, exafs_k_spacing = 0.04 ):
+                        xanes_spacing= -1, exafs_k_spacing = 0.04, skip_binning=False ):
+    if skip_binning:
+        binned_df = interpolated_dataset
+        col = binned_df.pop("energy")
+        n = len(binned_df.columns)
+        binned_df.insert(n, col.name, col)
+        binned_df = binned_df.sort_values('energy')
+    else:
+        if  xanes_spacing==-1:
+            if e0 < 14000:
+                xanes_spacing = 0.2
+            elif e0 >= 14000 and e0 < 21000:
+                xanes_spacing = 0.3
+            elif e0 >= 21000:
+                xanes_spacing = 0.4
+            else:
+                xanes_spacing = 0.3
 
-    if  xanes_spacing==-1:
-        if e0 < 14000:
-            xanes_spacing = 0.2
-        elif e0 >= 14000 and e0 < 21000:
-            xanes_spacing = 0.3
-        elif e0 >= 21000:
-            xanes_spacing = 0.4
-        else:
-            xanes_spacing = 0.3
-
-    interpolated_energy_grid = interpolated_dataset['energy'].values
-    binned_energy_grid = xas_energy_grid(interpolated_energy_grid, e0, edge_start, edge_end,
-                          preedge_spacing, xanes_spacing, exafs_k_spacing)
+        interpolated_energy_grid = interpolated_dataset['energy'].values
+        binned_energy_grid = xas_energy_grid(interpolated_energy_grid, e0, edge_start, edge_end,
+                              preedge_spacing, xanes_spacing, exafs_k_spacing)
 
 
-    convo_mat = _generate_convolution_bin_matrix(binned_energy_grid, interpolated_energy_grid)
-    ret = {k: convo_mat @ v.values for k, v in interpolated_dataset.items() if k != 'energy'}
-    ret['energy'] = binned_energy_grid
-    binned_df = pd.DataFrame(ret)
+        convo_mat = _generate_convolution_bin_matrix(binned_energy_grid, interpolated_energy_grid)
+        ret = {k: convo_mat @ v.values for k, v in interpolated_dataset.items() if k != 'energy'}
+        ret['energy'] = binned_energy_grid
+        binned_df = pd.DataFrame(ret)
+
     binned_df = binned_df.drop('timestamp', 1)
-
     return binned_df
 
 #
