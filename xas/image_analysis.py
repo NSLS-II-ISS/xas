@@ -1,6 +1,10 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
+from scipy.optimize import curve_fit
+from xas.math import gauss
+import math
+
 def get_mus(db, uid):
     data = db[uid].table()
     x = data['giantxy_x']
@@ -95,6 +99,36 @@ def show_spiral_result(db,uid):
     ax2.set_title('Fluorescence')
 
     plt.savefig(r'/home/xf08id/Desktop/spiral_scan_1.png', dpi=600)
+
+
+def determine_beam_position_from_fb_image(image, line = 420, center_point = 655, n_lines = 1, truncate_data=True):
+
+    image = image.astype(np.int16)
+
+    sum_lines = sum(image[:, [i for i in range(int(line - math.floor(n_lines/2)),
+                                               int(line + math.ceil(n_lines/2)))]].transpose())
+    if len(sum_lines) > 0:
+        sum_lines = sum_lines - np.mean(sum_lines[:200]) # empirically we determined that first 200 pixels are BKG
+    index_max = sum_lines.argmax()
+    max_value = sum_lines.max()
+    min_value = sum_lines.min()
+    idx_to_fit = np.where(sum_lines > max_value / 2)
+    x = np.arange(960)
+
+    if max_value >= 10 and max_value <= n_lines * 100 and ((max_value - min_value) / n_lines) > 5:
+        try:
+            if truncate_data:
+                coeff, var_matrix = curve_fit(gauss, x[idx_to_fit], sum_lines[idx_to_fit], p0=[1, index_max, 5])
+            else:
+                coeff, var_matrix = curve_fit(gauss, x, sum_lines, p0=[1, index_max, 5])
+            return coeff[1]
+        except:
+            return None
+    else:
+        return None
+
+
+
 
 # -458 rel_spiral_square a467cce4-30a3-4796-9b87-f176982b15d1
 # -459 rel_spiral_square efcb65d4-6852-4941-9a2d-125d17ae1a31
