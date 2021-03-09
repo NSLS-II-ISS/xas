@@ -78,6 +78,7 @@ def process_interpolate_bin(doc, db, draw_func_interp = None, draw_func_bin = No
             try:
                 if cloud_dispatcher is not None:
                     cloud_dispatcher.load_to_dropbox(path_to_binned)
+                    logger.info(f'Sending data to the cloud successful for {path_to_binned}')
             #         #WIP workaround
             #         #channel = db[uid].start['slack_channel']
             #         #slack_service = cloud_dispatcher.slack_service

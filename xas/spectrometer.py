@@ -107,7 +107,7 @@ def convert_rixs_to_energy_transfer(Ein, Eout, herfd):
     dEmin = Ein.min() - Eout.max()
     dEmax = Ein.max() - Eout.min()
 
-    transfer_step = np.min([np.min(np.abs(np.diff(Ein))), np.abs(Eout[1] - Eout[0])])*np.sqrt(2)
+    transfer_step = np.min([np.min(np.abs(np.diff(np.unique(Ein)))), np.abs(Eout[1] - Eout[0])])*np.sqrt(2)
     dE = np.arange(dEmin, dEmax, transfer_step)
     # dE = np.linspace(dEmin, dEmax, 601)
     rixs = np.zeros((Ein.size, dE.size))
@@ -131,6 +131,13 @@ def convert_rixs_to_energy_transfer(Ein, Eout, herfd):
 # plt.axis('image')
 # plt.xlim(7706, 7715); plt.ylim(56, 65)
 
+
+# plt.figure(figsize=(8/2.54, 6/2.54))
+# plt.contourf(energy_in, energy_transfer-2.5, (rixs/rixs.max()).T, 551, vmin=0.00, vmax=0.1, cmap='jet')
+# plt.xlim(7706, 7715)
+# plt.ylim(56, 65)
+# plt.xlabel('Incident energy, eV')
+# plt.ylabel('Energy transfer, eV')
 
 def process_rixs_von_hamos(db, uid, roi, subtract_bkg=False):
     t = db[uid].table(fill=True)
@@ -355,3 +362,137 @@ class Crystal:
 
 
 
+
+
+files=('/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0002.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0003.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0004.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0005.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0006.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0007.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0008.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0009.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0010.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0011.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0012.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0013.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0014.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0015.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0016.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0017.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0018.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0019.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0020.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0021.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0022.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0023.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0024.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0025.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0026.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0027.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0028.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0029.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0030.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0031.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0032.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0033.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0034.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0035.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0036.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0037.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0038.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0039.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0040.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0041.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0042.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0043.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0044.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0045.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0046.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0047.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0048.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0049.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0050.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0051.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0052.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0053.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0054.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0055.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0056.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0057.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0058.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0059.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0060.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0061.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0062.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0063.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0064.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0065.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0066.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0067.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0068.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0069.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0070.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0071.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0072.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0073.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0074.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0075.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0076.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0077.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0078.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0079.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0080.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0081.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0082.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0083.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0084.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0085.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0086.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0087.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0088.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0089.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0090.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0091.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0092.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0093.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0094.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0095.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0096.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0097.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0098.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0099.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0100.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0101.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0102.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0103.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0104.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0105.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0106.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0107.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0108.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0109.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0110.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0111.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0112.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0113.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0114.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0115.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0116.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0117.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0118.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0119.dat',
+    '/nsls2/xf08id/users/2021/1/300001/Co3O4 RIXS 0001-r0120.dat')
+
+
+def read_files_for_rixs(files):
+
+    herfds = []
+    for file in files:
+        data = np.genfromtxt(file)
+        energy_in = data[:, 0]
+        herfd = -data[:, 9] / data[:, 1]
+        herfds.append(herfd)
+
+    return energy_in, herfds
