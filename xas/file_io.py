@@ -416,3 +416,20 @@ def save_stepscan_as_file(path_to_file, df, comments):
     call(['chmod', '774', path_to_file])
 
 
+# # ########@
+# fpath = '/nsls2/xf08id/users/2021/1/306253/'
+# for i, file in enumerate(flist_actual):
+#     this_df, _ = load_interpolated_df_from_file(fpath+file)
+#     if i == 0:
+#         master_energy = this_df['energy'].values
+#         mu_all = np.zeros(master_energy.shape)
+#     this_energy = this_df['energy'].values
+#     this_i0 = this_df['i0']
+#     this_sdd = this_df['CHAN1ROI1'] + this_df['CHAN2ROI1'] + this_df['CHAN3ROI1'] + this_df['CHAN4ROI1']
+#     this_mu = - (this_sdd / this_i0).values
+#     mu_all += np.interp(master_energy, this_energy, this_mu)
+#
+# data_dict = {'i0' : np.ones(mu_all.size), 'mu_all' : mu_all, 'energy' : master_energy}
+# data_df = pd.DataFrame(data_dict)
+# fname = '3_AfterReduction Ir on TiO2 data 0225.dat'
+# save_binned_df_as_file(fpath+fname, data_df, '')
