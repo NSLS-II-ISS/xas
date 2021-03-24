@@ -38,7 +38,8 @@ def fit_gaussian(E, I, Ecen0, fwhm0):
     fwhm = result.params['sigma'].value * 2.355
     I_fit = (result.best_fit - result.params['bkg'].value) / result.params['amp']
     I_cor = (I - result.params['bkg'].value) / result.params['amp']
-    return Ecen, fwhm, I_cor, I_fit
+    I_fit_raw = result.best_fit
+    return Ecen, fwhm, I_cor, I_fit, I_fit_raw
 
 
 class Nominal2ActualConverter:
