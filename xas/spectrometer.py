@@ -49,19 +49,21 @@ def pilatus_position_roi(image, dx, dy):
 
 
 
-def analyze_many_elastic_scans(db, uids, E_nominal, plotting=False):
+def analyze_many_elastic_scans(db, uids, E_nominal, plotting=False, short_output=True):
     E_actual = []
     resolution = []
     I_cors = []
     I_fits = []
+    I_fit_raws = []
     E_scans = []
 
     for uid in uids:
-        Ecen, fwhm, I_cor, I_fit, E_scan = analyze_elastic_scan(db, uid)
+        Ecen, fwhm, I_cor, I_fit, I_fit_raw, E_scan = analyze_elastic_scan(db, uid)
         E_actual.append(Ecen)
         resolution.append(fwhm)
         I_cors.append(I_cor)
         I_fits.append(I_fit)
+        I_fit_raws.append(I_fit_raw)
         E_scans.append(E_scan)
 
     E_actual = np.array(E_actual)
@@ -90,8 +92,10 @@ def analyze_many_elastic_scans(db, uids, E_nominal, plotting=False):
         plt.plot(E_actual, resolution, 'k.-')
         plt.xlabel('actual energy')
         plt.ylabel('resolution')
-
-    return energy_converter
+    if short_output:
+        return energy_converter
+    else:
+        return energy_converter, E_actual, resolution, I_fit_raws
 
 
 
