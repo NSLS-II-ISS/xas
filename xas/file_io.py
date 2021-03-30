@@ -113,6 +113,7 @@ def create_file_header(db,uid):
     pi = db[uid]['start']['PI']
     proposal = db[uid]['start']['PROPOSAL']
     saf = db[uid]['start']['SAF']
+    name = db[uid]['start']['name']
 
     comment = db[uid]['start']['comment']
     year = db[uid]['start']['year']
@@ -145,40 +146,70 @@ def create_file_header(db,uid):
     else:
         e0 = ''
 
-    comments ='# Facility: {}\n'\
-                 '# Beamline: {}\n'\
-                 '# Year: {}\n' \
-                 '# Cycle: {}\n' \
-                 '# SAF: {}\n' \
-                 '# PI: {}\n'\
-                 '# Proposal: {}\n'\
-                 '# Scan ID: {}\n' \
-                 '# UID: {}\n'\
-                 '# Comment: {}\n'\
-                 '# Trajectory name: {}\n'\
-                 '# Element: {}\n'\
-                 '# Edge: {}\n'\
-                 '# E0: {}\n'\
-                 '# Start time: {}\n'\
-                 '# Stop time: {}\n' \
-                 '# Total time: {}\n#\n# '.format(
-                  facility,
-                  beamline,
-                  year,
-                  cycle,
-                  saf,
-                  pi,
-                  proposal,
-                  scan_id,
-                  real_uid,
-                  comment,
-                  trajectory_name,
-                  element,
-                  edge,
-                  e0,
-                  human_start_time,
-                  human_stop_time,
-                  human_duration)
+    # comments =f'# Facility: {facility}\n'\
+    #           f'# Beamline: {beamline}\n'\
+    #           f'# Year: {year}\n' \
+    #           f'# Cycle: {cycle}\n' \
+    #           f'# SAF: {saf}\n' \
+    #           f'# PI: {pi}\n'\
+    #           f'# Proposal: {proposal}\n'\
+    #           f'# Scan ID: {scan_id}\n' \
+    #           f'# UID: {real_uid}\n'\
+    #           f'# Comment: {comment}\n'\
+    #           f'# Trajectory name: {trajectory_name}\n'\
+    #           f'# Element: {element}\n'\
+    #           f'# Edge: {edge}\n'\
+    #           f'# E0: {e0}\n'\
+    #           f'# Start time: {human_start_time}\n'\
+    #           f'# Stop time: {human_stop_time}\n' \
+    #           f'# Total time: {human_duration}\n#\n# '
+
+    comments = \
+        f'# Beamline.name: {beamline} - (08ID) Inner Shell Spectroscopy\n' \
+        f'# Beamline.x-ray_source: {facility}\n damping wiggler' \
+        f'# Beamline.collimation: ???' \
+        f'# Beamline.focusing: toroid mirror ???' \
+        f'# Beamline.harmonic_rejection: ???' \
+        f'# Detector.I0: ???' \
+        f'# Detector.I1: ???'\
+        f'# Detector.I2: ???' \
+        f'# Element.symbol: {element}\n' \
+        f'# Element.edge: {edge}\n' \
+        f'# Facility.name: {facility}\n' \
+        f'# Facility.energy: ???\n'\
+        f'# Facility.current: ???\n' \
+        f'# Facility.mode: ???\n' \
+        f'# Facility.GUP: {proposal}\n'\
+        f'# Facility.SAF: {saf}\n' \
+        f'# Facility.cycle: {year}-{cycle}\n' \
+        f'# Mono.name: Si(111)\n' \
+        f'# Mono.d_spacing: 3.1354951\n' \
+        f'# Mono.encoder_resolution: ???\n' \
+        f'# Mono.angle_offset: ???\n' \
+        f'# Mono.scan_mode: ???\n' \
+        f'# Mono.scan_type: ???\n' \
+        f'# Mono.trajectory_name: ???\n' \
+        f'# Mono.direction: ???\n' \
+        f'# Sample.name: {name}\n' \
+        f'# Sample.comment: {comment}\n' \
+        f'# Sample.stage: ???\n' \
+        f'# BMM.sample_x_position: ???\n' \
+        f'# BMM.sample_y_position: ???\n' \
+        f'# Scan.experimenters: {pi}\n' \
+        f'# Scan.edge_energy: {e0}\n' \
+        f'# Scan.start_time: {human_start_time}\n' \
+        f'# Scan.end_time: {human_stop_time}\n' \
+        f'# Scan.duration: {human_duration}\n ' \
+        f'# Scan.transient_id: {scan_id}\n' \
+        f'# Scan.uid: {real_uid}\n' \
+        f'# Scan.plot_hint: ???\n' \
+
+
+
+
+
+
+
     return  comments
 
 def find_e0(db, uid):
