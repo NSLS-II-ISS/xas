@@ -107,44 +107,70 @@ def validate_path_exists(db, uid):
         os.mkdir(path)
         call(['chmod', '777', path])
 
-def create_file_header(db,uid):
-    facility = db[uid]['start']['Facility']
-    beamline = db[uid]['start']['beamline_id']
-    pi = db[uid]['start']['PI']
-    proposal = db[uid]['start']['PROPOSAL']
-    saf = db[uid]['start']['SAF']
-    name = db[uid]['start']['name']
 
-    comment = db[uid]['start']['comment']
-    year = db[uid]['start']['year']
-    cycle = db[uid]['start']['cycle']
-    scan_id = db[uid]['start']['scan_id']
-    real_uid = db[uid]['start']['uid']
-    start_time = db[uid]['start']['time']
-    stop_time = db[uid]['stop']['time']
+def _get_value_from_hdr_start(hdr, key):
+    if key in hdr['start']:
+        return hdr['start'][key]
+    else:
+        return ''
+
+def create_file_header(db,uid):
+    hdr = db[uid]
+    facility = hdr['start']['Facility']
+    beamline = hdr['start']['beamline_id']
+    pi = hdr['start']['PI']
+    proposal = hdr['start']['PROPOSAL']
+    saf = hdr['start']['SAF']
+    name = hdr['start']['name']
+
+    comment = hdr['start']['comment']
+    year = hdr['start']['year']
+    cycle = hdr['start']['cycle']
+    scan_id = hdr['start']['scan_id']
+    real_uid = hdr['start']['uid']
+    start_time = hdr['start']['time']
+    stop_time = hdr['stop']['time']
     human_start_time = str(datetime.fromtimestamp(start_time).strftime('%m/%d/%Y  %H:%M:%S'))
     human_stop_time = str(datetime.fromtimestamp(stop_time).strftime('%m/%d/%Y  %H:%M:%S'))
     human_duration = str(datetime.fromtimestamp(stop_time - start_time).strftime('%M:%S'))
 
-    if 'trajectory_name' in db[uid]['start']:
-        trajectory_name = db[uid]['start']['trajectory_name']
-    else:
-        trajectory_name = ''
+    trajectory_name = _get_value_from_hdr_start(hdr, 'trajectory_name')
+    element = _get_value_from_hdr_start(hdr, 'element')
+    edge = _get_value_from_hdr_start(hdr, 'edge')
+    e0 = _get_value_from_hdr_start(hdr, 'e0')
 
-    if 'element' in db[uid]['start']:
-        element = db[uid]['start']['element']
-    else:
-        element = ''
+    i0_par = _get_value_from_hdr_start(hdr, 'i0_par')
+    it_par = _get_value_from_hdr_start(hdr, 'it_par')
+    ir_par = _get_value_from_hdr_start(hdr, 'ir_par')
+    iff_par = _get_value_from_hdr_start(hdr, 'iff_par')
 
-    if 'edge' in db[uid]['start']:
-        edge = db[uid]['start']['edge']
-    else:
-        edge = ''
+    i0_volt = _get_value_from_hdr_start(hdr, 'i0_volt')
+    it_volt = _get_value_from_hdr_start(hdr, 'it_volt')
+    ir_volt = _get_value_from_hdr_start(hdr, 'ir_volt')
 
-    if 'e0' in db[uid]['start']:
-        e0 = db[uid]['start']['e0']
-    else:
-        e0 = ''
+    i0_gain = _get_value_from_hdr_start(hdr, 'i0_gain')
+    it_gain = _get_value_from_hdr_start(hdr, 'it_gain')
+    ir_gain = _get_value_from_hdr_start(hdr, 'ir_gain')
+    iff_gain = _get_value_from_hdr_start(hdr, 'iff_gain')
+
+    aux_detector = _get_value_from_hdr_start(hdr, 'aux_detector')
+
+    nslsii_status = _get_value_from_hdr_start(hdr, 'nslsii_status')
+    nslsii_energy = _get_value_from_hdr_start(hdr, 'nslsii_energy')
+    nslsii_current = _get_value_from_hdr_start(hdr, 'nslsii_current')
+
+    harmonic_rejection = _get_value_from_hdr_start(hdr, 'harmonic_rejection')
+
+    mono_offset = _get_value_from_hdr_start(hdr, 'mono_offset')
+    mono_encoder_resolution = _get_value_from_hdr_start(hdr, 'mono_encoder_resolution')
+    mono_scan_type = _get_value_from_hdr_start(hdr, 'mono_scan_type')
+    mono_scan_mode = _get_value_from_hdr_start(hdr, 'mono_scan_mode')
+    mono_direction = _get_value_from_hdr_start(hdr, 'mono_direction')
+
+    sample_stage = _get_value_from_hdr_start(hdr, 'sample_stage')
+    sample_x_position = _get_value_from_hdr_start(hdr, 'sample_x_position')
+    sample_y_position = _get_value_from_hdr_start(hdr, 'sample_y_position')
+    plot_hint = _get_value_from_hdr_start(hdr, 'plot_hint')
 
     # comments =f'# Facility: {facility}\n'\
     #           f'# Beamline: {beamline}\n'\
@@ -166,50 +192,52 @@ def create_file_header(db,uid):
 
     comments = \
         f'# Beamline.name: {beamline} - (08ID) Inner Shell Spectroscopy\n' \
-        f'# Beamline.x-ray_source: {facility}\n damping wiggler' \
-        f'# Beamline.collimation: ???' \
-        f'# Beamline.focusing: toroid mirror ???' \
-        f'# Beamline.harmonic_rejection: ???' \
-        f'# Detector.I0: ???' \
-        f'# Detector.I1: ???'\
-        f'# Detector.I2: ???' \
+        f'# Beamline.x-ray_source: {facility} damping wiggler\n' \
+        f'# Beamline.collimation: ISS dual mirror system\n' \
+        f'# Beamline.focusing: ISS toroid mirror\n' \
+        f'# Beamline.harmonic_rejection: {harmonic_rejection}\n' \
+        f'# Detector.I0: {i0_par}\n' \
+        f'# Detector.I1: {it_par}\n'\
+        f'# Detector.I2: {ir_par}\n' \
+        f'# Detector.IF: {iff_par}\n' \
+        f'# Detector.I0_volt: {i0_volt}\n' \
+        f'# Detector.I1_volt: {it_volt}\n' \
+        f'# Detector.I2_volt: {ir_volt}\n' \
+        f'# Detector.I0_amp_gain: {i0_gain}\n' \
+        f'# Detector.I1_amp_gain: {it_gain}\n' \
+        f'# Detector.I2_amp_gain: {ir_gain}\n' \
+        f'# Detector.IF_amp_gain: {iff_gain}\n' \
+        f'# Detector.aux: {aux_detector}\n' \
         f'# Element.symbol: {element}\n' \
         f'# Element.edge: {edge}\n' \
         f'# Facility.name: {facility}\n' \
-        f'# Facility.energy: ???\n'\
-        f'# Facility.current: ???\n' \
-        f'# Facility.mode: ???\n' \
+        f'# Facility.mode: {nslsii_status}\n' \
+        f'# Facility.energy: {nslsii_energy}\n'\
+        f'# Facility.current: {nslsii_current}\n' \
         f'# Facility.GUP: {proposal}\n'\
         f'# Facility.SAF: {saf}\n' \
         f'# Facility.cycle: {year}-{cycle}\n' \
         f'# Mono.name: Si(111)\n' \
         f'# Mono.d_spacing: 3.1354951\n' \
-        f'# Mono.encoder_resolution: ???\n' \
-        f'# Mono.angle_offset: ???\n' \
-        f'# Mono.scan_mode: ???\n' \
-        f'# Mono.scan_type: ???\n' \
-        f'# Mono.trajectory_name: ???\n' \
-        f'# Mono.direction: ???\n' \
+        f'# Mono.encoder_resolution: {mono_encoder_resolution}\n' \
+        f'# Mono.angle_offset: {mono_offset}\n' \
+        f'# Mono.scan_mode: {mono_scan_mode}\n' \
+        f'# Mono.scan_type: {mono_scan_type}\n' \
+        f'# Mono.trajectory_name: {trajectory_name}\n' \
+        f'# Mono.direction: {mono_direction}\n' \
         f'# Sample.name: {name}\n' \
         f'# Sample.comment: {comment}\n' \
-        f'# Sample.stage: ???\n' \
-        f'# BMM.sample_x_position: ???\n' \
-        f'# BMM.sample_y_position: ???\n' \
+        f'# Sample.stage: {sample_stage}\n' \
+        f'# ISS.sample_x_position: {sample_x_position}\n' \
+        f'# ISS.sample_y_position: {sample_y_position}\n' \
         f'# Scan.experimenters: {pi}\n' \
         f'# Scan.edge_energy: {e0}\n' \
         f'# Scan.start_time: {human_start_time}\n' \
         f'# Scan.end_time: {human_stop_time}\n' \
-        f'# Scan.duration: {human_duration}\n ' \
+        f'# Scan.duration: {human_duration}\n' \
         f'# Scan.transient_id: {scan_id}\n' \
         f'# Scan.uid: {real_uid}\n' \
-        f'# Scan.plot_hint: ???\n' \
-
-
-
-
-
-
-
+        f'# Scan.plot_hint: {plot_hint}\n'
     return  comments
 
 def find_e0(db, uid):
