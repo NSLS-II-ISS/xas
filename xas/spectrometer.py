@@ -13,20 +13,57 @@ def analyze_elastic_scan(db, uid):
     return (*fit_gaussian(E, I, Ecen0, fwhm0), E)
 
 
+pilatus_mask = np.ones((195, 487), dtype=bool)
+pilatus_mask[15, 352] = False
+pilatus_mask[158, 11] = False
 
-def analyze_many_elastic_scans(db, uids, E_nominal, plotting=False):
+def pilatus_image_com(image, roi):
+    x, y, dx, dy = roi
+    image_roi = image[x : x + dx, y : y + dy]
+    image_roi_x = np.sum(image_roi, axis=1)
+    image_roi_y = np.sum(image_roi, axis=0)
+    roi_x = np.arange(dx)
+    roi_y = np.arange(dy)
+    com_x = np.sum(image_roi_x * roi_x) / np.sum(image_roi_x)
+    com_y = np.sum(image_roi_y * roi_y) / np.sum(image_roi_y)
+    return x + com_x, y + com_y
+
+def pilatus_position_roi(image, dx, dy):
+    image[pilatus_mask] = np.percentile(image, 10)
+    com_x0, com_y0 = pilatus_image_com(image, (0, 0, 195, 487))
+    print(com_x0, com_y0)
+    com_x, com_y = pilatus_image_com(image, (int(com_x0 - dx/2*1.5),
+                                             int(com_y0 - dy/2*1.5),
+                                             int(dx*1.5), int(dy*1.5)))
+    print(int(com_x0 - dx/2*1.5),
+          int(com_y0 - dy/2*1.5),
+          int(dx*1.5), int(dy*1.5))
+    return com_x, com_y
+
+# c_x, c_y = pilatus_position_roi(img, 30, 80)
+# plt.figure(1)
+# plt.clf()
+# plt.imshow(img, vmin=0, vmax=100)
+# plt.hlines(c_x, 0, 487)
+# plt.vlines(c_y, 0, 195)
+
+
+
+def analyze_many_elastic_scans(db, uids, E_nominal, plotting=False, short_output=True):
     E_actual = []
     resolution = []
     I_cors = []
     I_fits = []
+    I_fit_raws = []
     E_scans = []
 
     for uid in uids:
-        Ecen, fwhm, I_cor, I_fit, E_scan = analyze_elastic_scan(db, uid)
+        Ecen, fwhm, I_cor, I_fit, I_fit_raw, E_scan = analyze_elastic_scan(db, uid)
         E_actual.append(Ecen)
         resolution.append(fwhm)
         I_cors.append(I_cor)
         I_fits.append(I_fit)
+        I_fit_raws.append(I_fit_raw)
         E_scans.append(E_scan)
 
     E_actual = np.array(E_actual)
@@ -55,8 +92,10 @@ def analyze_many_elastic_scans(db, uids, E_nominal, plotting=False):
         plt.plot(E_actual, resolution, 'k.-')
         plt.xlabel('actual energy')
         plt.ylabel('resolution')
-
-    return energy_converter
+    if short_output:
+        return energy_converter
+    else:
+        return energy_converter, E_actual, resolution, I_fit_raws
 
 
 

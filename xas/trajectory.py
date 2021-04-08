@@ -60,6 +60,7 @@ class trajectory():
 
 
         self.e0 =  None
+        self.direction = 'forward'
         self.edge_start = -30
         self.edge_end = 50
 
@@ -74,6 +75,7 @@ class trajectory():
 
         # self.servocycle=servocycle
         self.e0 = edge_energy
+        self.direction = 'forward'
         self.edge_start = offsets[1]
         self.edge_end = offsets[2]
         self.gen_t_step = 1 / self.servocycle * 100
@@ -411,6 +413,7 @@ class trajectory():
         self.energy = self.energy[::-1]
         self.energy_grid = self.energy_grid[::-1]
         # self.energy_grid_der = self.energy_grid_der[::-1]
+        self.direction = 'backward'
 
     def tile (self,reps = 1, single_direction = False):
         if not single_direction:
@@ -421,6 +424,11 @@ class trajectory():
         self.time_grid = np.hstack([i * (self.time_grid[-1] + self.time_grid[1] - self.time_grid[0]) + self.time_grid for i in range(reps)])
         self.energy_grid = np.tile(self.energy_grid, reps)
         self.compute_time_per_bin()
+        if reps>1:
+            if self.direction == 'forward':
+                self.direction += '-backward repeat'
+            else:
+                self.direction += '-forward repeat'
 
     def e2encoder(self, offset):
         self.encoder_grid = -xray.energy2encoder(self.energy_grid, self.hhm.pulses_per_deg, offset) 
@@ -473,7 +481,7 @@ class trajectory():
         #             return
             np.savetxt(filename,
                        self.energy_grid, fmt='%.6f',
-                       header = f'element: {self.elem}, edge: {self.edge}, E0: {self.e0}')
+                       header = f'element: {self.elem}, edge: {self.edge}, E0: {self.e0}, direction: {self.direction}')
             call(['chmod', '666', filename])
             # self.trajectory_path = filename[:filename.rfind('/')] + '/'
             # self.label_current_trajectory.setText(filename.rsplit('/', 1)[1])
@@ -600,6 +608,7 @@ class trajectory_manager():
                     curr_hhm_traj.elem.put(element)
                     curr_hhm_traj.edge.put(edge_value)
                     curr_hhm_traj.e0.put(e0_value)
+                    curr_hhm_traj.bla = 'bla'
                 else:
                     curr_hhm_traj = getattr(self.hhm, 'traj{}'.format(new_file_path))
                     curr_hhm_traj.filename.put(traj_fn)
