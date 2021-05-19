@@ -2,7 +2,7 @@ import numpy as np
 from . import xray
 import numexpr as ne
 import pandas as pd
-
+import time as ttime
 # def get_transition_grid(E_step, E_range, n, ascend=True):
 #     dE = (E_range*2/n - 2*E_step)/(n-1)
 #     steps = E_step + np.arange(n)*dE
@@ -103,6 +103,7 @@ def bin(interpolated_dataset, e0, edge_start=-30, edge_end=50, preedge_spacing=5
         binned_df.insert(n, col.name, col)
         binned_df = binned_df.sort_values('energy')
     else:
+        print(f'{ttime.ctime()} --->>> Binning the data: BEGIN')
         if  xanes_spacing==-1:
             if e0 < 14000:
                 xanes_spacing = 0.2
@@ -122,8 +123,9 @@ def bin(interpolated_dataset, e0, edge_start=-30, edge_end=50, preedge_spacing=5
         ret = {k: convo_mat @ v.values for k, v in interpolated_dataset.items() if k != 'energy'}
         ret['energy'] = binned_energy_grid
         binned_df = pd.DataFrame(ret)
-
+    print(f'{ttime.ctime()} --->>> Binning the data: DONE')
     binned_df = binned_df.drop('timestamp', 1)
+
     return binned_df
 
 #
