@@ -114,12 +114,13 @@ def determine_beam_position_from_fb_image(image, line = 420, center_point = 655,
     min_value = sum_lines.min()
     idx_to_fit = np.where(sum_lines > max_value / 2)
     x = np.arange(960)
-
+    # sdfsd
     if max_value >= 10 and max_value <= n_lines * 100 and ((max_value - min_value) / n_lines) > 5:
         try:
             if truncate_data:
                 coeff, var_matrix = curve_fit(gauss, x[idx_to_fit], sum_lines[idx_to_fit], p0=[1, index_max, 5])
             else:
+                # print('actually got to fitting')
                 coeff, var_matrix = curve_fit(gauss, x, sum_lines, p0=[1, index_max, 5])
             return coeff[1]
         except:

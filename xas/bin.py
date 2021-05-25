@@ -185,10 +185,30 @@ def bin(interpolated_dataset, e0, edge_start=-30, edge_end=50, preedge_spacing=5
 # # df_down_5 = df[(df['timestamp'] >= 8*T) & (df['timestamp'] < 9*T)]
 # # df_up_5 = df[(df['timestamp'] >= 9*T) & (df['timestamp'] < 10*T)]
 # #
+####
+
+
+# SCRATCH
+
+# fnames = ['/nsls2/xf08id/data/2021/03/09/en_a9f590ab',
+#           '/nsls2/xf08id/data/2021/03/09/en_7377b91b',
+#           '/nsls2/xf08id/data/2021/03/09/en_c6436896',
+#           '/nsls2/xf08id/data/2021/03/04/en_ae93dac5',
+#           '/nsls2/xf08id/data/2021/03/04/en_ae2b1fb6',
+#           '/nsls2/xf08id/data/2021/03/04/en_79d333e4']
+
+fnames = ['/mnt/xf08ida-ioc1/test_5000',
+          '/mnt/xf08ida-ioc1/test_50000',
+          '/mnt/xf08ida-ioc1/test_89500',
+          '/mnt/xf08ida-ioc1/test_150000',
+          '/mnt/xf08ida-ioc1/test_200000']
+
+for f in fnames:
+    _d = np.genfromtxt(f)
+    print(1/np.median(np.diff(_d[:, 1]*1e-9)))
 
 
 
-
-
+###
 
 
