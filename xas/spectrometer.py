@@ -8,9 +8,10 @@ from scipy.signal import savgol_filter
 
 
 def analyze_elastic_scan(db, uid):
-    E, I = get_normalized_gaussian_scan(db, uid)
+    E, I, scale, offset = get_normalized_gaussian_scan(db, uid, return_norm_param=True)
     Ecen0, fwhm0 = estimate_center_and_width_of_peak(E, I)
-    return (*fit_gaussian(E, I, Ecen0, fwhm0), E)
+    Ecen, fwhm, I_cor, I_fit, I_fit_raw = fit_gaussian(E, I, Ecen0, fwhm0)
+    return Ecen, fwhm, I_cor, I_fit, (I_fit_raw*scale + offset), E
 
 
 pilatus_mask = np.ones((195, 487), dtype=bool)

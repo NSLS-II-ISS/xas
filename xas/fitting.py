@@ -7,15 +7,18 @@ def gaussian(x, amp, cen, sigma, bkg):
 
 
 
-def get_normalized_gaussian_scan(db, uid):
+def get_normalized_gaussian_scan(db, uid, return_norm_param=False):
     t = db[uid].table()
     E = t['hhm_energy'].values
     I = t['pil100k_stats1_total'].values
 #     I_smooth = hampel(I)
 #     I_smooth = I
-
-    I -= np.mean(np.hstack((I[:2], I[-2:])))
-    I /= I.max()
+    offset = np.mean(np.hstack((I[:2], I[-2:])))
+    I -= offset
+    scale = I.max()
+    I /= scale
+    if return_norm_param:
+        return E, np.array(I), scale, offset
     return E, np.array(I)
 
 
