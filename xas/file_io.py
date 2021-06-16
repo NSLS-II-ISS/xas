@@ -264,6 +264,12 @@ def save_interpolated_df_as_file(path_to_file, df, comments):
     call(['chmod', '774', path_to_file])
 
 
+# def dump_uid_bundle(base_name, uids, db):
+#     path_to_interp_file = db[uids[0]].start()['interp_filename']
+#     (path, extension) = os.path.splitext(path_to_interp_file)
+
+
+
 def save_binned_df_as_file(path_to_file, df, comments):
     (path, extension) = os.path.splitext(path_to_file)
     path_to_file = path + '.dat'

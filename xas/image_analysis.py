@@ -102,7 +102,7 @@ def show_spiral_result(db,uid):
 
 
 def determine_beam_position_from_fb_image(image, line = 420, center_point = 655, n_lines = 1, truncate_data=True):
-
+    # print('>>>>> analyzing image')
     image = image.astype(np.int16)
 
     sum_lines = sum(image[:, [i for i in range(int(line - math.floor(n_lines/2)),
@@ -124,9 +124,14 @@ def determine_beam_position_from_fb_image(image, line = 420, center_point = 655,
                 coeff, var_matrix = curve_fit(gauss, x, sum_lines, p0=[1, index_max, 5])
             return coeff[1]
         except:
+            print('>>>> FEEDBACK - failed - Fitting failure')
             return None
     else:
+        print('>>>> FEEDBACK - failed - image is either empty or saturated')
         return None
+
+
+
 
 
 

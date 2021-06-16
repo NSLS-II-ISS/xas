@@ -106,41 +106,51 @@ def get_xes_data(db, uid, offset=-10):
     return xes
 
 
-def parse_file_with_uids(file_with_uids):
-    uids_herfd, uids_xes = [], []
+def parse_file_with_uids(file_with_uids, xes_normalization=True):
+    energies_out, uids_herfd, uids_xes = [], [], []
     with open(file_with_uids, "r") as f:
         lines = f.readlines()
     for line in lines:
         words = line.split(' ')
-        uids_herfd.append(words[-2])
-        uids_xes.append(words[-1][:-2])
-    return uids_herfd, uids_xes
+        if xes_normalization:
+            energies_out.append(float(words[-3]))
+            uids_herfd.append(words[-2])
+            uids_xes.append(words[-1][:-2])
+        else:
+            energies_out.append(float(words[-2]))
+            uids_herfd.append(words[-1][:-2])
+            uids_xes.append(None)
+    return np.array(energies_out), uids_herfd, uids_xes
 
 
 def get_herfd_data(db, uid):
     filename = db[uid].start['interp_filename']
     df, _ = load_binned_df_from_file(filename)
-    energy = df['energy']
+    energy = df['energy'].values
     herfd = np.abs((df['pil100_ROI1'] - df['pil100_ROI2'])/ df['i0']).values
     return energy, herfd
 
 
 
-def parse_rixs_scan(db, file_with_uids):
-    uids_herfd, uids_xes = parse_file_with_uids(file_with_uids)
+def parse_rixs_scan(db, file_with_uids, xes_normalization=True):
+    energies_out, uids_herfd, uids_xes = parse_file_with_uids(file_with_uids, xes_normalization=xes_normalization)
     xes_data = []
     herfd_data = []
     for uid_herfd, uid_xes in zip(uids_herfd, uids_xes):
-        energy, herfd = get_herfd_data(db, uid_herfd)
-        xes = get_xes_data(db, uid_xes)
+        energies_in, herfd = get_herfd_data(db, uid_herfd)
         herfd_data.append(herfd)
-        xes_data.append(xes)
+        if xes_normalization:
+            xes = get_xes_data(db, uid_xes)
+            xes_data.append(xes)
+
     herfd_data = np.array(herfd_data).T
-    xes_data = np.array(xes_data).T
-    # linear algebra magic for scaling purposes
-    c, _, _, _ = np.linalg.lstsq(xes_data[:,:1], xes_data, rcond=-1)
-    herfd_data /= c
-    return herfd_data, xes_data, energy
+
+    if xes_normalization:
+        xes_data = np.array(xes_data).T
+        # linear algebra magic for scaling purposes
+        c, _, _, _ = np.linalg.lstsq(xes_data[:,:1], xes_data, rcond=-1)
+        herfd_data /= c
+    return herfd_data, xes_data, energies_in, energies_out
 
 
 def convert_rixs_to_energy_transfer(Ein, Eout, herfd):

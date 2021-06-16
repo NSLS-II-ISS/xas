@@ -47,7 +47,10 @@ def process_interpolate_bin(doc, db, draw_func_interp = None, draw_func_bin = No
                 # PLACEHOLDER !!!!
                 apb_df, energy_df, energy_offset = load_apb_dataset_from_db(db, uid)
                 raw_dict = translate_apb_dataset(apb_df, energy_df, energy_offset)
-                key_base = 'i0'
+                apb_trig_timestamps = load_apb_trig_dataset_from_db(db, uid, use_fall=True, stream_name='apb_trigger_pil100k')
+                pil100k_dict = load_pil100k_dataset_from_db(db, uid, apb_trig_timestamps)
+                raw_dict = {**raw_dict, **pil100k_dict}
+                key_base = 'pil100k_ROI1'
 
             logger.info(f'Loading file successful for UID {uid}/{path_to_file}')
         # except:

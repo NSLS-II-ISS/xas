@@ -53,12 +53,12 @@ def translate_apb_dataset(apb_dataset, energy_dataset, angle_offset,):
     return data_dict
 
 
-def load_apb_trig_dataset_from_db(db, uid, use_fall=True):
+def load_apb_trig_dataset_from_db(db, uid, use_fall=True, stream_name='apb_trigger'):
 
     hdr = db[uid]
-    t = hdr.table(stream_name='apb_trigger', fill=True)
-    timestamps = t['apb_trigger'][1]['timestamp'].values
-    transitions = t['apb_trigger'][1]['transition'].values
+    t = hdr.table(stream_name=stream_name, fill=True)
+    timestamps = t[stream_name][1]['timestamp'].values
+    transitions = t[stream_name][1]['transition'].values
     n_0 = np.sum(transitions == 0)
     n_1 = np.sum(transitions == 1)
     n_all = np.min([n_0, n_1])
