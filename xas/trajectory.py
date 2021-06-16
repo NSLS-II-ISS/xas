@@ -363,10 +363,10 @@ class trajectory():
 
     def compute_time_per_bin(self):
         e0 = self.e0
-        edge_start = self.edge_start
-        edge_end = self.edge_end
-        # edge_start = -30
-        # edge_end = 50
+        # edge_start = self.edge_start
+        # edge_end = self.edge_end
+        edge_start = np.max([-30, self.edge_start])
+        edge_end = np.min([50, self.edge_end])
         preedge_spacing = 5
         if e0 < 14000:
             xanes_spacing = 0.2
@@ -387,12 +387,16 @@ class trajectory():
 
 
         if e is not None:
-            e_bin = xas_energy_grid(e, e0, edge_start, edge_end, preedge_spacing, xanes_spacing, exafs_k_spacing)
-            e_edges = np.hstack((e_bin[0], e_bin[:-1] + 0.5 * np.diff(e_bin), e_bin[-1]))
-            npt, _ = np.histogram(e, e_edges)
+            try:
+                e_bin = xas_energy_grid(e, e0, edge_start, edge_end, preedge_spacing, xanes_spacing, exafs_k_spacing)
+                e_edges = np.hstack((e_bin[0], e_bin[:-1] + 0.5 * np.diff(e_bin), e_bin[-1]))
+                npt, _ = np.histogram(e, e_edges)
 
-            self.e_bin = e_bin
-            self.time_per_bin = npt/self.servocycle
+                self.e_bin = e_bin
+                self.time_per_bin = npt/self.servocycle
+            except:
+                self.e_bin = [0, 1]
+                self.time_per_bin = [np.nan, np.nan]
         else:
 
             self.e_bin = [0, 1]

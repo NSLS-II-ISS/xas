@@ -26,8 +26,10 @@ def xas_energy_grid(energy_range, e0, edge_start, edge_end, preedge_spacing, xan
                                  E_range_before=15, E_range_after = 20, n_before = 10, n_after = 20):
 
 
-    energy_range_lo= np.min(energy_range)
-    energy_range_hi = np.max(energy_range)
+    # energy_range_lo= np.min(energy_range)
+    # energy_range_hi = np.max(energy_range)
+    energy_range_lo = np.min([e0 - 300, np.min(energy_range)])
+    energy_range_hi = np.max([e0 + 2500, np.max(energy_range)])
 
     # preedge = np.arange(energy_range_lo, e0 + edge_start-1, preedge_spacing)
     preedge = np.arange(energy_range_lo, e0 + edge_start, preedge_spacing)
@@ -50,7 +52,9 @@ def xas_energy_grid(energy_range, e0, edge_start, edge_end, preedge_spacing, xan
         post_edge = np.append(post_edge, eenergy)
 
     after_edge = edge[-1] + get_transition_grid(xanes_spacing, post_edge[1] - post_edge[0], post_edge[0] - edge[-1], round_up=True)
-    return  np.unique(np.concatenate((preedge, before_edge, edge, after_edge, post_edge)))
+    energy_grid = np.unique(np.concatenate((preedge, before_edge, edge, after_edge, post_edge)))
+    energy_grid = energy_grid[(energy_grid >= np.min(energy_range)) & (energy_grid <= np.max(energy_range))]
+    return  energy_grid
 
 
 def _generate_convolution_bin_matrix(sample_points, data_x):

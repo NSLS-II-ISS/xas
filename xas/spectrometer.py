@@ -5,6 +5,7 @@ from xas.file_io import  load_binned_df_from_file
 import numpy as np
 from matplotlib import pyplot as plt
 from scipy.signal import savgol_filter
+import os
 
 
 def analyze_elastic_scan(db, uid):
@@ -123,11 +124,15 @@ def parse_file_with_uids(file_with_uids, xes_normalization=True):
     return np.array(energies_out), uids_herfd, uids_xes
 
 
-def get_herfd_data(db, uid):
+def get_herfd_data(db, uid, ROI = 'pil100k_ROI1', ROI_bkg = 'pil100k_ROI2'):
     filename = db[uid].start['interp_filename']
+    path, extension = os.path.splitext(filename)
+    if extension != '.dat':
+        filename = path+'.dat'
+    print(f' @@@@@@@ {filename}')
     df, _ = load_binned_df_from_file(filename)
     energy = df['energy'].values
-    herfd = np.abs((df['pil100_ROI1'] - df['pil100_ROI2'])/ df['i0']).values
+    herfd = np.abs((df[ROI] - df[ROI_bkg])/ df['i0']).values
     return energy, herfd
 
 
