@@ -101,7 +101,7 @@ def show_spiral_result(db,uid):
     plt.savefig(r'/home/xf08id/Desktop/spiral_scan_1.png', dpi=600)
 
 
-def determine_beam_position_from_fb_image(image, line = 420, center_point = 655, n_lines = 1, truncate_data=True):
+def determine_beam_position_from_fb_image(image, line = 420, center_point = 655, n_lines = 1, truncate_data=True, should_print_diagnostics=True):
     # print('>>>>> analyzing image')
     image = image.astype(np.int16)
 
@@ -124,10 +124,12 @@ def determine_beam_position_from_fb_image(image, line = 420, center_point = 655,
                 coeff, var_matrix = curve_fit(gauss, x, sum_lines, p0=[1, index_max, 5])
             return coeff[1]
         except:
-            print('>>>> FEEDBACK - failed - Fitting failure')
+            if should_print_diagnostics:
+                print('>>>> FEEDBACK - failed - Fitting failure')
             return None
     else:
-        print('>>>> FEEDBACK - failed - image is either empty or saturated')
+        if should_print_diagnostics:
+            print('>>>> FEEDBACK - failed - image is either empty or saturated')
         return None
 
 

@@ -90,21 +90,30 @@ def load_xs3_dataset_from_db(db, uid, apb_trig_timestamps):
 
 
 
-def load_pil100k_dataset_from_db(db, uid, apb_trig_timestamps):
+def load_pil100k_dataset_from_db(db, uid, apb_trig_timestamps, input_type='hdf5'):
     hdr = db[uid]
     t = hdr.table(stream_name='pil100k_stream', fill=True)['pil100k_stream']
-    image_array = np.array([i for i in t])
-
-    n_images = t.size
-    pil100k_timestamps = apb_trig_timestamps[:n_images]
-    rois = hdr.start['roi']
     spectra = {}
+    n_images = t.shape[0]
+    pil100k_timestamps = apb_trig_timestamps[:n_images]
+    if input_type == 'tiff':
+        image_array = np.array([i for i in t])
+        rois = hdr.start['roi']
 
-    for j in range(4):
-        x, y, dx, dy = rois[j]
-        this_spectrum = np.sum(image_array[:, y: (y + dy), x: (x + dx)], axis=(1,2)) # NOTE : flipped X and Y
 
-        spectra[f'pil100k_ROI{j+1}'] = pd.DataFrame(np.vstack((pil100k_timestamps, this_spectrum)).T, columns=['timestamp', f'pil100k_ROI{j+1}'])
+        for j in range(4):
+            x, y, dx, dy = rois[j]
+            this_spectrum = np.sum(image_array[:, y: (y + dy), x: (x + dx)], axis=(1,2)) # NOTE : flipped X and Y
+
+            spectra[f'pil100k_ROI{j+1}'] = pd.DataFrame(np.vstack((pil100k_timestamps, this_spectrum)).T, columns=['timestamp', f'pil100k_ROI{j+1}'])
+    elif input_type == 'hdf5':
+        keys = t[1].keys()
+        _spectra = np.zeros((n_images, len(keys)))
+        for i in range(1, n_images + 1):
+            for j, key in enumerate(keys):
+                _spectra[i, j] = t[i][key]
+        for j, key in enumerate(keys):
+            spectra[key] =  pd.DataFrame(np.vstack((pil100k_timestamps, _spectra[:, j])).T, columns=['timestamp', f'pil100k_ROI{j+1}'])
 
     return spectra
 
