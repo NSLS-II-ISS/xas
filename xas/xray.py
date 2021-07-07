@@ -87,6 +87,14 @@ def energy2encoder(energy, pulses_per_deg, offset = 0):
     See Also
     --------
     :func:`isstools.conversions.xray.encoder2energy`
+
+    # This is how it's defined in the IOC
+    record(calcout, "XF:08IDA-OP{Mono:HHM-Ax:E}Mtr-SP") {
+    field(INPB, "-1977.004107667")
+    field(INPC, "3.141592653")
+    field(INPE, "XF:08IDA-OP{Mono:HHM-Ax:E}Offset.VAL PP MS")
+
+    "ASIN(B/A)*180/C - E")
     """
     return pulses_per_deg * (np.degrees(np.arcsin(-12398.42 / (2 * 3.1356 * energy))) - float(offset))
 

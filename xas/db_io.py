@@ -92,11 +92,12 @@ def load_xs3_dataset_from_db(db, uid, apb_trig_timestamps):
 
 def load_pil100k_dataset_from_db(db, uid, apb_trig_timestamps, input_type='hdf5'):
     hdr = db[uid]
-    t = hdr.table(stream_name='pil100k_stream', fill=True)['pil100k_stream']
     spectra = {}
-    n_images = t.shape[0]
-    pil100k_timestamps = apb_trig_timestamps[:n_images]
     if input_type == 'tiff':
+        t = hdr.table(stream_name='pil100k_stream', fill=True)['pil100k_stream']
+        n_images = t.shape[0]
+        pil100k_timestamps = apb_trig_timestamps[:n_images]
+
         image_array = np.array([i for i in t])
         rois = hdr.start['roi']
 
@@ -107,11 +108,14 @@ def load_pil100k_dataset_from_db(db, uid, apb_trig_timestamps, input_type='hdf5'
 
             spectra[f'pil100k_ROI{j+1}'] = pd.DataFrame(np.vstack((pil100k_timestamps, this_spectrum)).T, columns=['timestamp', f'pil100k_ROI{j+1}'])
     elif input_type == 'hdf5':
+        t = hdr.table(stream_name='pil100k_hdf5_stream', fill=True)['pil100k_hdf5_stream']
+        n_images = t.shape[0]
+        pil100k_timestamps = apb_trig_timestamps[:n_images]
         keys = t[1].keys()
         _spectra = np.zeros((n_images, len(keys)))
-        for i in range(1, n_images + 1):
+        for i in range(0, n_images):
             for j, key in enumerate(keys):
-                _spectra[i, j] = t[i][key]
+                _spectra[i, j] = t[i+1][key]
         for j, key in enumerate(keys):
             spectra[key] =  pd.DataFrame(np.vstack((pil100k_timestamps, _spectra[:, j])).T, columns=['timestamp', f'pil100k_ROI{j+1}'])
 

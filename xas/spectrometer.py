@@ -1,3 +1,5 @@
+import h5py
+
 from xas.fitting import (get_normalized_gaussian_scan, estimate_center_and_width_of_peak, fit_gaussian,
                          Nominal2ActualConverter)
 from xas.file_io import  load_binned_df_from_file
@@ -102,8 +104,14 @@ def analyze_many_elastic_scans(db, uids, E_nominal, plotting=False, short_output
 
 
 def get_xes_data(db, uid, offset=-10):
-    t = db[uid].table()
-    xes = t['pil100k_stats1_total']/(np.abs(t['apb_ave_ch1_mean']) - offset)
+    xes = 1
+    if uid:
+        t = db[uid].table()
+        if 'apb_ave_ch1_mean' in t.columns:
+            denom = ((np.abs(t['apb_ave_ch1_mean']) - offset)).values
+        else:
+            denom = 1
+        xes = (t['pil100k_stats1_total']/denom).values.squeeze()
     return xes
 
 
@@ -123,17 +131,54 @@ def parse_file_with_uids(file_with_uids, xes_normalization=True):
             uids_xes.append(None)
     return np.array(energies_out), uids_herfd, uids_xes
 
+def parse_rixslog(uids_bundle):
+    energies_out, uids_norm = [], []
+    f = h5py.File(uids_bundle, 'r')
+    uids_herfd = list(f.keys())
+    n_spectra = len(uids_herfd)
+    energies_out = np.zeros(n_spectra)
+    uids_norm = np.zeros(n_spectra, dtype='<U40')
+    for i, uid_herfd in enumerate(uids_herfd):
+        ds = f[uid_herfd]
+        energies_out[i] = ds['emission_energy'][()]
+        if 'uid_norm' in ds.keys():
+            uids_norm[i] = ds['uid_norm'][()]
+    f.close()
+    energies_out = np.array(energies_out)
+    idx_ord = np.argsort(energies_out)
+    energies_out = energies_out[idx_ord]
+    uids_herfd = np.array(uids_herfd)[idx_ord]
+    uids_norm = np.array(uids_norm)[idx_ord]
 
-def get_herfd_data(db, uid, ROI = 'pil100k_ROI1', ROI_bkg = 'pil100k_ROI2'):
+    return energies_out, uids_herfd, uids_norm
+
+
+    # for line in lines:
+    #     words = line.split(' ')
+    #     if xes_normalization:
+    #         energies_out.append(float(words[-3]))
+    #         uids_herfd.append(words[-2])
+    #         uids_xes.append(words[-1][:-2])
+    #     else:
+    #         energies_out.append(float(words[-2]))
+    #         uids_herfd.append(words[-1][:-2])
+    #         uids_xes.append(None)
+    # return np.array(energies_out), uids_herfd, uids_xes
+
+
+def get_herfd_data(db, uid):
     filename = db[uid].start['interp_filename']
     path, extension = os.path.splitext(filename)
     if extension != '.dat':
         filename = path+'.dat'
-    print(f' @@@@@@@ {filename}')
+    print(f' @@@@@@@ Reading {filename}')
     df, _ = load_binned_df_from_file(filename)
     energy = df['energy'].values
-    herfd = np.abs((df[ROI] - df[ROI_bkg])/ df['i0']).values
-    return energy, herfd
+    # herfd = np.abs((df[ROI])/ df['i0']).values
+    # if ROI_bkg is not None:
+    #     herfd_bkg = np.abs((df[ROI_bkg]) / df['i0']).values
+    #     return energy, (herfd-herfd_bkg)
+    return energy, df
 
 
 
@@ -142,7 +187,7 @@ def parse_rixs_scan(db, file_with_uids, xes_normalization=True):
     xes_data = []
     herfd_data = []
     for uid_herfd, uid_xes in zip(uids_herfd, uids_xes):
-        energies_in, herfd = get_herfd_data(db, uid_herfd)
+        energies_in, df = get_herfd_data(db, uid_herfd)
         herfd_data.append(herfd)
         if xes_normalization:
             xes = get_xes_data(db, uid_xes)
@@ -153,9 +198,49 @@ def parse_rixs_scan(db, file_with_uids, xes_normalization=True):
     if xes_normalization:
         xes_data = np.array(xes_data).T
         # linear algebra magic for scaling purposes
-        c, _, _, _ = np.linalg.lstsq(xes_data[:,:1], xes_data, rcond=-1)
+        # c, _, _, _ = np.linalg.lstsq(xes_data[None, :], xes_data[0, None], rcond=-1)
+        c = xes_data/xes_data[0]
         herfd_data /= c
     return herfd_data, xes_data, energies_in, energies_out
+
+
+def parse_rixslog_scan(db, file_with_uids):
+    energies_out, uids_herfd, uids_norm = parse_rixslog(file_with_uids)
+    xes_data = []
+    herfd_dfs = []
+    keys = []
+    energies_in = None
+    n_spectra = energies_out.size
+
+    for i in range(n_spectra):
+        energies_in, df = get_herfd_data(db, uids_herfd[i])
+        keys = df.keys()
+        herfd_dfs.append(df)
+        xes = get_xes_data(db, uids_norm[i])
+        xes_data.append(xes)
+
+    result_dict = {}
+    for key in keys:
+        matrix = []
+        for _df in herfd_dfs:
+            arr = _df[key].values
+            matrix.append(arr)
+        result_dict[key] = np.array(matrix).T
+
+
+    xes_data = np.array(xes_data).T
+    # linear algebra magic for scaling purposes
+    # c, _, _, _ = np.linalg.lstsq(xes_data[:,:1], xes_data, rcond=-1)
+    c = xes_data/xes_data[0]
+    for key in keys:
+        if str.lower(key).startswith('pil'):
+            result_dict[key] /= c
+    result_dict['conecntration_norm'] = xes_data
+    result_dict['energy_in'] = result_dict['energy'][:, 0]
+    result_dict.pop('energy')
+    result_dict['energy_out'] = energies_out
+
+    return result_dict
 
 
 def convert_rixs_to_energy_transfer(Ein, Eout, herfd):

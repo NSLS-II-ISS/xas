@@ -12,7 +12,7 @@ import numpy as np
 import os
 from isscloudtools.slack import slack_upload_image
 from isstools.elements.cloud_plotting import generate_output_figures
-
+from PIL import Image
 
 def process_interpolate_bin(doc, db, draw_func_interp = None, draw_func_bin = None, cloud_dispatcher = None):
     logger = get_logger()
@@ -108,6 +108,66 @@ def process_interpolate_bin(doc, db, draw_func_interp = None, draw_func_bin = No
             df = combine_xspress3_channels(df)
             # ghnfg
             save_stepscan_as_file(path_to_file, df, comments)
+
+
+            ###########################################################
+            # PUSHKAR PROCESSING
+            ###########################################################
+            #storing table as hdf
+            # dump_to_hdf = True
+            # if dump_to_hdf:
+            #     hdf_fn = os.path.splitext(path_to_file)[0]+'.h5'
+            #     hdr = db[uid]
+            #     t = db[uid].table(fill=True)
+            #     t.to_hdf(hdf_fn, 'data')
+            # dump_to_tiff_pushkar = True
+            # if dump_to_tiff_pushkar:
+            #     # deal with paths
+            #     tiff_storage_path = os.path.dirname(path_to_file) + '/tiff_storage/'
+            #     scan_name = os.path.splitext(os.path.basename(path_to_file))[0]
+            #     dat_file_fpath = tiff_storage_path + scan_name + '.dat'
+            #     tiff_images_path = tiff_storage_path + scan_name + '/'
+            #
+            #     try:
+            #         os.mkdir(tiff_images_path)
+            #     except FileExistsError:
+            #         print('Warning Folder exists')
+            #         return
+            #
+            #     # deal with images
+            #     # filename_list = []
+            #     for i, im in enumerate(t['pil100k_image']):
+            #         image_data = Image.fromarray(im)
+            #
+            #         tiff_filename = '{}{:04d}{}'.format('image', i + 1, '.tif')
+            #         tiff_path = tiff_images_path + tiff_filename
+            #         print(f'TIFF STORAGE: tiff will be saved in {tiff_path}')
+            #         image_data.save(tiff_path)
+            #         # filename_list.append(tiff_filename)
+            #
+            #     # deal with table file
+            #     table_red = t[['hhm_energy', 'apb_ave_ch1', 'apb_ave_ch2', 'apb_ave_ch3', 'apb_ave_ch4']]
+            #
+            #
+            #     table_red = table_red.rename(
+            #         columns={'hhm_energy': '# energy', 'apb_ave_ch1': 'i0', 'apb_ave_ch2': 'it', 'apb_ave_ch3': 'ir',
+            #                  'apb_ave_ch4': 'iff'})
+            #     # table_red['filenames'] = filename_list
+            #     print(f'TIFF STORAGE: dat will be saved in {dat_file_fpath}')
+            #     table_red.to_csv(dat_file_fpath, sep='\t', index=False)
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
