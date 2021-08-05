@@ -204,7 +204,7 @@ def parse_rixs_scan(db, file_with_uids, xes_normalization=True):
     return herfd_data, xes_data, energies_in, energies_out
 
 
-def parse_rixslog_scan(db, file_with_uids):
+def parse_rixslog_scan(db, file_with_uids, xes_normalization=True):
     energies_out, uids_herfd, uids_norm = parse_rixslog(file_with_uids)
     xes_data = []
     herfd_dfs = []
@@ -229,12 +229,14 @@ def parse_rixslog_scan(db, file_with_uids):
 
 
     xes_data = np.array(xes_data).T
-    # linear algebra magic for scaling purposes
-    # c, _, _, _ = np.linalg.lstsq(xes_data[:,:1], xes_data, rcond=-1)
-    c = xes_data/xes_data[0]
-    for key in keys:
-        if str.lower(key).startswith('pil'):
-            result_dict[key] /= c
+
+    if xes_normalization:
+        # linear algebra magic for scaling purposes
+        # c, _, _, _ = np.linalg.lstsq(xes_data[:,:1], xes_data, rcond=-1)
+        c = xes_data/xes_data[0]
+        for key in keys:
+            if str.lower(key).startswith('pil'):
+                result_dict[key] /= c
     result_dict['conecntration_norm'] = xes_data
     result_dict['energy_in'] = result_dict['energy'][:, 0]
     result_dict.pop('energy')
