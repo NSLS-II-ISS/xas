@@ -59,12 +59,26 @@ def load_apb_trig_dataset_from_db(db, uid, use_fall=True, stream_name='apb_trigg
     t = hdr.table(stream_name=stream_name, fill=True)
     timestamps = t[stream_name][1]['timestamp'].values
     transitions = t[stream_name][1]['transition'].values
-    n_0 = np.sum(transitions == 0)
-    n_1 = np.sum(transitions == 1)
-    n_all = np.min([n_0, n_1])
+
     if use_fall:
-        apb_trig_timestamps = (timestamps[transitions == 1][:n_all] + timestamps[transitions == 0][:n_all])/2
+        shift = 0
+        if transitions[0] == 0:
+            shift = timestamps[1] - timestamps[0]
+            timestamps = timestamps[1:]
+            transitions = transitions[1:]
+
+        rises = timestamps[0::2]
+        falls = timestamps[1::2]
+        n_0 = np.sum(transitions == 0)
+        n_1 = np.sum(transitions == 1)
+        n_all = np.min([n_0, n_1])
+        apb_trig_timestamps = (rises[:n_all] + falls[:n_all]) / 2 - shift
+        # apb_trig_timestamps = (timestamps[transitions == 1][:n_all] + timestamps[transitions == 0][:n_all])/2
+
     else:
+        n_0 = np.sum(transitions == 0)
+        n_1 = np.sum(transitions == 1)
+        n_all = np.min([n_0, n_1])
         rises = timestamps[transitions == 1]
         apb_trig_timestamps = rises[:n_all] + np.mean(np.diff(rises))/2
     return apb_trig_timestamps
