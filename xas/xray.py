@@ -98,7 +98,8 @@ def energy2encoder(energy, pulses_per_deg, offset = 0):
     """
     return pulses_per_deg * (np.degrees(np.arcsin(-12398.42 / (2 * 3.1356 * energy))) - float(offset))
 
-
+def energy2angle(energy,  offset = 0):
+    return np.degrees(np.arcsin(-12398.42 / (2 * 3.1356 * energy))) - float(offset)
 
 def generate_energy_grid(e0, preedge_start, xanes_start, xanes_end, exafs_end, preedge_spacing,
                         xanes_spacing, exafsk_spacing, int_time_preedge = 1, int_time_xanes = 1, int_time_exafs = 1, k_power = 0):

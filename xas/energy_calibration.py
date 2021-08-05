@@ -1,6 +1,7 @@
 import numpy as np
 from .file_io import load_binned_df_from_file
-from isstools.xasproject.xasproject import XASDataSet
+# from isstools.xasproject.xasproject import XASDataSet
+from xas.xasproject import XASDataSet
 from lmfit import Parameters, minimize
 
 
