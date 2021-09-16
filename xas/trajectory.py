@@ -777,3 +777,16 @@ class trajectory_manager():
 
     def current_lut(self):
         return self.hhm.lut_number_rbv.get()
+
+def read_trajectory_limits(hhm):
+    current_lut = int(hhm.lut_number_rbv.get())
+    traj_manager = trajectory_manager(hhm)
+    info = traj_manager.read_info(silent=True)
+    if 'max' not in info[str(current_lut)] or 'min' not in info[str(current_lut)]:
+        raise Exception(
+            'Could not find max or min information in the trajectory.'
+            ' Try sending it again to the controller.')
+
+    e_min = int(info[str(current_lut)]['min'])
+    e_max = int(info[str(current_lut)]['max'])
+    return e_min, e_max
