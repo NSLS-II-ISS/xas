@@ -81,25 +81,25 @@ def validate_calibration(element, edge,db_proc, hhm, ):
 
 def process_calibration(element, edge, db, db_proc, hhm, trajectory_manager, dE=25, axis=None, canvas=None):
     e_shift, en_ref, mu_ref, mu = get_energy_offset(-1, db, db_proc, dE=dE)
-    energy_nominal = xraydb.xray_edge(element, edge).energy
-    energy_actual = energy_nominal + e_shift
-    offset_actual = xray.energy2encoder(energy_actual, hhm.pulses_per_deg) / hhm.pulses_per_deg
-    offset_nominal = xray.energy2encoder(energy_nominal, hhm.pulses_per_deg) / hhm.pulses_per_deg
-    angular_offset_shift = offset_actual - offset_nominal
-    new_angular_offset = hhm.angle_offset.value - angular_offset_shift
-    if hhm.set_new_angle_offset(new_angular_offset):
-        current_index =
-
-        return e_shift, en_ref, mu_ref, mu
-
-
-
-
-    _offset_act = xray.energy2encoder(e0_act, hhm.pulses_per_deg)
-    _offset_nom = xray.energy2encoder(e0_nom, hhm.pulses_per_deg)
-    delta_offset = (_offset_act - _offset_nom) / hhm.pulses_per_deg
-    new_offset = hhm.angle_offset.value - delta_offset
-    yield from bps.mv(hhm.angle_offset, new_offset)
+    # energy_nominal = xraydb.xray_edge(element, edge).energy
+    # energy_actual = energy_nominal + e_shift
+    # offset_actual = xray.energy2encoder(energy_actual, hhm.pulses_per_deg) / hhm.pulses_per_deg
+    # offset_nominal = xray.energy2encoder(energy_nominal, hhm.pulses_per_deg) / hhm.pulses_per_deg
+    # angular_offset_shift = offset_actual - offset_nominal
+    # new_angular_offset = hhm.angle_offset.value - angular_offset_shift
+    # if hhm.set_new_angle_offset(new_angular_offset):
+    #     current_index =
+    #
+    #     return e_shift, en_ref, mu_ref, mu
+    #
+    #
+    #
+    #
+    # _offset_act = xray.energy2encoder(e0_act, hhm.pulses_per_deg)
+    # _offset_nom = xray.energy2encoder(e0_nom, hhm.pulses_per_deg)
+    # delta_offset = (_offset_act - _offset_nom) / hhm.pulses_per_deg
+    # new_offset = hhm.angle_offset.value - delta_offset
+    # yield from bps.mv(hhm.angle_offset, new_offset)
     return e_shift, en_ref, mu_ref, mu
 
 
