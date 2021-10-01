@@ -38,11 +38,15 @@ def fit_gaussian(E, I, Ecen0, fwhm0):
     gmodel = Model(gaussian)
     result = gmodel.fit(I, x=E, amp=1, cen=Ecen0, sigma=fwhm0/2.355, bkg=0)
     Ecen = result.params['cen'].value
-    fwhm = result.params['sigma'].value * 2.355
+    fwhm = np.abs(result.params['sigma'].value * 2.355)
     I_fit = (result.best_fit - result.params['bkg'].value) / result.params['amp']
     I_cor = (I - result.params['bkg'].value) / result.params['amp']
     I_fit_raw = result.best_fit
     return Ecen, fwhm, I_cor, I_fit, I_fit_raw
+
+def fit_gaussian_with_estimation(E, I):
+    Ecen0, fwhm0 = estimate_center_and_width_of_peak(E, I)
+    return fit_gaussian(E, I, Ecen0, fwhm0)
 
 
 class Nominal2ActualConverter:
