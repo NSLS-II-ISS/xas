@@ -122,7 +122,7 @@ def load_pil100k_dataset_from_db(db, uid, apb_trig_timestamps, input_type='hdf5'
 
             spectra[f'pil100k_ROI{j+1}'] = pd.DataFrame(np.vstack((pil100k_timestamps, this_spectrum)).T, columns=['timestamp', f'pil100k_ROI{j+1}'])
     elif input_type == 'hdf5':
-        t = hdr.table(stream_name='pil100k_hdf5_stream', fill=True)['pil100k_hdf5_stream']
+        t = hdr.table(stream_name='pil100k_stream', fill=True)['pil100k_stream']
         n_images = t.shape[0]
         pil100k_timestamps = apb_trig_timestamps[:n_images]
         keys = t[1].keys()

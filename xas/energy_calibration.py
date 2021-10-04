@@ -2,7 +2,7 @@ import numpy as np
 from .file_io import load_binned_df_from_file
 # from isstools.xasproject.xasproject import XASDataSet
 from xas.xasproject import XASDataSet
-from xas.trajectory import read_trajectory_limits
+# from xas.trajectory import read_trajectory_limits
 from lmfit import Parameters, minimize
 import time as ttime
 import xraydb
@@ -36,7 +36,7 @@ def compute_shift_between_spectra(energy, mu, energy_ref_roi, mu_ref_roi, e0, ma
     return e_shift
 
 
-def get_energy_offset(uid, db, db_proc, dE=25):
+def get_energy_offset(uid, db, db_proc, dE=25, plot_fun=None):
     start = db[uid].start
     fname_raw = start['interp_filename']
     if fname_raw.endswith('.raw'):
@@ -46,6 +46,7 @@ def get_energy_offset(uid, db, db_proc, dE=25):
             try:
                 df, _ = load_binned_df_from_file(fname_bin)
             except:
+                print(f'[Energy Calibration] Attempt to read data {i+1}')
                 ttime.sleep(1)
 
         energy = df['energy'].values
@@ -62,45 +63,38 @@ def get_energy_offset(uid, db, db_proc, dE=25):
         mu_ref_roi = mu_ref[mask]
         shift = compute_shift_between_spectra(energy, mu, energy_ref_roi, mu_ref_roi, e0, mask)
 
-        mu = np.interp(energy_ref_roi, energy, mu)
-        return shift, energy_ref_roi,mu_ref_roi, mu
+        if plot_fun is not None:
+            mu = np.interp(energy_ref_roi, energy, mu)
+            plot_fun(energy_ref_roi, mu_ref_roi, mu)
+
+        return e0, e0+shift
+        # return e0, shift, energy_ref_roi, mu_ref_roi, mu
         # return energy, mu_ref
 
-def validate_calibration(element, edge,db_proc, hhm, ):
-    # check if current trajectory is good for this calibration
-    r = db_proc.search({'Sample_name': element + ' foil'})
-    if len(r) == 0:
-        return False, f'Error: No matching foil has been found'
 
-    e_min, e_max = read_trajectory_limits(hhm)
-    edge_energy = xraydb.xray_edge(element, edge).energy
-    if not ((edge_energy > e_min) and (edge_energy < e_max)):
-        return False, f'Error: invalid trajectory for this calibration'
 
-    return True, ''
-
-def process_calibration(element, edge, db, db_proc, hhm, trajectory_manager, dE=25, axis=None, canvas=None):
-    e_shift, en_ref, mu_ref, mu = get_energy_offset(-1, db, db_proc, dE=dE)
-    # energy_nominal = xraydb.xray_edge(element, edge).energy
-    # energy_actual = energy_nominal + e_shift
-    # offset_actual = xray.energy2encoder(energy_actual, hhm.pulses_per_deg) / hhm.pulses_per_deg
-    # offset_nominal = xray.energy2encoder(energy_nominal, hhm.pulses_per_deg) / hhm.pulses_per_deg
-    # angular_offset_shift = offset_actual - offset_nominal
-    # new_angular_offset = hhm.angle_offset.value - angular_offset_shift
-    # if hhm.set_new_angle_offset(new_angular_offset):
-    #     current_index =
-    #
-    #     return e_shift, en_ref, mu_ref, mu
-    #
-    #
-    #
-    #
-    # _offset_act = xray.energy2encoder(e0_act, hhm.pulses_per_deg)
-    # _offset_nom = xray.energy2encoder(e0_nom, hhm.pulses_per_deg)
-    # delta_offset = (_offset_act - _offset_nom) / hhm.pulses_per_deg
-    # new_offset = hhm.angle_offset.value - delta_offset
-    # yield from bps.mv(hhm.angle_offset, new_offset)
-    return e_shift, en_ref, mu_ref, mu
+# def process_calibration(element, edge, db, db_proc, hhm, trajectory_manager, dE=25, axis=None, canvas=None):
+#     e_shift, en_ref, mu_ref, mu = get_energy_offset(-1, db, db_proc, dE=dE)
+#     # energy_nominal = xraydb.xray_edge(element, edge).energy
+#     # energy_actual = energy_nominal + e_shift
+#     # offset_actual = xray.energy2encoder(energy_actual, hhm.pulses_per_deg) / hhm.pulses_per_deg
+#     # offset_nominal = xray.energy2encoder(energy_nominal, hhm.pulses_per_deg) / hhm.pulses_per_deg
+#     # angular_offset_shift = offset_actual - offset_nominal
+#     # new_angular_offset = hhm.angle_offset.value - angular_offset_shift
+#     # if hhm.set_new_angle_offset(new_angular_offset):
+#     #     current_index =
+#     #
+#     #     return e_shift, en_ref, mu_ref, mu
+#     #
+#     #
+#     #
+#     #
+#     # _offset_act = xray.energy2encoder(e0_act, hhm.pulses_per_deg)
+#     # _offset_nom = xray.energy2encoder(e0_nom, hhm.pulses_per_deg)
+#     # delta_offset = (_offset_act - _offset_nom) / hhm.pulses_per_deg
+#     # new_offset = hhm.angle_offset.value - delta_offset
+#     # yield from bps.mv(hhm.angle_offset, new_offset)
+#     return e_shift, en_ref, mu_ref, mu
 
 
 
