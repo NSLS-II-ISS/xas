@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 from isscloudtools.slack import slack_upload_image
-from isstools.elements.cloud_plotting import generate_output_figures
+from isscloudtools.cloud_dispatcher import generate_output_figures
 from PIL import Image
 
 def process_interpolate_bin(doc, db, draw_func_interp = None, draw_func_bin = None, cloud_dispatcher = None):
