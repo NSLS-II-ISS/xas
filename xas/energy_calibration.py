@@ -21,19 +21,22 @@ def get_foil_spectrum(element, edge, db_proc):
 
 def compute_shift_between_spectra(energy, mu, energy_ref_roi, mu_ref_roi):
 
-    def residuals(pars):
+    def interpolated_spectrum(pars):
         e_shift = pars.valuesdict()['e_shift']
         x = np.interp(energy_ref_roi, energy - e_shift, mu)
         basis = np.vstack((x, np.ones(x.shape))).T
         c, _, _, _ = np.linalg.lstsq(basis, mu_ref_roi)
-        return (basis @ c - mu_ref_roi)
+        return basis @ c
+
+    def residuals(pars):
+        return (interpolated_spectrum(pars) - mu_ref_roi)
 
     pars = Parameters()
     pars.add('e_shift', value=0)
     out = minimize(residuals, pars)
     e_shift = out.params['e_shift'].value
-
-    return e_shift
+    mu_fit = interpolated_spectrum(out.params)
+    return e_shift, mu_fit
 
 
 def get_energy_offset(uid, db, db_proc, dE=25, plot_fun=None):
@@ -62,11 +65,11 @@ def get_energy_offset(uid, db, db_proc, dE=25, plot_fun=None):
 
         energy_ref_roi = energy_ref[mask]
         mu_ref_roi = mu_ref[mask]
-        shift = compute_shift_between_spectra(energy, mu, energy_ref_roi, mu_ref_roi)
+        shift, mu_fit = compute_shift_between_spectra(energy, mu, energy_ref_roi, mu_ref_roi)
 
         if plot_fun is not None:
-            mu = np.interp(energy_ref_roi, energy, mu)
-            plot_fun(energy_ref_roi, mu_ref_roi, mu)
+            # mu = np.interp(energy_ref_roi, energy, mu)
+            plot_fun(energy_ref_roi, mu_ref_roi, mu_fit)
 
         return e0, e0+shift
         # return e0, shift, energy_ref_roi, mu_ref_roi, mu
