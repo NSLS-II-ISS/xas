@@ -8,8 +8,8 @@ import time as ttime
 import xraydb
 from xas import xray
 
-def get_foil_spectrum(element, db_proc):
-    r = db_proc.search({'Sample_name': element + ' foil'})
+def get_foil_spectrum(element, edge, db_proc):
+    r = db_proc.search({'Sample_name' : f'{element} foil', 'Edge' : edge})
     if len(r) == 0:
         return None, None
     uid_proc = list(r)[-1]
@@ -19,7 +19,7 @@ def get_foil_spectrum(element, db_proc):
     return energy, mu
 
 
-def compute_shift_between_spectra(energy, mu, energy_ref_roi, mu_ref_roi, e0, mask):
+def compute_shift_between_spectra(energy, mu, energy_ref_roi, mu_ref_roi):
 
     def residuals(pars):
         e_shift = pars.valuesdict()['e_shift']
@@ -55,13 +55,14 @@ def get_energy_offset(uid, db, db_proc, dE=25, plot_fun=None):
         mu = ds.flat
 
         element = start['element']
+        edge = start['edge']
         e0 = float(start['e0'])
-        energy_ref, mu_ref = get_foil_spectrum(element, db_proc)
+        energy_ref, mu_ref = get_foil_spectrum(element, edge, db_proc)
         mask = (energy_ref >= (e0 - dE)) & (energy_ref <= (e0 + dE))
 
         energy_ref_roi = energy_ref[mask]
         mu_ref_roi = mu_ref[mask]
-        shift = compute_shift_between_spectra(energy, mu, energy_ref_roi, mu_ref_roi, e0, mask)
+        shift = compute_shift_between_spectra(energy, mu, energy_ref_roi, mu_ref_roi)
 
         if plot_fun is not None:
             mu = np.interp(energy_ref_roi, energy, mu)
