@@ -44,9 +44,15 @@ class XASDataSet:
                 self.clamp_lo = 0
                 self.normalize()
                 self.deriv()
-                self.extract_chi()
-                self.kmin_ft = 3
-                self.kmax_ft = self.kmax - 1
+                try:
+                    self.extract_chi()
+                    self.kmin_ft = 3
+                    self.kmax_ft = self.kmax - 1
+                except:
+                    self.kmax = 8
+                    self.kmin = 3
+                    self.kmax_ft = 8
+                    self.kmin_ft = 3
                 self.kweight = 2
                 self.rbkg = 1
             else:
