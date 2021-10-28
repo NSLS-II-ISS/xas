@@ -292,6 +292,25 @@ class XASProject(QtCore.QObject):
                 self.append(i)
             fid.close()
 
+    def convert_into_2d_dataset(self, index=None):
+        if index is None:
+            ds_all = self.datasets
+        else:
+            ds_all = [self.datasets[i] for i in index]
+        energy_master = ds_all[0].energy
+        n_curves = len(ds_all)
+        t = np.arange(n_curves) # default independent parameter
+        data = np.zeros((energy_master.size, n_curves))
+
+        for i, ds in enumerate(ds_all):
+            data[:, i] = np.interp(energy_master, ds.energy, ds.flat)
+
+        return energy_master, t, data
+
+
+
+
+
 
 
 
