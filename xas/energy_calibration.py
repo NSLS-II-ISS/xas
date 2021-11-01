@@ -10,8 +10,6 @@ from xas import xray
 
 def get_foil_spectrum(element, edge, db_proc):
     r = db_proc.search({'Sample_name' : f'{element} foil', 'Edge' : edge})
-    if len(r) == 0:
-        return None, None
     uid_proc = list(r)[0]
     ds = db_proc[uid_proc].primary.read()
     energy = ds['Energy'].values

@@ -237,7 +237,14 @@ def create_file_header(db,uid):
         f'# Scan.duration: {human_duration}\n' \
         f'# Scan.transient_id: {scan_id}\n' \
         f'# Scan.uid: {real_uid}\n' \
-        f'# Scan.plot_hint: {plot_hint}\n'
+        f'# Scan.plot_hint: {plot_hint}\n' \
+        f'# Column.1: energy eV\n' \
+        f'# Column.2: i0\n' \
+        f'# Column.3: it\n' \
+        f'# Column.4: ir\n' \
+        f'# Column.5: if\n'
+
+
     return  comments
 
 def find_e0(db, uid):
