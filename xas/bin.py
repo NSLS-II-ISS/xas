@@ -132,6 +132,13 @@ def bin(interpolated_dataset, e0, edge_start=-30, edge_end=50, preedge_spacing=5
 
     return binned_df
 
+
+# def bin_pilatus_images(interpolated_dataset, db, uid):
+# make handler return images
+# work from there
+
+
+
 #
 # fname = '/nsls2/xf08id/users/2020/3/300001/Cu_sine_1s_ud_10x 0001.raw'
 # N = 10
