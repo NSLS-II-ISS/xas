@@ -125,7 +125,8 @@ def load_pil100k_dataset_from_db(db, uid, apb_trig_timestamps, input_type='hdf5'
         t = hdr.table(stream_name='pil100k_stream', fill=True)['pil100k_stream']
         n_images = t.shape[0]
         pil100k_timestamps = apb_trig_timestamps[:n_images]
-        keys = t[1].keys()
+        # keys = t[1].keys()
+        keys = [k for k in t[1].keys() if ('roi' in k.lower())] # do only those with roi in the name
         _spectra = np.zeros((n_images, len(keys)))
         for i in range(0, n_images):
             for j, key in enumerate(keys):
