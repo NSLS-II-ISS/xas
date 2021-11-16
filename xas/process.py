@@ -9,6 +9,7 @@ from .interpolate import interpolate
 from .xas_logger import get_logger
 import matplotlib.pyplot as plt
 import numpy as np
+import time as ttime
 import os
 from isscloudtools.slack import slack_upload_image
 from isscloudtools.cloud_dispatcher import generate_output_figures
@@ -26,62 +27,62 @@ def process_interpolate_bin(doc, db, draw_func_interp = None, draw_func_bin = No
             validate_path_exists(db,uid)
             path_to_file = validate_file_exists(path_to_file, file_type = 'interp')
 
-            # try:
-            if experiment == 'fly_energy_scan':
-                raw_dict = load_dataset_from_files(db, uid)
-                key_base = 'i0'
-            elif experiment == 'fly_energy_scan_apb':
-                apb_df, energy_df, energy_offset = load_apb_dataset_from_db(db, uid)
-                raw_dict = translate_apb_dataset(apb_df, energy_df, energy_offset)
-                key_base = 'i0'
-            elif experiment == 'fly_energy_scan_xs3':
-                apb_df, energy_df, energy_offset = load_apb_dataset_from_db(db, uid)
-                raw_dict = translate_apb_dataset(apb_df, energy_df, energy_offset)
+            try:
+                if experiment == 'fly_energy_scan':
+                    raw_dict = load_dataset_from_files(db, uid)
+                    key_base = 'i0'
+                elif experiment == 'fly_energy_scan_apb':
+                    apb_df, energy_df, energy_offset = load_apb_dataset_from_db(db, uid)
+                    raw_dict = translate_apb_dataset(apb_df, energy_df, energy_offset)
+                    key_base = 'i0'
+                elif experiment == 'fly_energy_scan_xs3':
+                    apb_df, energy_df, energy_offset = load_apb_dataset_from_db(db, uid)
+                    raw_dict = translate_apb_dataset(apb_df, energy_df, energy_offset)
 
-                apb_trig_timestamps = load_apb_trig_dataset_from_db(db, uid)
-                xs3_dict = load_xs3_dataset_from_db(db, uid, apb_trig_timestamps)
+                    apb_trig_timestamps = load_apb_trig_dataset_from_db(db, uid)
+                    xs3_dict = load_xs3_dataset_from_db(db, uid, apb_trig_timestamps)
 
-                raw_dict = {**raw_dict, **xs3_dict}
-                key_base = 'CHAN1ROI1'
-            elif experiment == 'fly_energy_scan_pil100k':
-                # PLACEHOLDER !!!!
-                apb_df, energy_df, energy_offset = load_apb_dataset_from_db(db, uid)
-                raw_dict = translate_apb_dataset(apb_df, energy_df, energy_offset)
-                apb_trig_timestamps = load_apb_trig_dataset_from_db(db, uid, use_fall=True, stream_name='apb_trigger_pil100k')
-                pil100k_dict = load_pil100k_dataset_from_db(db, uid, apb_trig_timestamps)
-                raw_dict = {**raw_dict, **pil100k_dict}
-                key_base = 'pil100k_ROI1'
+                    raw_dict = {**raw_dict, **xs3_dict}
+                    key_base = 'CHAN1ROI1'
+                elif experiment == 'fly_energy_scan_pil100k':
+                    # PLACEHOLDER !!!!
+                    apb_df, energy_df, energy_offset = load_apb_dataset_from_db(db, uid)
+                    raw_dict = translate_apb_dataset(apb_df, energy_df, energy_offset)
+                    apb_trig_timestamps = load_apb_trig_dataset_from_db(db, uid, use_fall=True, stream_name='apb_trigger_pil100k')
+                    pil100k_dict = load_pil100k_dataset_from_db(db, uid, apb_trig_timestamps)
+                    raw_dict = {**raw_dict, **pil100k_dict}
+                    key_base = 'pil100k_ROI1'
 
-            logger.info(f'Loading file successful for UID {uid}/{path_to_file}')
-        # except:
-            logger.info(f'Loading file failed for UID {uid}/{path_to_file}')
+                logger.info(f'({ttime.ctime()}) Loading file successful for UID {uid}/{path_to_file}')
+            except:
+                logger.info(f'({ttime.ctime()}) Loading file failed for UID {uid}/{path_to_file}')
             try:
                 interpolated_df = interpolate(raw_dict, key_base = key_base)
-                logger.info(f'Interpolation successful for {path_to_file}')
+                logger.info(f'({ttime.ctime()}) Interpolation successful for {path_to_file}')
                 save_interpolated_df_as_file(path_to_file, interpolated_df, comments)
             except:
-                logger.info(f'Interpolation failed for {path_to_file}')
+                logger.info(f'({ttime.ctime()}) Interpolation failed for {path_to_file}')
 
             try:
                 if e0 >0:
                     binned_df = bin(interpolated_df,e0)
-                    logger.info(f'Binning successful for {path_to_file}')
+                    logger.info(f'({ttime.ctime()}) Binning successful for {path_to_file}')
                     save_binned_df_as_file(path_to_file, binned_df, comments)
                     if draw_func_interp is not None:
                         draw_func_interp(interpolated_df)
                     if draw_func_bin is not None:
                         draw_func_bin(binned_df, path_to_file)
                 else:
-                    print('Energy E0 is not defined')
+                    print('({ttime.ctime()}) Energy E0 is not defined')
             except:
-                logger.info(f'Binning failed for {path_to_file}')
+                logger.info(f'({ttime.ctime()}) Binning failed for {path_to_file}')
             (path, extension) = os.path.splitext(path_to_file)
             path_to_binned = path + '.dat'
 
             try:
                 if cloud_dispatcher is not None:
                     cloud_dispatcher.load_to_dropbox(path_to_binned)
-                    logger.info(f'Sending data to the cloud successful for {path_to_binned}')
+                    logger.info(f'({ttime.ctime()}) Sending data to the cloud successful for {path_to_binned}')
             #         #WIP workaround
             #         #channel = db[uid].start['slack_channel']
             #         #slack_service = cloud_dispatcher.slack_service
@@ -92,7 +93,7 @@ def process_interpolate_bin(doc, db, draw_func_interp = None, draw_func_bin = No
             #         #cloud_dispatcher.post_to_slack(path_to_binned ,db[uid].start['slack_channel'])
             #         logger.info(f'Sending data to the cloud successful for {path_to_binned}')
             except:
-                logger.info(f'Sending data to the cloud failed for {path_to_binned}')
+                logger.info(f'({ttime.ctime()}) Sending data to the cloud failed for {path_to_binned}')
 
             # # if cloud_dispatcher is not None:
             # #     cloud_dispatcher.load_to_dropbox(path_to_binned)
