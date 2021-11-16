@@ -101,13 +101,14 @@ def energy2encoder(energy, pulses_per_deg, offset = 0):
 def energy2angle(energy,  offset = 0):
     return np.degrees(np.arcsin(-12398.42 / (2 * 3.1356 * energy))) - float(offset)
 
+
 def generate_energy_grid(e0, preedge_start, xanes_start, xanes_end, exafs_end, preedge_spacing,
-                        xanes_spacing, exafsk_spacing, int_time_preedge = 1, int_time_xanes = 1, int_time_exafs = 1, k_power = 0):
+                         xanes_spacing, exafsk_spacing, dwell_time_preedge = 1, dwell_time_xanes = 1, dwell_time_exafs = 1, k_power = 0):
     preedge = np.arange(e0 + preedge_start, e0 + xanes_start, preedge_spacing)
-    preedge_int = np.ones(len(preedge)) * int_time_preedge
+    preedge_int = np.ones(len(preedge)) * dwell_time_preedge
 
     edge = np.arange(e0 + xanes_start, e0 + xanes_end, xanes_spacing)
-    edge_int = np.ones(len(edge)) * int_time_xanes
+    edge_int = np.ones(len(edge)) * dwell_time_xanes
 
     iterator = exafsk_spacing
     kenergy = 0
@@ -120,7 +121,7 @@ def generate_energy_grid(e0, preedge_start, xanes_start, xanes_end, exafs_end, p
 
         postedge = np.append(postedge, e0 + xanes_end + kenergy)
         k_current = e2k(e0 + xanes_end + kenergy,e0)
-        exafs_int.append(int_time_exafs * (k_current ** k_power))
+        exafs_int.append(dwell_time_exafs * (k_current ** k_power))
         iterator += exafsk_spacing
 
     integration_times = np.append(np.append(preedge_int, edge_int), np.array(exafs_int))
@@ -129,8 +130,26 @@ def generate_energy_grid(e0, preedge_start, xanes_start, xanes_end, exafs_end, p
     #return np.append(np.append(preedge, edge), postedge)
 
 
+def generate_energy_grid_from_dict(scan_parameters):
+    energy, time_grid = generate_energy_grid(scan_parameters['e0'],
+                                             scan_parameters['preedge_start'],
+                                             scan_parameters['XANES_start'],
+                                             scan_parameters['XANES_end'],
+                                             scan_parameters['EXAFS_end'],
+                                             scan_parameters['preedge_stepsize'],
+                                             scan_parameters['XANES_stepsize'],
+                                             scan_parameters['EXAFS_stepsize'],
+                                             dwell_time_preedge= scan_parameters['preedge_dwelltime'],
+                                             dwell_time_xanes= scan_parameters['XANES_dwelltime'],
+                                             dwell_time_exafs= scan_parameters['EXAFS_dwelltime'],
+                                             k_power = scan_parameters['k_power'])
+    if scan_parameters['revert']:
+        energy = energy[::-1]
+        time_grid = time_grid[::-1]
 
+    time = np.cumsum(time_grid)
 
+    return energy, time_grid, time
 
 
 

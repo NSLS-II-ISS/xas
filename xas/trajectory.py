@@ -18,6 +18,20 @@ import pandas as pd
 from isstools.dialogs.BasicDialogs import question_message_box
 from xas.bin import xas_energy_grid
 
+from collections import defaultdict
+
+
+# Function to return a default
+# values for keys that is not
+# present
+def _default_value():
+    return "Not Present"
+
+
+# Defining the dict
+
+
+
 
 def stitch_two_points(t_orig, e1, v1, e2, v2, frac=0.5):
     t = t_orig.copy()
@@ -79,7 +93,8 @@ class TrajectoryCreator():
         self.edge_end = offsets[2]
         self.gen_t_step = 1 / self.servocycle * 100
 
-        if trajectory_type == 'Double Sine/Constant Edge':
+        if ((trajectory_type == 'Double Sine/Constant Edge') or
+             (trajectory_type == 'standard')):
             t_pre = dsine_preedge_duration
             t_xanes = dsine_edge_duration
             t_exafs = dsine_postedge_duration
@@ -235,7 +250,7 @@ class TrajectoryCreator():
 
 
 
-        elif trajectory_type == 'Sine':
+        elif trajectory_type.lower() == 'sine':
             total_time = float(sine_duration)
             preedge_lo = edge_energy+offsets[0]
             postedge_hi = edge_energy+offsets[3]
@@ -316,7 +331,7 @@ class TrajectoryCreator():
         #
         #     self.energy = np.concatenate((pos1, pos_int, pos2))
 
-        elif trajectory_type == 'Double Sine':
+        elif ((trajectory_type == 'Double Sine') or (trajectory_type == 'double_sine')):
             total_time = float(dsine_preedge_duration) + float(dsine_postedge_duration)
             half = float(dsine_preedge_duration) / total_time
             preedge_lo = edge_energy + offsets[0]
@@ -358,6 +373,26 @@ class TrajectoryCreator():
                                      self.energy,
                                      self.energy[-1]*np.ones(t_pad_post.shape)))
 
+
+    def define_from_dict(self, _scan_parameters):
+        scan_parameters = defaultdict(_default_value)
+        for k, v in _scan_parameters.items():
+            scan_parameters[k] = v
+        EXAFS_end =  xray.k2e(scan_parameters['EXAFS_end'], scan_parameters['e0']/1000)
+
+        self.define(edge_energy=scan_parameters['e0'],
+                    offsets=([scan_parameters['preedge_start'],
+                              scan_parameters['XANES_start'],
+                              scan_parameters['XANES_end'],
+                              EXAFS_end]),
+                    trajectory_type=scan_parameters['type'],
+                    sine_duration=scan_parameters['duration'],
+                    dsine_preedge_duration=scan_parameters['preedge_duration'],
+                    dsine_edge_duration=scan_parameters['edge_duration'],
+                    dsine_postedge_duration=scan_parameters['postedge_duration'],
+                    dsine_preedge_frac=scan_parameters['preedge_flex'],
+                    dsine_postedge_frac=scan_parameters['postedge_flex'],
+                    pad_time=scan_parameters['pad'])
 
 
     def compute_time_per_bin(self):
@@ -412,13 +447,33 @@ class TrajectoryCreator():
         # self.energy_grid_der=np.diff(self.energy_grid)/np.diff(self.time_grid)
         self.compute_time_per_bin()
 
+    def revert_light(self):
+        self.energy = self.energy[::-1]
+
     def revert(self):
         self.energy = self.energy[::-1]
         self.energy_grid = self.energy_grid[::-1]
         # self.energy_grid_der = self.energy_grid_der[::-1]
         self.direction = 'backward'
 
-    def tile (self,reps = 1, single_direction = False):
+    def tile_light(self, reps = 1, single_direction = False):
+        if not single_direction:
+            self.time = np.append(self.time,
+                                       (self.time + self.time[-1] + self.time[1] - self.time[0]))
+            self.energy = np.append(self.energy, np.flipud(self.energy))
+        # self.time_grid = np.tile(self.time_grid, reps)
+        # self.time_grid = np.kron(np.arange(1, reps+1)/self.time_grid[-1], self.time_grid)
+        self.time = np.hstack(
+            [i * (self.time[-1] + self.time[1] - self.time[0]) + self.time for i in range(reps)])
+        self.energy = np.tile(self.energy, reps)
+        # self.compute_time_per_bin()
+        if reps > 1:
+            if self.direction == 'forward':
+                self.direction += '-backward repeat'
+            else:
+                self.direction += '-forward repeat'
+
+    def tile(self,reps = 1, single_direction = False):
         if not single_direction:
             self.time_grid = np.append(self.time_grid, (self.time_grid + self.time_grid[-1] + self.time_grid[1] - self.time_grid[0]))
             self.energy_grid = np.append(self.energy_grid, np.flipud(self.energy_grid))
@@ -432,6 +487,21 @@ class TrajectoryCreator():
                 self.direction += '-backward repeat'
             else:
                 self.direction += '-forward repeat'
+
+
+    def define_complete(self, scan_parameters, lightweight=False):
+        self.define_from_dict(scan_parameters)
+        if scan_parameters['revert']: self.revert_light()
+        self.tile_light(reps=scan_parameters['repeat'], single_direction=scan_parameters['single_direction'])
+        if not lightweight:
+            self.interpolate()
+            if scan_parameters['revert']: self.revert()
+            self.tile(reps=scan_parameters['repeat'], single_direction=scan_parameters['single_direction'])
+        self.element = scan_parameters['element']
+        self.edge = scan_parameters['edge']
+        self.E0 = scan_parameters['e0']
+
+
 
     def e2encoder(self, offset):
         self.encoder_grid = -xray.energy2encoder(self.energy_grid, self.pulses_per_deg, offset)
@@ -484,7 +554,7 @@ class TrajectoryCreator():
         #             return
             np.savetxt(filename,
                        self.energy_grid, fmt='%.6f',
-                       header = f'element: {self.elem}, edge: {self.edge}, E0: {self.e0}, direction: {self.direction}')
+                       header = f'element: {self.element}, edge: {self.edge}, E0: {self.e0}, direction: {self.direction}')
             call(['chmod', '666', filename])
             # self.trajectory_path = filename[:filename.rfind('/')] + '/'
             # self.label_current_trajectory.setText(filename.rsplit('/', 1)[1])

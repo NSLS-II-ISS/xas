@@ -134,7 +134,8 @@ def bin(interpolated_dataset, e0, edge_start=-30, edge_end=50, preedge_spacing=5
 
 
 # def bin_pilatus_images(interpolated_dataset, db, uid):
-# make handler return images
+#     pass
+# # make handler return images
 # work from there
 
 
