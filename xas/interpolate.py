@@ -3,20 +3,18 @@ import pandas as pd
 
 
 
-def interpolate(dataset,key_base = 'i0', sort=True):
+def interpolate(dataset, key_base = None, sort=True):
     interpolated_dataset = {}
     min_timestamp = max([dataset.get(key).iloc[0, 0] for key in dataset])
     max_timestamp = min([dataset.get(key).iloc[len(dataset.get(key)) - 1, 0] for key in
                          dataset if len(dataset.get(key).iloc[:, 0]) > 5])
-
-    try:
-        if key_base not in dataset.keys():
-            raise ValueError('Could not find "{}" in the loaded scan. Pick another key_base'
-                             ' for the interpolation.'.format(key_base))
-    except ValueError as err:
-        print(err.args[0], '\nAborted...')
-        return
-
+    if key_base is None:
+        all_keys = []
+        time_step = []
+        for key in dataset.keys():
+            all_keys.append(key)
+            time_step.append(np.mean(np.diff(dataset[key].timestamp)))
+        key_base = all_keys[np.argmax(time_step)]
     timestamps = dataset[key_base].iloc[:,0]
 
     condition = timestamps < min_timestamp

@@ -53,7 +53,7 @@ def translate_apb_dataset(apb_dataset, energy_dataset, angle_offset,):
     return data_dict
 
 
-def load_apb_trig_dataset_from_db(db, uid, use_fall=True, stream_name='apb_trigger'):
+def load_apb_trig_dataset_from_db(db, uid, use_fall=True, stream_name='apb_trigger_xs'):
 
     hdr = db[uid]
     t = hdr.table(stream_name=stream_name, fill=True)

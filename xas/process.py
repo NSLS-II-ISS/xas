@@ -19,251 +19,49 @@ def process_interpolate_bin(doc, db, draw_func_interp = None, draw_func_bin = No
     logger = get_logger()
     if 'experiment' in db[doc['run_start']].start.keys():
         uid = doc['run_start']
-        experiment =  db[uid].start['experiment']
-        if  experiment.startswith('fly'):
-            path_to_file = db[uid].start['interp_filename']
-            e0 = find_e0(db,uid)
-            comments = create_file_header(db,uid)
-            validate_path_exists(db,uid)
-            path_to_file = validate_file_exists(path_to_file, file_type = 'interp')
-
-            try:
-                if experiment == 'fly_energy_scan':
-                    raw_dict = load_dataset_from_files(db, uid)
-                    key_base = 'i0'
-                elif experiment == 'fly_energy_scan_apb':
-                    apb_df, energy_df, energy_offset = load_apb_dataset_from_db(db, uid)
-                    raw_dict = translate_apb_dataset(apb_df, energy_df, energy_offset)
-                    key_base = 'i0'
-                elif experiment == 'fly_energy_scan_xs3':
-                    apb_df, energy_df, energy_offset = load_apb_dataset_from_db(db, uid)
-                    raw_dict = translate_apb_dataset(apb_df, energy_df, energy_offset)
-
-                    apb_trig_timestamps = load_apb_trig_dataset_from_db(db, uid)
-                    xs3_dict = load_xs3_dataset_from_db(db, uid, apb_trig_timestamps)
-
-                    raw_dict = {**raw_dict, **xs3_dict}
-                    key_base = 'CHAN1ROI1'
-                elif experiment == 'fly_energy_scan_pil100k':
-                    # PLACEHOLDER !!!!
-                    apb_df, energy_df, energy_offset = load_apb_dataset_from_db(db, uid)
-                    raw_dict = translate_apb_dataset(apb_df, energy_df, energy_offset)
-                    apb_trig_timestamps = load_apb_trig_dataset_from_db(db, uid, use_fall=True, stream_name='apb_trigger_pil100k')
-                    pil100k_dict = load_pil100k_dataset_from_db(db, uid, apb_trig_timestamps)
-                    raw_dict = {**raw_dict, **pil100k_dict}
-                    key_base = 'pil100k_ROI1'
-
-                logger.info(f'({ttime.ctime()}) Loading file successful for UID {uid}/{path_to_file}')
-            except:
-                logger.info(f'({ttime.ctime()}) Loading file failed for UID {uid}/{path_to_file}')
-            try:
-                interpolated_df = interpolate(raw_dict, key_base = key_base)
-                logger.info(f'({ttime.ctime()}) Interpolation successful for {path_to_file}')
-                save_interpolated_df_as_file(path_to_file, interpolated_df, comments)
-            except:
-                logger.info(f'({ttime.ctime()}) Interpolation failed for {path_to_file}')
-
-            try:
-                if e0 >0:
-                    binned_df = bin(interpolated_df,e0)
-                    logger.info(f'({ttime.ctime()}) Binning successful for {path_to_file}')
-                    save_binned_df_as_file(path_to_file, binned_df, comments)
-                    if draw_func_interp is not None:
-                        draw_func_interp(interpolated_df)
-                    if draw_func_bin is not None:
-                        draw_func_bin(binned_df, path_to_file)
-                else:
-                    print('({ttime.ctime()}) Energy E0 is not defined')
-            except:
-                logger.info(f'({ttime.ctime()}) Binning failed for {path_to_file}')
-            (path, extension) = os.path.splitext(path_to_file)
-            path_to_binned = path + '.dat'
-
-            try:
-                if cloud_dispatcher is not None:
-                    cloud_dispatcher.load_to_dropbox(path_to_binned)
-                    logger.info(f'({ttime.ctime()}) Sending data to the cloud successful for {path_to_binned}')
-            #         #WIP workaround
-            #         #channel = db[uid].start['slack_channel']
-            #         #slack_service = cloud_dispatcher.slack_service
-            #         #image_path = os.path.splitext(path_to_binned)[0] + '.png'
-            #         #generate_output_figures(path_to_binned, image_path)
-            #         #label = os.path.basename(path).split('.')[0]
-            #         #slack_upload_image(slack_service,channel,image_path,label)
-            #         #cloud_dispatcher.post_to_slack(path_to_binned ,db[uid].start['slack_channel'])
-            #         logger.info(f'Sending data to the cloud successful for {path_to_binned}')
-            except:
-                logger.info(f'({ttime.ctime()}) Sending data to the cloud failed for {path_to_binned}')
-
-            # # if cloud_dispatcher is not None:
-            # #     cloud_dispatcher.load_to_dropbox(path_to_binned)
-            # #     cloud_dispatcher.post_to_slack(path_to_binned ,db[uid].start['slack_channel'])
-            # #     logger.info(f'Sending data to the cloud successful for {path_to_binned}')
-        elif experiment.startswith('step'):
-            path_to_file = db[uid].start['interp_filename']
-            validate_path_exists(db,uid)
-            path_to_file = validate_file_exists(path_to_file, file_type = 'interp')
-            comments = create_file_header(db, uid)
-            df = stepscan_remove_offsets(db[uid])
-            df = stepscan_normalize_xs(df)
-            df = combine_xspress3_channels(df)
-            # ghnfg
-            save_stepscan_as_file(path_to_file, df, comments)
-
-            # ###########################################################
-            # # LOCKARD PROCESSING
-            # ###########################################################
-            # # storing table as hdf
-            # dump_to_hdf = True
-            # if dump_to_hdf:
-            #     hdf_fn = os.path.splitext(path_to_file)[0]+'.h5'
-            #     # hdr = db[uid]
-            #     t = db[uid].table(fill=True)
-            #     t.to_hdf(hdf_fn, 'data')
-            # dump_to_tiff_pushkar = True
-            # if dump_to_tiff_pushkar:
-            #     # deal with paths
-            #     tiff_storage_path = os.path.dirname(path_to_file) + '/tiff_storage/'
-            #     scan_name = os.path.splitext(os.path.basename(path_to_file))[0]
-            #     dat_file_fpath = tiff_storage_path + scan_name + '.dat'
-            #     tiff_images_path = tiff_storage_path + scan_name + '/'
-            # #
-            #     try:
-            #         os.mkdir(tiff_images_path)
-            #     except FileExistsError:
-            #         print('Warning Folder exists')
-            #         return
-            # #
-            # #     # deal with images
-            #     filename_list = []
-            #     for i, im in enumerate(t['pil100k_image']):
-            #         image_data = Image.fromarray(im)
-            # #
-            #         tiff_filename = '{}{:04d}{}'.format('image', i + 1, '.tiff')
-            #         tiff_path = tiff_images_path + tiff_filename
-            #         print(f'TIFF STORAGE: tiff will be saved in {tiff_path}')
-            #         image_data.save(tiff_path)
-            #         filename_list.append(tiff_filename)
-            # #
-            # #     # deal with table file
-            #     table_red = df[['hhm_energy', 'apb_ave_ch1_mean', 'apb_ave_ch2_mean', 'apb_ave_ch3_mean', 'apb_ave_ch4_mean']]
-            #
-            #     table_red = table_red.rename(
-            #         columns={'hhm_energy': '# energy', 'apb_ave_ch1': 'i0', 'apb_ave_ch2': 'it', 'apb_ave_ch3': 'ir',
-            #                  'apb_ave_ch4': 'iff'})
-            #     # table_red = df
-            #     table_red['filenames'] = filename_list
-            #     print(f'TIFF STORAGE: dat will be saved in {dat_file_fpath}')
-            #     table_red.to_csv(dat_file_fpath, sep='\t', index=False)
-
-            ###########################################################
-            # PUSHKAR PROCESSING
-            ###########################################################
-            #storing table as hdf
-            # dump_to_hdf = True
-            # if dump_to_hdf:
-            #     hdf_fn = os.path.splitext(path_to_file)[0]+'.h5'
-            #     hdr = db[uid]
-            #     t = db[uid].table(fill=True)
-            #     t.to_hdf(hdf_fn, 'data')
-            # dump_to_tiff_pushkar = True
-            # if dump_to_tiff_pushkar:
-            #     # deal with paths
-            #     tiff_storage_path = os.path.dirname(path_to_file) + '/tiff_storage/'
-            #     scan_name = os.path.splitext(os.path.basename(path_to_file))[0]
-            #     dat_file_fpath = tiff_storage_path + scan_name + '.dat'
-            #     tiff_images_path = tiff_storage_path + scan_name + '/'
-            #
-            #     try:
-            #         os.mkdir(tiff_images_path)
-            #     except FileExistsError:
-            #         print('Warning Folder exists')
-            #         return
-            #
-            #     # deal with images
-            #     # filename_list = []
-            #     for i, im in enumerate(t['pil100k_image']):
-            #         image_data = Image.fromarray(im)
-            #
-            #         tiff_filename = '{}{:04d}{}'.format('image', i + 1, '.tif')
-            #         tiff_path = tiff_images_path + tiff_filename
-            #         print(f'TIFF STORAGE: tiff will be saved in {tiff_path}')
-            #         image_data.save(tiff_path)
-            #         # filename_list.append(tiff_filename)
-            #
-            #     # deal with table file
-            #     table_red = t[['hhm_energy', 'apb_ave_ch1', 'apb_ave_ch2', 'apb_ave_ch3', 'apb_ave_ch4']]
-            #
-            #
-            #     table_red = table_red.rename(
-            #         columns={'hhm_energy': '# energy', 'apb_ave_ch1': 'i0', 'apb_ave_ch2': 'it', 'apb_ave_ch3': 'ir',
-            #                  'apb_ave_ch4': 'iff'})
-            #     # table_red['filenames'] = filename_list
-            #     print(f'TIFF STORAGE: dat will be saved in {dat_file_fpath}')
-            #     table_red.to_csv(dat_file_fpath, sep='\t', index=False)
+        process_interpolate_bin_from_uid(uid, db, draw_func_interp=draw_func_interp, draw_func_bin=draw_func_bin, cloud_dispatcher=cloud_dispatcher)
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-def process_interpolate_bin_offline(uid, db, draw_func_interp = None, draw_func_bin = None, cloud_dispatcher = None):
+def process_interpolate_bin_from_uid(uid, db, draw_func_interp = None, draw_func_bin = None, cloud_dispatcher = None):
     logger = get_logger()
-    experiment = db[uid].start['experiment']
-    if experiment.startswith('fly'):
-        path_to_file = db[uid].start['interp_filename']
+    hdr = db[uid]
+    experiment = hdr.start['experiment']
+
+    if experiment == 'fly_scan':
+        path_to_file = hdr.start['interp_filename']
         e0 = find_e0(db, uid)
         comments = create_file_header(db, uid)
         validate_path_exists(db, uid)
         path_to_file = validate_file_exists(path_to_file, file_type='interp')
 
-        # try:
-        if experiment == 'fly_energy_scan':
-            raw_dict = load_dataset_from_files(db, uid)
-            key_base = 'i0'
-        elif experiment == 'fly_energy_scan_apb':
-            apb_df, energy_df, energy_offset = load_apb_dataset_from_db(db, uid)
-            raw_dict = translate_apb_dataset(apb_df, energy_df, energy_offset)
-            key_base = 'i0'
-        elif experiment == 'fly_energy_scan_xs3':
-            apb_df, energy_df, energy_offset = load_apb_dataset_from_db(db, uid)
-            raw_dict = translate_apb_dataset(apb_df, energy_df, energy_offset)
-
-            apb_trig_timestamps = load_apb_trig_dataset_from_db(db, uid)
-            xs3_dict = load_xs3_dataset_from_db(db, uid, apb_trig_timestamps)
-
-            raw_dict = {**raw_dict, **xs3_dict}
-            key_base = 'CHAN1ROI1'
-        elif experiment == 'fly_energy_scan_pil100k':
-            # PLACEHOLDER !!!!
-            apb_df, energy_df, energy_offset = load_apb_dataset_from_db(db, uid)
-            raw_dict = translate_apb_dataset(apb_df, energy_df, energy_offset)
-            apb_trig_timestamps = load_apb_trig_dataset_from_db(db, uid, use_fall=True,
-                                                                stream_name='apb_trigger_pil100k')
-            pil100k_dict = load_pil100k_dataset_from_db(db, uid, apb_trig_timestamps)
-            raw_dict = {**raw_dict, **pil100k_dict}
-            key_base = 'pil100k_ROI1'
-
-        logger.info(f'({ttime.ctime()}) Loading file successful for UID {uid}/{path_to_file}')
-        # except:
-        #     logger.info(f'({ttime.ctime()}) Loading file failed for UID {uid}/{path_to_file}')
+        stream_names = hdr.stream_names
         try:
-            interpolated_df = interpolate(raw_dict, key_base=key_base)
+            # default detectors
+            apb_df, energy_df, energy_offset = load_apb_dataset_from_db(db, uid)
+            raw_dict = translate_apb_dataset(apb_df, energy_df, energy_offset)
+
+            for stream_name in stream_names:
+                if stream_name == 'pil100k_stream':
+                    apb_trigger_pil100k_timestamps = load_apb_trig_dataset_from_db(db, uid, use_fall=True, stream_name='apb_trigger_pil100k')
+                    pil100k_dict = load_pil100k_dataset_from_db(db, uid, apb_trigger_pil100k_timestamps)
+                    raw_dict = {**raw_dict, **pil100k_dict}
+
+                elif stream_name == 'xs_stream':
+                    apb_trigger_xs_timestamps = load_apb_trig_dataset_from_db(db, uid, stream_name='apb_trigger_xs')
+                    xs3_dict = load_xs3_dataset_from_db(db, uid, apb_trigger_xs_timestamps)
+                    raw_dict = {**raw_dict, **xs3_dict}
+
+            logger.info(f'({ttime.ctime()}) Loading file successful for UID {uid}/{path_to_file}')
+        except Exception as e:
+            print(e)
+            logger.info(f'({ttime.ctime()}) Loading file failed for UID {uid}/{path_to_file}')
+
+        try:
+            interpolated_df = interpolate(raw_dict)
             logger.info(f'({ttime.ctime()}) Interpolation successful for {path_to_file}')
             save_interpolated_df_as_file(path_to_file, interpolated_df, comments)
-        except:
+        except Exception as e:
+            print(e)
             logger.info(f'({ttime.ctime()}) Interpolation failed for {path_to_file}')
 
         try:
@@ -277,7 +75,8 @@ def process_interpolate_bin_offline(uid, db, draw_func_interp = None, draw_func_
                     draw_func_bin(binned_df, path_to_file)
             else:
                 print('({ttime.ctime()}) Energy E0 is not defined')
-        except:
+        except Exception as e:
+            print(e)
             logger.info(f'({ttime.ctime()}) Binning failed for {path_to_file}')
         (path, extension) = os.path.splitext(path_to_file)
         path_to_binned = path + '.dat'
@@ -295,14 +94,15 @@ def process_interpolate_bin_offline(uid, db, draw_func_interp = None, draw_func_
         #         #slack_upload_image(slack_service,channel,image_path,label)
         #         #cloud_dispatcher.post_to_slack(path_to_binned ,db[uid].start['slack_channel'])
         #         logger.info(f'Sending data to the cloud successful for {path_to_binned}')
-        except:
+        except Exception as e:
+            print(e)
             logger.info(f'({ttime.ctime()}) Sending data to the cloud failed for {path_to_binned}')
 
         # # if cloud_dispatcher is not None:
         # #     cloud_dispatcher.load_to_dropbox(path_to_binned)
         # #     cloud_dispatcher.post_to_slack(path_to_binned ,db[uid].start['slack_channel'])
         # #     logger.info(f'Sending data to the cloud successful for {path_to_binned}')
-    elif experiment.startswith('step'):
+    elif experiment == 'step_scan':
         path_to_file = db[uid].start['interp_filename']
         validate_path_exists(db, uid)
         path_to_file = validate_file_exists(path_to_file, file_type='interp')
@@ -337,6 +137,97 @@ def process_interpolate_unsorted(uid, db):
 ################
 
 
+# ###########################################################
+# # LOCKARD PROCESSING
+# ###########################################################
+# # storing table as hdf
+# dump_to_hdf = True
+# if dump_to_hdf:
+#     hdf_fn = os.path.splitext(path_to_file)[0]+'.h5'
+#     # hdr = db[uid]
+#     t = db[uid].table(fill=True)
+#     t.to_hdf(hdf_fn, 'data')
+# dump_to_tiff_pushkar = True
+# if dump_to_tiff_pushkar:
+#     # deal with paths
+#     tiff_storage_path = os.path.dirname(path_to_file) + '/tiff_storage/'
+#     scan_name = os.path.splitext(os.path.basename(path_to_file))[0]
+#     dat_file_fpath = tiff_storage_path + scan_name + '.dat'
+#     tiff_images_path = tiff_storage_path + scan_name + '/'
+# #
+#     try:
+#         os.mkdir(tiff_images_path)
+#     except FileExistsError:
+#         print('Warning Folder exists')
+#         return
+# #
+# #     # deal with images
+#     filename_list = []
+#     for i, im in enumerate(t['pil100k_image']):
+#         image_data = Image.fromarray(im)
+# #
+#         tiff_filename = '{}{:04d}{}'.format('image', i + 1, '.tiff')
+#         tiff_path = tiff_images_path + tiff_filename
+#         print(f'TIFF STORAGE: tiff will be saved in {tiff_path}')
+#         image_data.save(tiff_path)
+#         filename_list.append(tiff_filename)
+# #
+# #     # deal with table file
+#     table_red = df[['hhm_energy', 'apb_ave_ch1_mean', 'apb_ave_ch2_mean', 'apb_ave_ch3_mean', 'apb_ave_ch4_mean']]
+#
+#     table_red = table_red.rename(
+#         columns={'hhm_energy': '# energy', 'apb_ave_ch1': 'i0', 'apb_ave_ch2': 'it', 'apb_ave_ch3': 'ir',
+#                  'apb_ave_ch4': 'iff'})
+#     # table_red = df
+#     table_red['filenames'] = filename_list
+#     print(f'TIFF STORAGE: dat will be saved in {dat_file_fpath}')
+#     table_red.to_csv(dat_file_fpath, sep='\t', index=False)
+
+###########################################################
+# PUSHKAR PROCESSING
+###########################################################
+# storing table as hdf
+# dump_to_hdf = True
+# if dump_to_hdf:
+#     hdf_fn = os.path.splitext(path_to_file)[0]+'.h5'
+#     hdr = db[uid]
+#     t = db[uid].table(fill=True)
+#     t.to_hdf(hdf_fn, 'data')
+# dump_to_tiff_pushkar = True
+# if dump_to_tiff_pushkar:
+#     # deal with paths
+#     tiff_storage_path = os.path.dirname(path_to_file) + '/tiff_storage/'
+#     scan_name = os.path.splitext(os.path.basename(path_to_file))[0]
+#     dat_file_fpath = tiff_storage_path + scan_name + '.dat'
+#     tiff_images_path = tiff_storage_path + scan_name + '/'
+#
+#     try:
+#         os.mkdir(tiff_images_path)
+#     except FileExistsError:
+#         print('Warning Folder exists')
+#         return
+#
+#     # deal with images
+#     # filename_list = []
+#     for i, im in enumerate(t['pil100k_image']):
+#         image_data = Image.fromarray(im)
+#
+#         tiff_filename = '{}{:04d}{}'.format('image', i + 1, '.tif')
+#         tiff_path = tiff_images_path + tiff_filename
+#         print(f'TIFF STORAGE: tiff will be saved in {tiff_path}')
+#         image_data.save(tiff_path)
+#         # filename_list.append(tiff_filename)
+#
+#     # deal with table file
+#     table_red = t[['hhm_energy', 'apb_ave_ch1', 'apb_ave_ch2', 'apb_ave_ch3', 'apb_ave_ch4']]
+#
+#
+#     table_red = table_red.rename(
+#         columns={'hhm_energy': '# energy', 'apb_ave_ch1': 'i0', 'apb_ave_ch2': 'it', 'apb_ave_ch3': 'ir',
+#                  'apb_ave_ch4': 'iff'})
+#     # table_red['filenames'] = filename_list
+#     print(f'TIFF STORAGE: dat will be saved in {dat_file_fpath}')
+#     table_red.to_csv(dat_file_fpath, sep='\t', index=False)
 
 
 # scratch
