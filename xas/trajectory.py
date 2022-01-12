@@ -491,9 +491,10 @@ class TrajectoryCreator():
 
     def define_complete(self, scan_parameters, lightweight=False):
         self.define_from_dict(scan_parameters)
-        if scan_parameters['revert']: self.revert_light()
-        self.tile_light(reps=scan_parameters['repeat'], single_direction=scan_parameters['single_direction'])
-        if not lightweight:
+        if lightweight:
+            if scan_parameters['revert']: self.revert_light()
+            self.tile_light(reps=scan_parameters['repeat'], single_direction=scan_parameters['single_direction'])
+        else:
             self.interpolate()
             if scan_parameters['revert']: self.revert()
             self.tile(reps=scan_parameters['repeat'], single_direction=scan_parameters['single_direction'])
