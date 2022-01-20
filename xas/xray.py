@@ -172,7 +172,36 @@ def generate_emission_energy_grid(e0, preline_start, mainline_start, mainline_en
         energy_grid = energy_grid[::-1]
         time_grid = time_grid[::-1]
 
-    time = np.cumsum(time_grid)
 
-    return energy_grid, time_grid, time
 
+    return energy_grid, time_grid
+
+def generate_emission_energy_grid_from_dict(scan_parameters):
+    if 'preline_dwelltime' in scan_parameters.keys():
+        preline_dwelltime = scan_parameters['preline_dwelltime']
+    else:
+        preline_dwelltime = 1
+
+    if 'mainline_dwelltime' in scan_parameters.keys():
+        mainline_dwelltime = scan_parameters['preline_dwelltime']
+    else:
+        mainline_dwelltime = 1
+
+    if 'postline_dwelltime' in scan_parameters.keys():
+        postline_dwelltime = scan_parameters['postline_dwelltime']
+    else:
+        postline_dwelltime = 1
+
+    energy_grid, time_grid = generate_emission_energy_grid(scan_parameters['e0'],
+                                                           scan_parameters['preline_start'],
+                                                           scan_parameters['mainline_start'],
+                                                           scan_parameters['mainline_end'],
+                                                           scan_parameters['postline_end'],
+                                                           scan_parameters['preline_stepsize'],
+                                                           scan_parameters['mainline_stepsize'],
+                                                           scan_parameters['postline_stepsize'],
+                                                           preline_dwelltime,
+                                                           mainline_dwelltime,
+                                                           postline_dwelltime,
+                                                           scan_parameters['revert'])
+    return energy_grid, time_grid
