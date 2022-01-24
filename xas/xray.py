@@ -183,7 +183,7 @@ def generate_emission_energy_grid_from_dict(scan_parameters):
         preline_dwelltime = 1
 
     if 'mainline_dwelltime' in scan_parameters.keys():
-        mainline_dwelltime = scan_parameters['preline_dwelltime']
+        mainline_dwelltime = scan_parameters['mainline_dwelltime']
     else:
         mainline_dwelltime = 1
 
