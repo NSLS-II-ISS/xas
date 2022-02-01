@@ -58,7 +58,8 @@ def get_energy_offset(uid, db, db_proc, dE=25, plot_fun=None):
         element = start['element']
         edge = start['edge']
         e0 = float(start['e0'])
-        energy_ref, mu_ref = get_foil_spectrum(element, edge, db_proc)
+        # energy_ref, mu_ref = get_foil_spectrum(element, edge, db_proc)
+        energy_ref, mu_ref = db_proc.foil_spectrum(element, edge)
         mask = (energy_ref >= (e0 - dE)) & (energy_ref <= (e0 + dE))
 
         energy_ref_roi = energy_ref[mask]
