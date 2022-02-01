@@ -130,19 +130,36 @@ def generate_energy_grid(e0, preedge_start, xanes_start, xanes_end, exafs_end, p
     #return np.append(np.append(preedge, edge), postedge)
 
 
+def generate_linear_energy_grid(energy_min, energy_max, energy_step, dwell_time):
+    npts = int((energy_max - energy_min) / energy_step + 1)
+    grid = np.linspace(energy_min, energy_max, npts)
+    integration_times = np.ones(grid.size) * dwell_time
+    return grid, integration_times
+
 def generate_energy_grid_from_dict(scan_parameters):
-    energy, time_grid = generate_energy_grid(scan_parameters['e0'],
-                                             scan_parameters['preedge_start'],
-                                             scan_parameters['XANES_start'],
-                                             scan_parameters['XANES_end'],
-                                             scan_parameters['EXAFS_end'],
-                                             scan_parameters['preedge_stepsize'],
-                                             scan_parameters['XANES_stepsize'],
-                                             scan_parameters['EXAFS_stepsize'],
-                                             dwell_time_preedge= scan_parameters['preedge_dwelltime'],
-                                             dwell_time_xanes= scan_parameters['XANES_dwelltime'],
-                                             dwell_time_exafs= scan_parameters['EXAFS_dwelltime'],
-                                             k_power = scan_parameters['k_power'])
+    if 'grid_kind' in scan_parameters.keys():
+        grid_kind = scan_parameters['grid_kind']
+    else:
+        grid_kind = 'xas'
+    if grid_kind == 'xas':
+        energy, time_grid = generate_energy_grid(scan_parameters['e0'],
+                                                 scan_parameters['preedge_start'],
+                                                 scan_parameters['XANES_start'],
+                                                 scan_parameters['XANES_end'],
+                                                 scan_parameters['EXAFS_end'],
+                                                 scan_parameters['preedge_stepsize'],
+                                                 scan_parameters['XANES_stepsize'],
+                                                 scan_parameters['EXAFS_stepsize'],
+                                                 dwell_time_preedge= scan_parameters['preedge_dwelltime'],
+                                                 dwell_time_xanes= scan_parameters['XANES_dwelltime'],
+                                                 dwell_time_exafs= scan_parameters['EXAFS_dwelltime'],
+                                                 k_power = scan_parameters['k_power'])
+    elif grid_kind == 'linear':
+        energy, time_grid = generate_linear_energy_grid(scan_parameters['energy_min'],
+                                                        scan_parameters['energy_max'],
+                                                        scan_parameters['energy_step'],
+                                                        scan_parameters['dwell_time'])
+
     if scan_parameters['revert']:
         energy = energy[::-1]
         time_grid = time_grid[::-1]
