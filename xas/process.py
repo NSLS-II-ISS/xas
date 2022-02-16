@@ -15,14 +15,18 @@ from isscloudtools.slack import slack_upload_image
 from isscloudtools.cloud_dispatcher import generate_output_figures
 from PIL import Image
 
-def process_interpolate_bin(doc, db, draw_func_interp = None, draw_func_bin = None, cloud_dispatcher = None):
-    logger = get_logger()
+def process_interpolate_bin(doc, db, draw_func_interp = None, draw_func_bin = None, cloud_dispatcher = None, print_func=None):
+    # logger = get_logger()
     if 'experiment' in db[doc['run_start']].start.keys():
         uid = doc['run_start']
-        process_interpolate_bin_from_uid(uid, db, draw_func_interp=draw_func_interp, draw_func_bin=draw_func_bin, cloud_dispatcher=cloud_dispatcher)
+        process_interpolate_bin_from_uid(uid, db, draw_func_interp=draw_func_interp, draw_func_bin=draw_func_bin, cloud_dispatcher=cloud_dispatcher, print_func=print_func)
 
 
-def process_interpolate_bin_from_uid(uid, db, draw_func_interp = None, draw_func_bin = None, cloud_dispatcher = None):
+def process_interpolate_bin_from_uid(uid, db, draw_func_interp = None, draw_func_bin = None, cloud_dispatcher = None, print_func=None):
+    if print_func is None:
+        print_func = print
+
+    # logger = get_logger(print_func=print_func)
     logger = get_logger()
     hdr = db[uid]
     experiment = hdr.start['experiment']

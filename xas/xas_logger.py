@@ -1,13 +1,27 @@
 import logging
 import logging.handlers
 
+def add_new_print_to_logger(logger, print_func):
+    info_func = logger.info
 
-def get_logger():
+    def new_info_func(msg):
+        info_func(msg)
+        print_func(msg)
+
+    logger.info = new_info_func
+
+
+
+def get_logger(print_func=None):
     # Setup beamline specifics:
     beamline_gpfs_path = '/nsls2/xf08id'
 
     logger = logging.getLogger('xas_logger')
     formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    logger.propagate = False
+
+    # if print_func is not None:
+    #     add_new_print_to_logger(logger, print_func)
 
     # only add handlers if not added before
     if not len(logger.handlers):
