@@ -57,17 +57,16 @@ def process_interpolate_bin_from_uid(uid, db, draw_func_interp = None, draw_func
 
             logger.info(f'({ttime.ctime()}) Loading file successful for UID {uid}/{path_to_file}')
         except Exception as e:
-            print(e)
             logger.info(f'({ttime.ctime()}) Loading file failed for UID {uid}/{path_to_file}')
-
+            raise e
         try:
             interpolated_df = interpolate(raw_dict)
             logger.info(f'({ttime.ctime()}) Interpolation successful for {path_to_file}')
             save_interpolated_df_as_file(path_to_file, interpolated_df, comments)
         except Exception as e:
-            print(e)
-            logger.info(f'({ttime.ctime()}) Interpolation failed for {path_to_file}')
 
+            logger.info(f'({ttime.ctime()}) Interpolation failed for {path_to_file}')
+            raise e
         try:
             if e0 > 0:
                 binned_df = bin(interpolated_df, e0)
@@ -80,8 +79,8 @@ def process_interpolate_bin_from_uid(uid, db, draw_func_interp = None, draw_func
             else:
                 print('({ttime.ctime()}) Energy E0 is not defined')
         except Exception as e:
-            print(e)
             logger.info(f'({ttime.ctime()}) Binning failed for {path_to_file}')
+            raise e
         (path, extension) = os.path.splitext(path_to_file)
         path_to_binned = path + '.dat'
 
@@ -99,8 +98,8 @@ def process_interpolate_bin_from_uid(uid, db, draw_func_interp = None, draw_func
         #         #cloud_dispatcher.post_to_slack(path_to_binned ,db[uid].start['slack_channel'])
         #         logger.info(f'Sending data to the cloud successful for {path_to_binned}')
         except Exception as e:
-            print(e)
             logger.info(f'({ttime.ctime()}) Sending data to the cloud failed for {path_to_binned}')
+            raise e
 
         # # if cloud_dispatcher is not None:
         # #     cloud_dispatcher.load_to_dropbox(path_to_binned)
