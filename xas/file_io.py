@@ -100,9 +100,11 @@ def validate_file_exists(path_to_file,file_type = 'interp'):
         return path_to_file
 
 def make_user_dir(path):
-    if not os.path.isdir(path):
+    folder_exists = os.path.isdir(path)
+    if not folder_exists:
         os.mkdir(path)
         call(['chmod', '777', path])
+    return folder_exists
 
 def validate_path_exists(db, uid):
     path_to_file = db[uid].start['interp_filename']
