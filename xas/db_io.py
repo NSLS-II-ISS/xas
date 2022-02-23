@@ -87,7 +87,8 @@ def load_apb_trig_dataset_from_db(db, uid, use_fall=True, stream_name='apb_trigg
 def load_xs3_dataset_from_db(db, uid, apb_trig_timestamps):
     hdr = db[uid]
     t = hdr.table(stream_name='xs_stream', fill=True)['xs_stream']
-    n_spectra = t.size
+    # n_spectra = t.size
+    n_spectra = min(t.size, apb_trig_timestamps.size)
     xs_timestamps = apb_trig_timestamps[:n_spectra]
     chan_roi_names = [f'CHAN{c}ROI{r}' for c, r in product([1, 2, 3, 4], [1, 2, 3, 4])]
     spectra = {}
