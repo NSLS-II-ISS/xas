@@ -110,7 +110,8 @@ def load_pil100k_dataset_from_db(db, uid, apb_trig_timestamps, input_type='hdf5'
     spectra = {}
     if input_type == 'tiff':
         t = hdr.table(stream_name='pil100k_stream', fill=True)['pil100k_stream']
-        n_images = t.shape[0]
+        # n_images = t.shape[0]
+        n_images = min(t.size, apb_trig_timestamps.size)
         pil100k_timestamps = apb_trig_timestamps[:n_images]
 
         image_array = np.array([i for i in t])
@@ -124,7 +125,8 @@ def load_pil100k_dataset_from_db(db, uid, apb_trig_timestamps, input_type='hdf5'
             spectra[f'pil100k_ROI{j+1}'] = pd.DataFrame(np.vstack((pil100k_timestamps, this_spectrum)).T, columns=['timestamp', f'pil100k_ROI{j+1}'])
     elif input_type == 'hdf5':
         t = hdr.table(stream_name='pil100k_stream', fill=True)['pil100k_stream']
-        n_images = t.shape[0]
+        # n_images = t.shape[0]
+        n_images = min(t.size, apb_trig_timestamps.size)
         pil100k_timestamps = apb_trig_timestamps[:n_images]
         keys = t[1].keys()
         # keys = [k for k in t[1].keys() if ('roi' in k.lower())] # do only those with roi in the name

@@ -116,6 +116,47 @@ def process_interpolate_bin_from_uid(uid, db, draw_func_interp = None, draw_func
         # ghnfg
         save_stepscan_as_file(path_to_file, df, comments)
 
+        dump_to_tiff = True
+        if dump_to_tiff:
+            # deal with paths
+            tiff_storage_path = os.path.dirname(path_to_file) + '/tiff_storage/'
+            scan_name = os.path.splitext(os.path.basename(path_to_file))[0]
+            dat_file_fpath = tiff_storage_path + scan_name + '.dat'
+            tiff_images_path = tiff_storage_path + scan_name + '/'
+
+            try:
+                os.mkdir(tiff_storage_path)
+            except FileExistsError:
+                pass
+
+            try:
+                os.mkdir(tiff_images_path)
+            except FileExistsError:
+                print('Warning Folder exists')
+                return
+        #
+        #     # deal with images
+            t = db[uid].table(fill=True)
+            filename_list = []
+            for i, im in enumerate(t['pil100k_image']):
+                image_data = Image.fromarray(im[0])
+        #
+                tiff_filename = '{}{:04d}{}'.format('image', i + 1, '.tiff')
+                tiff_path = tiff_images_path + tiff_filename
+                print(f'TIFF STORAGE: tiff will be saved in {tiff_path}')
+                image_data.save(tiff_path)
+                filename_list.append(tiff_filename)
+        #
+        #     # deal with table file
+            table_red = df[['hhm_energy', 'apb_ave_ch1_mean', 'apb_ave_ch2_mean', 'apb_ave_ch3_mean', 'apb_ave_ch4_mean']]
+
+            table_red = table_red.rename(
+                columns={'hhm_energy': '# energy', 'apb_ave_ch1': 'i0', 'apb_ave_ch2': 'it', 'apb_ave_ch3': 'ir',
+                         'apb_ave_ch4': 'iff'})
+            # table_red = df
+            table_red['filenames'] = filename_list
+            print(f'TIFF STORAGE: dat will be saved in {dat_file_fpath}')
+            table_red.to_csv(dat_file_fpath, sep='\t', index=False)
 
 
 
