@@ -401,8 +401,8 @@ xs_channel_comb_dict = {'xs_ROI1' : [#'xs_channel1_rois_roi01_value',
 
 
 
-def stepscan_remove_offsets(hdr):
-    df = hdr.table()
+def stepscan_remove_offsets(hdr, fill=True):
+    df = hdr.table(fill=True)
 
     for channel_name, _ in stepscan_channel_dict.items():
         if channel_name.startswith('apb'):
@@ -433,6 +433,28 @@ def combine_xspress3_channels(df):
     return df
 
 
+def filter_df_by_valid_keys(df):
+    d = {}
+    for key, new_key in stepscan_channel_dict.items():
+        if key in df.columns:
+            d[new_key] = df[key].values
+    return pd.DataFrame(d)
+
+
+def write_df_to_file(path_to_file, df, comments):
+    cols = df.columns.tolist()
+
+    fmt = '%12.6f ' + (' '.join(['%12.6e' for i in range(len(cols) - 1)]))
+    header = '  '.join(cols)
+
+    # df = df[cols]
+    np.savetxt(path_to_file,
+               df.values,
+               fmt=fmt,
+               delimiter=" ",
+               header=f'# {header}',
+               comments=comments)
+    call(['chmod', '774', path_to_file])
 
 
 def save_stepscan_as_file(path_to_file, df, comments):
@@ -441,26 +463,12 @@ def save_stepscan_as_file(path_to_file, df, comments):
     # and rename
 
     # valid_keys = set(stepscan_channel_dict.keys()) & set(df.columns)
-    valid_keys = [key for key in stepscan_channel_dict.keys() if key in df.columns]
-    data = df[valid_keys]
-
-    data.columns = [stepscan_channel_dict[k] for k in data.columns]
-
-    cols = data.columns.tolist()
-
-    fmt = '%12.6f ' + (' '.join(['%12.6e' for i in range(len(cols) - 1)]))
-    header = '  '.join(cols)
-
-    #df = df[cols]
-    np.savetxt(path_to_file,
-               data.values,
-               fmt=fmt,
-               delimiter=" ",
-               header=f'# {header}',
-               comments=comments)
-
-    #print("changing permissions to 774")
-    call(['chmod', '774', path_to_file])
+    # valid_keys = [key for key in stepscan_channel_dict.keys() if key in df.columns]
+    # data = df[valid_keys]
+    df_upd = filter_df_by_valid_keys(df)
+    # data.columns = [stepscan_channel_dict[k] for k in data.columns]
+    write_df_to_file(path_to_file, df_upd, comments)
+    return df_upd
 
 
 # # ########@

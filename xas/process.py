@@ -14,6 +14,7 @@ import os
 from isscloudtools.slack import slack_upload_image
 from isscloudtools.cloud_dispatcher import generate_output_figures
 from PIL import Image
+from .vonhamos import process_von_hamos_scan, save_vh_scan_to_file
 
 def process_interpolate_bin(doc, db, draw_func_interp = None, draw_func_bin = None, cloud_dispatcher = None, print_func=None):
     # logger = get_logger()
@@ -114,53 +115,118 @@ def process_interpolate_bin_from_uid(uid, db, draw_func_interp = None, draw_func
         df = stepscan_normalize_xs(df)
         df = combine_xspress3_channels(df)
         # ghnfg
-        save_stepscan_as_file(path_to_file, df, comments)
+        df_processed = save_stepscan_as_file(path_to_file, df, comments)
 
         dump_to_tiff = True
-        if dump_to_tiff:
-            # deal with paths
-            tiff_storage_path = os.path.dirname(path_to_file) + '/tiff_storage/'
-            scan_name = os.path.splitext(os.path.basename(path_to_file))[0]
-            dat_file_fpath = tiff_storage_path + scan_name + '.dat'
-            tiff_images_path = tiff_storage_path + scan_name + '/'
+        if dump_to_tiff: dump_tiff_images(db, uid, path_to_file, df)
 
-            try:
-                os.mkdir(tiff_storage_path)
-            except FileExistsError:
-                pass
 
-            try:
-                os.mkdir(tiff_images_path)
-            except FileExistsError:
-                print('Warning Folder exists')
-                return
+
+    elif experiment == 'collect_n_exposures':
+        path_to_file = db[uid].start['interp_filename']
+        validate_path_exists(db, uid)
+        path_to_file = validate_file_exists(path_to_file, file_type='interp')
+        comments = create_file_header(db, uid)
+        df = stepscan_remove_offsets(db[uid])
+        df = stepscan_normalize_xs(df)
+        df = combine_xspress3_channels(df)
+        df_processed = save_stepscan_as_file(path_to_file, df, comments)
+
+        dump_to_tiff = True
+        if dump_to_tiff: dump_tiff_images(db, uid, path_to_file, df)
+
+        if 'spectrometer' in db[uid].start.keys():
+            if db[uid].start['spectrometer'] == 'von_hamos':
+                vh_scan = process_von_hamos_scan(df_processed, df, roi='auto')
+                save_vh_scan_to_file(path_to_file, vh_scan, comments)
+
+
+        #     # deal with paths
+        #     tiff_storage_path = os.path.dirname(path_to_file) + '/tiff_storage/'
+        #     scan_name = os.path.splitext(os.path.basename(path_to_file))[0]
+        #     dat_file_fpath = tiff_storage_path + scan_name + '.dat'
+        #     tiff_images_path = tiff_storage_path + scan_name + '/'
         #
-        #     # deal with images
-            t = db[uid].table(fill=True)
-            filename_list = []
-            for i, im in enumerate(t['pil100k_image']):
-                image_data = Image.fromarray(im[0])
+        #     try:
+        #         os.mkdir(tiff_storage_path)
+        #     except FileExistsError:
+        #         pass
         #
-                tiff_filename = '{}{:04d}{}'.format('image', i + 1, '.tiff')
-                tiff_path = tiff_images_path + tiff_filename
-                print(f'TIFF STORAGE: tiff will be saved in {tiff_path}')
-                image_data.save(tiff_path)
-                filename_list.append(tiff_filename)
+        #     try:
+        #         os.mkdir(tiff_images_path)
+        #     except FileExistsError:
+        #         print('Warning Folder exists')
+        #         return
+        # #
+        # #     # deal with images
+        #     t = db[uid].table(fill=True)
+        #     filename_list = []
+        #     for i, im in enumerate(t['pil100k_image']):
+        #         image_data = Image.fromarray(im[0])
+        # #
+        #         tiff_filename = '{}{:04d}{}'.format('image', i + 1, '.tiff')
+        #         tiff_path = tiff_images_path + tiff_filename
+        #         print(f'TIFF STORAGE: tiff will be saved in {tiff_path}')
+        #         image_data.save(tiff_path)
+        #         filename_list.append(tiff_filename)
+        # #
+        # #     # deal with table file
+        #     table_red = df[['hhm_energy', 'apb_ave_ch1_mean', 'apb_ave_ch2_mean', 'apb_ave_ch3_mean', 'apb_ave_ch4_mean']]
         #
-        #     # deal with table file
-            table_red = df[['hhm_energy', 'apb_ave_ch1_mean', 'apb_ave_ch2_mean', 'apb_ave_ch3_mean', 'apb_ave_ch4_mean']]
-
-            table_red = table_red.rename(
-                columns={'hhm_energy': '# energy', 'apb_ave_ch1': 'i0', 'apb_ave_ch2': 'it', 'apb_ave_ch3': 'ir',
-                         'apb_ave_ch4': 'iff'})
-            # table_red = df
-            table_red['filenames'] = filename_list
-            print(f'TIFF STORAGE: dat will be saved in {dat_file_fpath}')
-            table_red.to_csv(dat_file_fpath, sep='\t', index=False)
+        #     table_red = table_red.rename(
+        #         columns={'hhm_energy': '# energy', 'apb_ave_ch1': 'i0', 'apb_ave_ch2': 'it', 'apb_ave_ch3': 'ir',
+        #                  'apb_ave_ch4': 'iff'})
+        #     # table_red = df
+        #     table_red['filenames'] = filename_list
+        #     print(f'TIFF STORAGE: dat will be saved in {dat_file_fpath}')
+        #     table_red.to_csv(dat_file_fpath, sep='\t', index=False)
 
 
+def dump_tiff_images(db, uid, path_to_file, df, tiff_storage_path='/tiff_storage/'):
 
+    # deal with paths
+    tiff_storage_path = os.path.dirname(path_to_file) + tiff_storage_path
+    scan_name = os.path.splitext(os.path.basename(path_to_file))[0]
+    dat_file_fpath = tiff_storage_path + scan_name + '.dat'
+    tiff_images_path = tiff_storage_path + scan_name + '/'
 
+    try:
+        os.mkdir(tiff_storage_path)
+    except FileExistsError:
+        pass
+
+    try:
+        os.mkdir(tiff_images_path)
+    except FileExistsError:
+        print('Warning Folder exists')
+        return
+    #
+    #     # deal with images
+    t = db[uid].table(fill=True)
+    filename_list = []
+    for i, im in enumerate(t['pil100k_image']):
+        image_data = Image.fromarray(im[0])
+        #
+        tiff_filename = '{}{:04d}{}'.format('image', i + 1, '.tiff')
+        tiff_path = tiff_images_path + tiff_filename
+        print(f'TIFF STORAGE: tiff will be saved in {tiff_path}')
+        image_data.save(tiff_path)
+        filename_list.append(tiff_filename)
+    #
+    #     # deal with table file
+    if 'hhm_energy' in df.columns:
+        table_red = df[['hhm_energy', 'apb_ave_ch1_mean', 'apb_ave_ch2_mean', 'apb_ave_ch3_mean', 'apb_ave_ch4_mean']]
+    else:
+        table_red = df[['apb_ave_ch1_mean', 'apb_ave_ch2_mean', 'apb_ave_ch3_mean', 'apb_ave_ch4_mean']]
+        table_red['hhm_energy'] = db[uid].start['hhm_energy']
+
+    table_red = table_red.rename(
+        columns={'hhm_energy': '# energy', 'apb_ave_ch1_mean': 'i0', 'apb_ave_ch2_mean': 'it', 'apb_ave_ch3_mean': 'ir',
+                 'apb_ave_ch4_mean': 'iff'})
+    # table_red = df
+    table_red['filenames'] = filename_list
+    print(f'TIFF STORAGE: dat will be saved in {dat_file_fpath}')
+    table_red.to_csv(dat_file_fpath, sep='\t', index=False)
 
 
 def process_interpolate_only(doc, db):
