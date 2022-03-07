@@ -327,6 +327,8 @@ def load_binned_df_from_file(filename):
     header = read_header(filename)
     keys = header[header.rfind('#'):][1:-1].split()
     df = pd.read_csv(filename, delim_whitespace=True, comment='#', names=keys, index_col=False).sort_values(keys[0])
+    if 'energy' not in df.columns:
+        df['energy'] = np.arange(len(df.index))
     return df, header
 
 def read_header(filename):
@@ -402,7 +404,10 @@ xs_channel_comb_dict = {'xs_ROI1' : [#'xs_channel1_rois_roi01_value',
 
 
 def stepscan_remove_offsets(hdr, fill=True):
-    df = hdr.table(fill=True)
+    try:
+        df = hdr.table(fill=True)
+    except:
+        df = hdr.table()
 
     for channel_name, _ in stepscan_channel_dict.items():
         if channel_name.startswith('apb'):

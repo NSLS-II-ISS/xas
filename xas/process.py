@@ -117,7 +117,7 @@ def process_interpolate_bin_from_uid(uid, db, draw_func_interp = None, draw_func
         # ghnfg
         df_processed = save_stepscan_as_file(path_to_file, df, comments)
 
-        dump_to_tiff = True
+        dump_to_tiff = False
         if dump_to_tiff: dump_tiff_images(db, uid, path_to_file, df)
 
 
@@ -132,7 +132,7 @@ def process_interpolate_bin_from_uid(uid, db, draw_func_interp = None, draw_func
         df = combine_xspress3_channels(df)
         df_processed = save_stepscan_as_file(path_to_file, df, comments)
 
-        dump_to_tiff = True
+        dump_to_tiff = False
         if dump_to_tiff: dump_tiff_images(db, uid, path_to_file, df)
 
         if 'spectrometer' in db[uid].start.keys():
@@ -207,20 +207,20 @@ def dump_tiff_images(db, uid, path_to_file, df, tiff_storage_path='/tiff_storage
     for i, im in enumerate(t['pil100k_image']):
         image_data = Image.fromarray(im[0])
         #
-                tiff_filename = '{}{:04d}{}'.format('image', i + 1, '.tif')
-                tiff_path = tiff_images_path + tiff_filename
-                print(f'TIFF STORAGE: tiff will be saved in {tiff_path}')
-                image_data.save(tiff_path)
-                filename_list.append(tiff_filename)
-                # cloud_dispatcher.load_to_dropbox(tiff_path)
-        #
-        #     # deal with table files
-            table_red = df[['hhm_energy', 'apb_ave_ch1_mean', 'apb_ave_ch2_mean', 'apb_ave_ch3_mean', 'apb_ave_ch4_mean']]
-        tiff_filename = '{}{:04d}{}'.format('image', i + 1, '.tiff')
+        tiff_filename = '{}{:04d}{}'.format('image', i + 1, '.tif')
         tiff_path = tiff_images_path + tiff_filename
         print(f'TIFF STORAGE: tiff will be saved in {tiff_path}')
         image_data.save(tiff_path)
         filename_list.append(tiff_filename)
+        # cloud_dispatcher.load_to_dropbox(tiff_path)
+        #
+        # #     # deal with table files
+        #     table_red = df[['hhm_energy', 'apb_ave_ch1_mean', 'apb_ave_ch2_mean', 'apb_ave_ch3_mean', 'apb_ave_ch4_mean']]
+        # tiff_filename = '{}{:04d}{}'.format('image', i + 1, '.tiff')
+        # tiff_path = tiff_images_path + tiff_filename
+        # print(f'TIFF STORAGE: tiff will be saved in {tiff_path}')
+        # image_data.save(tiff_path)
+        # filename_list.append(tiff_filename)
     #
     #     # deal with table file
     if 'hhm_energy' in df.columns:
