@@ -40,6 +40,7 @@ class XASDataSet:
             self.datatype = datatype
         if mu is not None and energy is not None:
             if process:
+                self.nnorm = 2
                 self.clamp_hi = 0
                 self.clamp_lo = 0
                 self.normalize()
@@ -68,6 +69,7 @@ class XASDataSet:
                 self.pre2 = xasdataset.pre2
                 self.norm1 = xasdataset.norm1
                 self.norm2 = xasdataset.norm2
+                self.nnorm = xasdataset.nnorm
                 self.e0 = xasdataset.e0
                 self.pre_edge = xasdataset.pre_edge
                 self.post_edge = xasdataset.post_edge
@@ -113,7 +115,7 @@ class XASDataSet:
 
     def normalize_force(self):
         pre_edge(self.larch, group=self.larch, _larch=self._larch, e0=self.e0, pre1=self.pre1, pre2=self.pre2,
-                                                                           norm1=self.norm1, norm2=self.norm2)
+                                                                           norm1=self.norm1, norm2=self.norm2, nnorm=self.nnorm)
         self.norm = self.larch.norm
         self.e0 = self.larch.e0
         self.pre_edge=self.larch.pre_edge
@@ -138,7 +140,7 @@ class XASDataSet:
     def extract_chi_force(self):
         #print('chi force reporting')
         autobk(self.larch, group=self.larch, _larch=self._larch,
-               e0=self.e0, kmin=self.kmin, kmax=self.kmax,
+               e0=self.e0, kmin=self.kmin, kmax=self.kmax, kweight=self.kweight,
                rbkg=self.rbkg, clamp_lo=self.clamp_lo, clamp_hi=self.clamp_hi)
         # autobk(self.larch, group=self.larch, _larch=self._larch, e0=self.e0, kmin=self.kmin, kmax=self.kmax,
         #        nclamp=2, clamp_hi=10)
