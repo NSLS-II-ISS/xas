@@ -296,21 +296,29 @@ class XASProject(QtCore.QObject):
 
     def convert_into_2d_dataset(self, index=None):
         if index is None:
-            ds_all = self.datasets
-        else:
-            ds_all = [self.datasets[i] for i in index]
+            index = list(range(len(self)))
+        ds_all = [self.datasets[i] for i in index]
         energy_master = ds_all[0].energy
         n_curves = len(ds_all)
-        t = np.arange(n_curves) # default independent parameter
+        # t =  # default independent parameter
+        t_dict = dict((i, list()) for i in useful_md_keys)
+        t_dict['index'] = []
         data = np.zeros((energy_master.size, n_curves))
 
         for i, ds in enumerate(ds_all):
             data[:, i] = np.interp(energy_master, ds.energy, ds.flat)
+            t_dict['index'].append(i)
+            for key in useful_md_keys:
+                if key in ds.md.keys():
+                    _t = ds.md[key]
+                else:
+                    _t = None
+                t_dict[key].append(_t)
 
-        return energy_master, t, data
+        return energy_master, t_dict, data
 
 
-
+useful_md_keys = ['name', 'time', 'sample_x_position', 'sample_y_position']
 
 
 
