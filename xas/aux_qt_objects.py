@@ -228,11 +228,11 @@ class PersistentListWithQTreeWidget(PersistentList):
 from PyQt5 import uic, QtGui, QtCore, QtWidgets
 
 
-def parse_item(input):
+def parse_item(input, checkable=True):
     if type(input) == Item:
         item = input
     else:
-        item = Item(input)
+        item = Item(input, checkable=checkable)
     return item
 
 # def append_child_to_parent(inp, parent):
@@ -245,6 +245,18 @@ def parse_item(input):
 #     item.parent = self.root()
 
 
+
+def update_view_decorator(method):
+    def wrapper(obj, *args, update_view=True, **kwargs):
+        result = method(obj, *args, **kwargs)
+        if update_view:
+            if type(obj) == ItemModel:
+                model = obj
+            elif type(obj) == Item:
+                model = obj.model_parent
+            model.update_view()
+        return result
+    return wrapper
 
 
 class Item(QtGui.QStandardItem):
@@ -268,8 +280,7 @@ class Item(QtGui.QStandardItem):
     @property
     def as_dict(self):
         children_list = []
-        for i in range(self.rowCount()):
-            child = self.child(i)
+        for child in self.items:
             children_list.append(child.as_dict)
 
         output = {**self._dict}
@@ -278,8 +289,12 @@ class Item(QtGui.QStandardItem):
         return output
 
     def __repr__(self):
-        return self.as_dict.__repr__()
+        str1 = super().__repr__()
+        str2 = self.as_dict.__repr__()
+        return f'{str1}\nContents: {str2}'
 
+
+    @update_view_decorator
     def append(self, input):
         item = parse_item(input)
         self._append_item(item)
@@ -288,48 +303,74 @@ class Item(QtGui.QStandardItem):
         self.appendRow(item)
         item.parent = self
 
+    @property
+    def name(self):
+        return self._dict['name']
+
+    @property
+    def items(self):
+        for i in range(self.rowCount()):
+            yield self.child(i)
+
+    @property
+    def model_parent(self):
+        if type(self.parent) == ItemModel:
+            return self.parent
+        elif type(self.parent) == Item:
+            return self.parent.model_parent()
+        else:
+            raise Exception("NONNO")
+
 
 
 class ItemModel(QtGui.QStandardItemModel):
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, children_checkable=True, **kwargs):
         super().__init__(*args, **kwargs)
         self.root = self.invisibleRootItem()
-        self.model_view = None
+        self.view = None
+        self.children_checkable = children_checkable
 
+    def set_view(self, view):
+        self.view = view
 
+    def update_view(self):
+        if self.view is not None:
+            self.view.setModel(self)
+
+    @update_view_decorator
     def append(self, input):
-        item = self._parse_input(input)
+        item = parse_item(input, checkable=self.children_checkable)
         self._append_item(item)
 
     def _append_item(self, item):
         self.root.appendRow(item)
         item.parent = self
 
-    def _parse_input(self, input):
-        if type(input) == Item:
-            item = input
-        else:
-            item = Item(input)
-        return item
-
     @property
     def as_list(self):
         output = []
-        for i in range(self.rowCount()):
-            item = self.item(i)
+        for item in self.items:
             output.append(item.as_dict)
         return output
 
+    @property
+    def items(self):
+        for i in range(self.rowCount()):
+            yield self.item(i)
+
     def __repr__(self):
-        return self.as_list.__repr__()
+        str1 = super().__repr__()
+        str2 = self.as_list.__repr__()
+        return f'{str1}\nContents: {str2}'
+        # return self.as_list.__repr__()
 
     def __getitem__(self, index):
         return self.item(index)
 
-    # @update_list_decorator
+    @update_view_decorator
     def __setitem__(self, index, input):
-        item = self._parse_input(input)
+        item = parse_item(input, checkable=self.children_checkable)
         self.setItem(index, item)
         item.parent = self.root
 
