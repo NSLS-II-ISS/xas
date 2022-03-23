@@ -225,3 +225,114 @@ class PersistentListWithQTreeWidget(PersistentList):
     #     super().update_list_action()
 
 
+from PyQt5 import uic, QtGui, QtCore, QtWidgets
+
+
+def parse_item(input):
+    if type(input) == Item:
+        item = input
+    else:
+        item = Item(input)
+    return item
+
+# def append_child_to_parent(inp, parent):
+#     parent.appendRow(child)
+#     child.parent = parent
+
+# def update_child_of_parent(index, input, parent):
+#     item = self._parse_input(input)
+#     self.setItem(index, item)
+#     item.parent = self.root()
+
+
+
+
+class Item(QtGui.QStandardItem):
+
+    def __init__(self, input, *args, checkable=True, dropdown=False, **kwargs):
+        if type(input) == str:
+            super().__init__(input, *args, **kwargs)
+            self._dict = {'name' : input}
+        elif type(input) == dict:
+            super().__init__(input['name'], *args, **kwargs)
+            self._dict = {**input}
+        else:
+            raise Exception('NONONO')
+
+        if checkable:
+            self.setCheckable(True)
+        else:
+            self.setCheckable(False)
+        self.setEditable(False)
+
+    @property
+    def as_dict(self):
+        children_list = []
+        for i in range(self.rowCount()):
+            child = self.child(i)
+            children_list.append(child.as_dict)
+
+        output = {**self._dict}
+        if len(children_list) > 0:
+            output['elements'] = children_list
+        return output
+
+    def __repr__(self):
+        return self.as_dict.__repr__()
+
+    def append(self, input):
+        item = parse_item(input)
+        self._append_item(item)
+
+    def _append_item(self, item):
+        self.appendRow(item)
+        item.parent = self
+
+
+
+class ItemModel(QtGui.QStandardItemModel):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.root = self.invisibleRootItem()
+        self.model_view = None
+
+
+    def append(self, input):
+        item = self._parse_input(input)
+        self._append_item(item)
+
+    def _append_item(self, item):
+        self.root.appendRow(item)
+        item.parent = self
+
+    def _parse_input(self, input):
+        if type(input) == Item:
+            item = input
+        else:
+            item = Item(input)
+        return item
+
+    @property
+    def as_list(self):
+        output = []
+        for i in range(self.rowCount()):
+            item = self.item(i)
+            output.append(item.as_dict)
+        return output
+
+    def __repr__(self):
+        return self.as_list.__repr__()
+
+    def __getitem__(self, index):
+        return self.item(index)
+
+    # @update_list_decorator
+    def __setitem__(self, index, input):
+        item = self._parse_input(input)
+        self.setItem(index, item)
+        item.parent = self.root
+
+
+bla = ItemModel()
+
