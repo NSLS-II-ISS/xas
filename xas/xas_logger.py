@@ -4,7 +4,7 @@ import logging.handlers
 
 def get_logger():
     # Setup beamline specifics:
-    beamline_gpfs_path = '/nsls2/qas-new/shared'
+    beamline_gpfs_path = '/nsls2/data/qas-new/shared'
 
     logger = logging.getLogger('xas_logger')
     formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
