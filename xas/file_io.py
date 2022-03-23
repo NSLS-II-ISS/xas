@@ -340,6 +340,13 @@ def read_header(filename):
             header += line
     return header[:-len(line)]
 
+def convert_header_to_dict(header):
+    lines = header.split('\n')
+    lines = [line for line in lines if len(line) > 0]
+    lines = [line.replace('# ', '') for line in lines]
+
+
+
 
 stepscan_channel_dict = {
     'hhm_energy': 'energy',
