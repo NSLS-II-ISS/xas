@@ -141,6 +141,28 @@ def load_pil100k_dataset_from_db(db, uid, apb_trig_timestamps, input_type='hdf5'
 
 
 
+def get_all_uids_for_proposal(db, year, cycle, proposal, keys=['experiment']):
+    year = str(year)
+    cycle = str(cycle)
+    proposal = str(proposal)
+    runs = db.v2.search({'year': year, 'cycle' : cycle, 'PROPOSAL' : proposal})
+
+    uids = []
+    for uid in runs:
+        start = runs[uid].metadata['start']
+        if all((k in start.keys()) for k in keys):
+            uids.append(uid)
+    return uids
+
+
+def get_fly_uids_for_proposal(db, year, cycle, proposal):
+    year = str(year)
+    cycle = str(cycle)
+    proposal = str(proposal)
+    runs = db.v2.search({'year': year, 'cycle' : cycle, 'PROPOSAL' : proposal, 'experiment' : 'fly_scan'})
+    return list(runs)
+
+
 
 
 

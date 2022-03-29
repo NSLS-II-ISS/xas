@@ -7,6 +7,7 @@ from lmfit import Parameters, minimize
 import time as ttime
 import xraydb
 from xas import xray
+from .db_io import get_fly_uids_for_proposal
 
 def get_foil_spectrum(element, edge, db_proc):
     r = db_proc.search({'Sample_name' : f'{element} foil', 'Edge' : edge})
@@ -37,43 +38,81 @@ def compute_shift_between_spectra(energy, mu, energy_ref_roi, mu_ref_roi):
     return e_shift, mu_fit
 
 
-def get_energy_offset(uid, db, db_proc, dE=25, plot_fun=None):
+def get_energy_offset(uid, db, db_proc, dE=25, plot_fun=None, attempts=5, sleep_time=1, full_return=False):
     start = db[uid].start
     fname_raw = start['interp_filename']
     if fname_raw.endswith('.raw'):
         fname_bin = fname_raw[:-4] + '.dat'
 
-        for i in range(5):
+        for i in range(attempts):
             try:
                 df, _ = load_binned_df_from_file(fname_bin)
             except:
                 print(f'[Energy Calibration] Attempt to read data {i+1}')
-                ttime.sleep(1)
+                ttime.sleep(sleep_time)
+                df = None
 
-        energy = df['energy'].values
-        _mu = -np.log(df['ir'] / df['it']).values
-        ds = XASDataSet(mu=_mu, energy=energy)
-        mu = ds.flat
+        try:
+            energy = df['energy'].values
+            _mu = -np.log(df['ir'] / df['it']).values
+            ds = XASDataSet(mu=_mu, energy=energy)
+            mu = ds.flat
 
-        element = start['element']
-        edge = start['edge']
-        e0 = float(start['e0'])
-        # energy_ref, mu_ref = get_foil_spectrum(element, edge, db_proc)
-        energy_ref, mu_ref = db_proc.foil_spectrum(element, edge)
-        mask = (energy_ref >= (e0 - dE)) & (energy_ref <= (e0 + dE))
+            element = start['element']
+            edge = start['edge']
+            e0 = float(start['e0'])
+            # energy_ref, mu_ref = get_foil_spectrum(element, edge, db_proc)
+            energy_ref, mu_ref = db_proc.foil_spectrum(element, edge)
+            mask = (energy_ref >= (e0 - dE)) & (energy_ref <= (e0 + dE))
 
-        energy_ref_roi = energy_ref[mask]
-        mu_ref_roi = mu_ref[mask]
-        shift, mu_fit = compute_shift_between_spectra(energy, mu, energy_ref_roi, mu_ref_roi)
+            energy_ref_roi = energy_ref[mask]
+            mu_ref_roi = mu_ref[mask]
+            shift, mu_fit = compute_shift_between_spectra(energy, mu, energy_ref_roi, mu_ref_roi)
+            e_cor = e0 + shift
+            if plot_fun is not None:
+                # mu = np.interp(energy_ref_roi, energy, mu)
+                plot_fun(energy_ref_roi, mu_ref_roi, mu_fit)
 
-        if plot_fun is not None:
-            # mu = np.interp(energy_ref_roi, energy, mu)
-            plot_fun(energy_ref_roi, mu_ref_roi, mu_fit)
+        except Exception as e:
+            print(f'[Energy Calibration] Error: {e}')
+            e0, e_cor, energy_ref_roi, mu_ref_roi, mu_fit = None, None, None, None, None
 
-        return e0, e0+shift
+        if full_return:
+            return e0, e_cor, energy_ref_roi, mu_ref_roi, mu_fit
+        else:
+            return e0, e_cor
+
+
+
+
         # return e0, shift, energy_ref_roi, mu_ref_roi, mu
         # return energy, mu_ref
 
+
+def get_energy_offset_for_proposal(db, year, cycle, proposal, db_proc, dE=25):
+    uids = get_fly_uids_for_proposal(db, year, cycle, proposal)
+    n_uids = len(uids)
+    print(f'Found {n_uids} scans')
+    e0_list = []
+    time_e0_list = []
+    chisq_list = []
+    for i, uid in enumerate(uids):
+        print(f'Analyzing scan {i} of {n_uids} (UID = {uid}): ', end='')
+        hdr = db[uid]
+        if ('exit_status' in hdr.stop.keys()) and (hdr.stop['exit_status']):
+            _e_ref, _e_obs, _, mu_ref, mu_fit = get_energy_offset(uid, db, db_proc, dE=dE, attempts=1, sleep_time=0, full_return=True)
+            if _e_obs:
+                e0_list.append(_e_obs)
+                _chisq = np.sum((mu_ref - mu_fit) ** 2) / mu_ref.size
+                chisq_list.append(_chisq)
+                _time = hdr.start['time']
+                time_e0_list.append(_time)
+                print(f'_e_obs={_e_obs}, chisq={_chisq}')
+
+    e0 = np.array(e0_list)
+    time_e0 = np.array(time_e0_list)
+    chisq = np.array(chisq_list)
+    return time_e0, e0, chisq
 
 
 # def process_calibration(element, edge, db, db_proc, hhm, trajectory_manager, dE=25, axis=None, canvas=None):
