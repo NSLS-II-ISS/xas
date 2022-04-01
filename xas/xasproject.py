@@ -309,10 +309,13 @@ class XASProject(QtCore.QObject):
             data[:, i] = np.interp(energy_master, ds.energy, ds.flat)
             t_dict['index'].append(i)
             for key in useful_md_keys:
-                if key in ds.md.keys():
-                    _t = ds.md[key]
+                if key == 'name':
+                    _t = ds.name
                 else:
-                    _t = None
+                    if key in ds.md.keys():
+                        _t = ds.md[key]
+                    else:
+                        _t = None
                 t_dict[key].append(_t)
 
         return energy_master, t_dict, data
