@@ -128,7 +128,7 @@ def load_xs3_dataset_from_db(db, uid, apb_trig_timestamps):
 
 
 
-def load_pil100k_dataset_from_db(db, uid, apb_trig_timestamps, input_type='hdf5'):
+def load_pil100k_dataset_from_db_legacy(db, uid, apb_trig_timestamps, input_type='hdf5'):
     hdr = db[uid]
     spectra = {}
     if input_type == 'tiff':
@@ -162,7 +162,25 @@ def load_pil100k_dataset_from_db(db, uid, apb_trig_timestamps, input_type='hdf5'
 
     return spectra
 
-
+def load_pil100k_dataset_from_db(db, uid, apb_trig_timestamps):
+    hdr = db[uid]
+    output = {}
+    t = hdr.table(stream_name='pil100k_stream', fill=True)
+    # n_images = t.shape[0]
+    n_images = min(t['pil100k_roi1'][1].size, apb_trig_timestamps.size)
+    pil100k_timestamps = apb_trig_timestamps[:n_images]
+    keys = [k for k in t.keys() if (k != 'time') and (k != 'pil100k_image')]
+    for j, key in enumerate(keys):
+        output[key] = pd.DataFrame(np.vstack((pil100k_timestamps, t[key][1])).T, columns=['timestamp', f'{key}'])
+    return output
+    # _spectra = np.zeros((n_images, len(keys)))
+    # for i in range(0, n_images):
+    #
+    #         _spectra[i, j] = t[i+1][key]
+    # for j, key in enumerate(keys):
+    #     spectra[key] =  pd.DataFrame(np.vstack((pil100k_timestamps, _spectra[:, j])).T, columns=['timestamp', f'pil100k_ROI{j+1}'])
+    #
+    # return spectra
 
 def get_all_uids_for_proposal(db, year, cycle, proposal, keys=['experiment']):
     year = str(year)
