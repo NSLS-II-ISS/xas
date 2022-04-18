@@ -83,8 +83,8 @@ def load_apb_trig_dataset_from_db(db, uid, use_fall=True, stream_name='apb_trigg
         apb_trig_timestamps = rises[:n_all] + np.mean(np.diff(rises))/2
     return apb_trig_timestamps
 
-
-def load_xs3_dataset_from_db(db, uid, apb_trig_timestamps):
+# this is old
+def load_xs3_dataset_from_db_legacy(db, uid, apb_trig_timestamps):
     hdr = db[uid]
     t = hdr.table(stream_name='xs_stream', fill=True)['xs_stream']
     # n_spectra = t.size
@@ -100,6 +100,29 @@ def load_xs3_dataset_from_db(db, uid, apb_trig_timestamps):
             this_spectrum[i] = t[i+1][chan_roi]
 
         spectra[chan_roi] = pd.DataFrame(np.vstack((xs_timestamps, this_spectrum)).T, columns=['timestamp', chan_roi])
+
+    return spectra
+
+# this is compatible with new handlers
+def load_xs3_dataset_from_db(db, uid, apb_trig_timestamps):
+    hdr = db[uid]
+    t = hdr.table(stream_name='xs_stream', fill=True)
+    # n_spectra = t.size
+    n_spectra = min(t['ch01_roi01'][1].size, apb_trig_timestamps.size)
+    xs_timestamps = apb_trig_timestamps[:n_spectra]
+    # chan_roi_names = [f'CHAN{c}ROI{r}' for c, r in product([1, 2, 3, 4], [1, 2, 3, 4])]
+    chan_roi_names = [f'ch{c:02d}_roi{r:02d}' for c, r in product([1, 2, 3, 4], [1, 2, 3, 4])]
+    spectra = {}
+
+    for j, chan_roi in enumerate(chan_roi_names):
+        # this_spectrum = np.zeros(n_spectra)
+        this_spectrum = t[chan_roi][1][:n_spectra]
+        # for i in range(n_spectra):
+        # this_spectrum[i] = t[i+1][chan_roi]
+        # this_spectrum[i] = t[chan_roi][i + 1]
+
+        spectra[chan_roi] = pd.DataFrame(np.vstack((xs_timestamps, this_spectrum)).T,
+                                         columns=['timestamp', chan_roi])
 
     return spectra
 
