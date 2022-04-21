@@ -7,9 +7,13 @@ from copy import deepcopy
 
 def load_apb_dataset_from_db(db, uid):
     hdr = db[uid]
-    apb_dataset = deepcopy(list(hdr.data(stream_name='apb_stream', field='apb_stream'))[0])
+    apb_dataset = list(hdr.data(stream_name='apb_stream', field='apb_stream'))[0].copy()
+    apb_dataset = pd.DataFrame(apb_dataset,
+                               columns=['timestamp', 'i0', 'it', 'ir', 'iff', 'aux1', 'aux2', 'aux3', 'aux4'])
     # apb_dataset = list(hdr.data(stream_name='apb_stream', field='apb_stream'))[0]
-    energy_dataset =  list(hdr.data(stream_name='pb9_enc1',field='pb9_enc1'))[0]
+    energy_dataset =  list(hdr.data(stream_name='pb9_enc1',field='pb9_enc1'))[0].copy()
+    energy_dataset = pd.DataFrame(energy_dataset,
+                                  columns=['ts_s', 'ts_ns', 'encoder', 'index', 'state'])
     angle_offset = -float(hdr['start']['angle_offset'])
 
     # ch_offset_keys = [key for key in hdr.start.keys() if key.startswith('ch') and key.endswith('_offset')]
@@ -56,9 +60,11 @@ def translate_apb_dataset(apb_dataset, energy_dataset, angle_offset,):
 def load_apb_trig_dataset_from_db(db, uid, use_fall=True, stream_name='apb_trigger_xs'):
 
     hdr = db[uid]
-    t = hdr.table(stream_name=stream_name, fill=True)
-    timestamps = t[stream_name][1]['timestamp'].values
-    transitions = t[stream_name][1]['transition'].values
+    # t = hdr.table(stream_name=stream_name, fill=True)
+    data = list(hdr.data(stream_name=stream_name, field=stream_name))[0]
+    timestamps, transitions = data[:, 0], data[:, 1]
+    # timestamps = t[stream_name][1]['timestamp'].values
+    # transitions = t[stream_name][1]['transition'].values
 
     if use_fall:
         shift = 0
@@ -165,13 +171,15 @@ def load_pil100k_dataset_from_db_legacy(db, uid, apb_trig_timestamps, input_type
 def load_pil100k_dataset_from_db(db, uid, apb_trig_timestamps):
     hdr = db[uid]
     output = {}
-    t = hdr.table(stream_name='pil100k_stream', fill=True)
+    # t = hdr.table(stream_name='pil100k_stream', fill=True)
+    field_list = ['pil100k_roi1', 'pil100k_roi2', 'pil100k_roi3', 'pil100k_roi4']
+    t = pd.DataFrame({field : list(hdr.data(stream_name='pil100k_stream', field=field))[0] for field in field_list})
     # n_images = t.shape[0]
-    n_images = min(t['pil100k_roi1'][1].size, apb_trig_timestamps.size)
+    n_images = min(t['pil100k_roi1'].size, apb_trig_timestamps.size)
     pil100k_timestamps = apb_trig_timestamps[:n_images]
     keys = [k for k in t.keys() if (k != 'time') and (k != 'pil100k_image')]
     for j, key in enumerate(keys):
-        output[key] = pd.DataFrame(np.vstack((pil100k_timestamps, t[key][1])).T, columns=['timestamp', f'{key}'])
+        output[key] = pd.DataFrame(np.vstack((pil100k_timestamps, t[key])).T, columns=['timestamp', f'{key}'])
     return output
     # _spectra = np.zeros((n_images, len(keys)))
     # for i in range(0, n_images):
