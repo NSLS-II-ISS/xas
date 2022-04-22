@@ -1,7 +1,7 @@
 from PyQt5 import QtCore
 import pandas as pd
 from larch import Group as xafsgroup
-from larch_plugins.xafs import pre_edge, autobk, mback, xftf
+from larch.xafs import pre_edge, autobk, mback, xftf
 from larch import Interpreter
 import numpy as np
 import pickle
