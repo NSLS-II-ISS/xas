@@ -12,9 +12,9 @@ def add_new_print_to_logger(logger, print_func):
 
 
 
-def get_logger(print_func=None):
+def get_logger(print_func=None, shared_path='/nsls2/data/iss/legacy/xf08id'):
     # Setup beamline specifics:
-    beamline_gpfs_path = '/nsls2/xf08id'
+    # shared_path = '/nsls2/xf08id'
 
     logger = logging.getLogger('xas_logger')
     formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
@@ -28,7 +28,7 @@ def get_logger(print_func=None):
         logger.setLevel(logging.DEBUG)
         # Write DEBUG and INFO messages to /var/log/data_processing_worker/debug.log.
         debug_file = logging.handlers.RotatingFileHandler(
-            beamline_gpfs_path + '/log/data_processing_debug.log',
+            shared_path + '/log/data_processing_debug.log',
             maxBytes=10000000, backupCount=9)
         debug_file.setLevel(logging.DEBUG)
         debug_file.setFormatter(formatter)
@@ -36,7 +36,7 @@ def get_logger(print_func=None):
 
         # Write INFO messages to /var/log/data_processing_worker/info.log.
         info_file = logging.handlers.RotatingFileHandler(
-            beamline_gpfs_path + '/log/data_processing.log',
+            shared_path + '/log/data_processing.log',
             maxBytes=10000000, backupCount=9)
         info_file.setLevel(logging.INFO)
         info_file.setFormatter(formatter)
