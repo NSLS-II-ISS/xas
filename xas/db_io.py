@@ -178,6 +178,7 @@ def load_pil100k_dataset_from_db(db, uid, apb_trig_timestamps):
     n_images = min(t['pil100k_roi1'].size, apb_trig_timestamps.size)
     pil100k_timestamps = apb_trig_timestamps[:n_images]
     keys = [k for k in t.keys() if (k != 'time') and (k != 'pil100k_image')]
+    t = t[:n_images]
     for j, key in enumerate(keys):
         output[key] = pd.DataFrame(np.vstack((pil100k_timestamps, t[key])).T, columns=['timestamp', f'{key}'])
     return output

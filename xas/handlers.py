@@ -86,9 +86,9 @@ class ISSXspress3HDF5Handler(Xspress3HDF5Handler):
         self._get_dataset()
 
         if data_type=='spectrum':
-            # output = self._dataset[:, channel - 1, :]
-            # print(output.shape, output.squeeze().shape)
-            return self._dataset[:, channel - 1, :].squeeze()
+            # actually outputs spectrum:
+            # return self._dataset[:, channel - 1, :].squeeze()
+            return np.array([[0]])
 
         elif data_type=='roi':
             return self._roi_data[(channel, roi_num)].squeeze()

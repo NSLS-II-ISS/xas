@@ -327,12 +327,15 @@ def load_binned_df_from_file(filename):
     header = read_header(filename)
     keys = header[header.rfind('#'):][1:-1].split()
     df = pd.read_csv(filename, delim_whitespace=True, comment='#', names=keys, index_col=False).sort_values(keys[0])
+
+    energy_key = None
     for col in df.columns:
         if 'energy' in col:
             energy_key = col
             break
 
-    df = df.rename(columns={energy_key: 'energy'})
+    if energy_key:
+        df = df.rename(columns={energy_key: 'energy'})
 
     if 'energy' not in df.columns:
         df['energy'] = np.arange(len(df.index))
