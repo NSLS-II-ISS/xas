@@ -63,6 +63,9 @@ class ISSXspress3HDF5Handler(Xspress3HDF5Handler):
 
     def _get_dataset(self):
         super()._get_dataset()
+        # if self._dataset is not None:
+        #     return
+        # self._dataset = np.array([[0]])
 
         if self._roi_data is not None:
             return
@@ -81,6 +84,11 @@ class ISSXspress3HDF5Handler(Xspress3HDF5Handler):
                 roi_num = int(key.replace(base, ''))
                 self._roi_data[(chan, roi_num)] = self._file['/entry/instrument/detector/NDAttributes'][key][()]
 
+
+    def close(self):
+        super().close()
+        self._roi_data = None
+
     def __call__(self, data_type:str='spectrum', channel:int=1, roi_num:int=1):
         # print(f'{ttime.ctime()} XS dataset retrieving starting...')
         self._get_dataset()
@@ -88,6 +96,7 @@ class ISSXspress3HDF5Handler(Xspress3HDF5Handler):
         if data_type=='spectrum':
             # actually outputs spectrum:
             # return self._dataset[:, channel - 1, :].squeeze()
+            # return self._dataset
             return np.array([[0]])
 
         elif data_type=='roi':
