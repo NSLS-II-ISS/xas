@@ -101,6 +101,21 @@ def energy2encoder(energy, pulses_per_deg, offset = 0):
 def energy2angle(energy,  offset = 0):
     return np.degrees(np.arcsin(-12398.42 / (2 * 3.1356 * energy))) - float(offset)
 
+# shamelessly taken from xraydb:
+lattice_constants = {'Si': 5.4309, 'Ge': 5.6578, 'C': 3.567}
+def bragg2e(ba_deg, crystal, hkl):
+    h_, k_, l_ = hkl
+    dspace = lattice_constants[crystal] / np.sqrt(h_ * h_ + k_ * k_ + l_ * l_)
+    lambd = (2 * dspace) * np.sin(np.deg2rad(ba_deg))
+    return (12398.4 / lambd)
+
+
+def e2bragg(energy, crystal, hkl):
+    h_, k_, l_ = hkl
+    dspace = lattice_constants[crystal] / np.sqrt(h_ * h_ + k_ * k_ + l_ * l_)
+    lambd = (12398.4 / energy)
+    return np.rad2deg(np.arcsin(lambd/(2*dspace)))
+
 
 def generate_energy_grid(e0, preedge_start, xanes_start, xanes_end, exafs_end, preedge_spacing,
                          xanes_spacing, exafsk_spacing, dwell_time_preedge = 1, dwell_time_xanes = 1, dwell_time_exafs = 1, k_power = 0):

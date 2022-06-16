@@ -10,6 +10,14 @@ from scipy.signal import savgol_filter
 import os
 
 
+
+
+
+
+
+
+
+
 def analyze_elastic_scan(db, uid):
     E, I, scale, offset = get_normalized_gaussian_scan(db, uid, return_norm_param=True)
     Ecen0, fwhm0 = estimate_center_and_width_of_peak(E, I)
