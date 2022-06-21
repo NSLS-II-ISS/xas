@@ -147,6 +147,7 @@ def save_vh_scan_to_file(path_to_file, vh_scan, comments):
     (path, extension) = os.path.splitext(path_to_file)
     for i, df in enumerate(dfs):
         path_frame = f'{path} frame {i + 1} {extension}'
+        print(f'VON HAMOS PROCESSING: data will be saved in {path_frame}')
         write_df_to_file(path_frame, df, comments)
 
 

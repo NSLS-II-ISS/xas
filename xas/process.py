@@ -16,14 +16,14 @@ from isscloudtools.cloud_dispatcher import generate_output_figures
 from PIL import Image
 from .vonhamos import process_von_hamos_scan, save_vh_scan_to_file
 
-def process_interpolate_bin(doc, db, draw_func_interp = None, draw_func_bin = None, cloud_dispatcher = None, print_func=None):
+def process_interpolate_bin(doc, db, draw_func_interp = None, draw_func_bin = None, cloud_dispatcher = None, print_func=None, dump_to_tiff=True):
     # logger = get_logger()
     if 'experiment' in db[doc['run_start']].start.keys():
         uid = doc['run_start']
-        process_interpolate_bin_from_uid(uid, db, draw_func_interp=draw_func_interp, draw_func_bin=draw_func_bin, cloud_dispatcher=cloud_dispatcher, print_func=print_func)
+        process_interpolate_bin_from_uid(uid, db, draw_func_interp=draw_func_interp, draw_func_bin=draw_func_bin, cloud_dispatcher=cloud_dispatcher, print_func=print_func, dump_to_tiff=dump_to_tiff)
 
 
-def process_interpolate_bin_from_uid(uid, db, draw_func_interp = None, draw_func_bin = None, cloud_dispatcher = None, print_func=None):
+def process_interpolate_bin_from_uid(uid, db, draw_func_interp = None, draw_func_bin = None, cloud_dispatcher = None, print_func=None, dump_to_tiff=False):
     if print_func is None:
         print_func = print
 
@@ -117,7 +117,6 @@ def process_interpolate_bin_from_uid(uid, db, draw_func_interp = None, draw_func
         # ghnfg
         df_processed = save_stepscan_as_file(path_to_file, df, comments)
 
-        dump_to_tiff = False
         if dump_to_tiff: dump_tiff_images(db, uid, path_to_file, df)
 
 
@@ -132,7 +131,6 @@ def process_interpolate_bin_from_uid(uid, db, draw_func_interp = None, draw_func
         df = combine_xspress3_channels(df)
         df_processed = save_stepscan_as_file(path_to_file, df, comments)
 
-        dump_to_tiff = False
         if dump_to_tiff: dump_tiff_images(db, uid, path_to_file, df)
 
         if 'spectrometer' in db[uid].start.keys():
@@ -204,38 +202,39 @@ def dump_tiff_images(db, uid, path_to_file, df, tiff_storage_path='/tiff_storage
     #     # deal with images
     t = db[uid].table(fill=True)
     filename_list = []
-    for i, im in enumerate(t['pil100k_image']):
-        image_data = Image.fromarray(im[0])
+    if 'pil100k_image' in t.columns:
+        for i, im in enumerate(t['pil100k_image']):
+            image_data = Image.fromarray(im[0])
+            #
+            tiff_filename = '{}{:04d}{}'.format('image', i + 1, '.tif')
+            tiff_path = tiff_images_path + tiff_filename
+            print(f'TIFF STORAGE: tiff will be saved in {tiff_path}')
+            image_data.save(tiff_path)
+            filename_list.append(tiff_filename)
+            # cloud_dispatcher.load_to_dropbox(tiff_path)
+            #
+            # #     # deal with table files
+            #     table_red = df[['hhm_energy', 'apb_ave_ch1_mean', 'apb_ave_ch2_mean', 'apb_ave_ch3_mean', 'apb_ave_ch4_mean']]
+            # tiff_filename = '{}{:04d}{}'.format('image', i + 1, '.tiff')
+            # tiff_path = tiff_images_path + tiff_filename
+            # print(f'TIFF STORAGE: tiff will be saved in {tiff_path}')
+            # image_data.save(tiff_path)
+            # filename_list.append(tiff_filename)
         #
-        tiff_filename = '{}{:04d}{}'.format('image', i + 1, '.tif')
-        tiff_path = tiff_images_path + tiff_filename
-        print(f'TIFF STORAGE: tiff will be saved in {tiff_path}')
-        image_data.save(tiff_path)
-        filename_list.append(tiff_filename)
-        # cloud_dispatcher.load_to_dropbox(tiff_path)
-        #
-        # #     # deal with table files
-        #     table_red = df[['hhm_energy', 'apb_ave_ch1_mean', 'apb_ave_ch2_mean', 'apb_ave_ch3_mean', 'apb_ave_ch4_mean']]
-        # tiff_filename = '{}{:04d}{}'.format('image', i + 1, '.tiff')
-        # tiff_path = tiff_images_path + tiff_filename
-        # print(f'TIFF STORAGE: tiff will be saved in {tiff_path}')
-        # image_data.save(tiff_path)
-        # filename_list.append(tiff_filename)
-    #
-    #     # deal with table file
-    if 'hhm_energy' in df.columns:
-        table_red = df[['hhm_energy', 'apb_ave_ch1_mean', 'apb_ave_ch2_mean', 'apb_ave_ch3_mean', 'apb_ave_ch4_mean']]
-    else:
-        table_red = df[['apb_ave_ch1_mean', 'apb_ave_ch2_mean', 'apb_ave_ch3_mean', 'apb_ave_ch4_mean']]
-        table_red['hhm_energy'] = db[uid].start['hhm_energy']
+        #     # deal with table file
+        if 'hhm_energy' in df.columns:
+            table_red = df[['hhm_energy', 'apb_ave_ch1_mean', 'apb_ave_ch2_mean', 'apb_ave_ch3_mean', 'apb_ave_ch4_mean']]
+        else:
+            table_red = df[['apb_ave_ch1_mean', 'apb_ave_ch2_mean', 'apb_ave_ch3_mean', 'apb_ave_ch4_mean']]
+            table_red['hhm_energy'] = db[uid].start['hhm_energy']
 
-    table_red = table_red.rename(
-        columns={'hhm_energy': '# energy', 'apb_ave_ch1_mean': 'i0', 'apb_ave_ch2_mean': 'it', 'apb_ave_ch3_mean': 'ir',
-                 'apb_ave_ch4_mean': 'iff'})
-    # table_red = df
-    table_red['filenames'] = filename_list
-    print(f'TIFF STORAGE: dat will be saved in {dat_file_fpath}')
-    table_red.to_csv(dat_file_fpath, sep='\t', index=False)
+        table_red = table_red.rename(
+            columns={'hhm_energy': '# energy', 'apb_ave_ch1_mean': 'i0', 'apb_ave_ch2_mean': 'it', 'apb_ave_ch3_mean': 'ir',
+                     'apb_ave_ch4_mean': 'iff'})
+        # table_red = df
+        table_red['filenames'] = filename_list
+        print(f'TIFF STORAGE: dat will be saved in {dat_file_fpath}')
+        table_red.to_csv(dat_file_fpath, sep='\t', index=False)
 
 
 def process_interpolate_only(doc, db):
