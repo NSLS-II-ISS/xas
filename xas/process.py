@@ -118,6 +118,22 @@ def process_interpolate_bin_from_uid(uid, db, draw_func_interp = None, draw_func
         df_processed = save_stepscan_as_file(path_to_file, df, comments)
 
         if dump_to_tiff: dump_tiff_images(db, uid, path_to_file, df)
+        try:
+            if cloud_dispatcher is not None:
+                cloud_dispatcher.load_to_dropbox(path_to_file)
+                logger.info(f'({ttime.ctime()}) Sending data to the cloud successful for {path_to_file}')
+        #         #WIP workaround
+        #         #channel = db[uid].start['slack_channel']
+        #         #slack_service = cloud_dispatcher.slack_service
+        #         #image_path = os.path.splitext(path_to_binned)[0] + '.png'
+        #         #generate_output_figures(path_to_binned, image_path)
+        #         #label = os.path.basename(path).split('.')[0]
+        #         #slack_upload_image(slack_service,channel,image_path,label)
+        #         #cloud_dispatcher.post_to_slack(path_to_binned ,db[uid].start['slack_channel'])
+        #         logger.info(f'Sending data to the cloud successful for {path_to_binned}')
+        except Exception as e:
+            logger.info(f'({ttime.ctime()}) Sending data to the cloud failed for {path_to_file}')
+            raise e
 
 
 
@@ -132,6 +148,23 @@ def process_interpolate_bin_from_uid(uid, db, draw_func_interp = None, draw_func
         df_processed = save_stepscan_as_file(path_to_file, df, comments)
 
         if dump_to_tiff: dump_tiff_images(db, uid, path_to_file, df)
+
+        try:
+            if cloud_dispatcher is not None:
+                cloud_dispatcher.load_to_dropbox(path_to_file)
+                logger.info(f'({ttime.ctime()}) Sending data to the cloud successful for {path_to_file}')
+        #         #WIP workaround
+        #         #channel = db[uid].start['slack_channel']
+        #         #slack_service = cloud_dispatcher.slack_service
+        #         #image_path = os.path.splitext(path_to_binned)[0] + '.png'
+        #         #generate_output_figures(path_to_binned, image_path)
+        #         #label = os.path.basename(path).split('.')[0]
+        #         #slack_upload_image(slack_service,channel,image_path,label)
+        #         #cloud_dispatcher.post_to_slack(path_to_binned ,db[uid].start['slack_channel'])
+        #         logger.info(f'Sending data to the cloud successful for {path_to_binned}')
+        except Exception as e:
+            logger.info(f'({ttime.ctime()}) Sending data to the cloud failed for {path_to_file}')
+            raise e
 
         if 'spectrometer' in db[uid].start.keys():
             if db[uid].start['spectrometer'] == 'von_hamos':

@@ -136,7 +136,7 @@ class VonHamosCalibration(VonHamosScan):
 def process_von_hamos_scan(df_processed, df_raw, roi='auto'):
     vh_scan = VonHamosScan(df_processed, df_raw)
     if roi == 'auto':
-        roi = (65, 30, 100, 300)
+        roi = (77, 62, 223, 255) # y, dy, x, dx
     vh_scan.set_roi(*roi)
     vh_scan.integrate_images()
     return vh_scan
