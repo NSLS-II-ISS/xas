@@ -309,6 +309,10 @@ def save_binned_df_as_file(path_to_file, df_orig, comments):
     (path, extension) = os.path.splitext(path_to_file)
     path_to_file = path + '.dat'
     path_to_file = validate_file_exists(path_to_file, file_type = 'bin')
+
+    folder, file = os.path.split(path_to_file)
+    filename, _ = os.path.splitext(file)
+    path_to_h5 = os.path.join(folder, 'h5_storage', filename + '.h5')
     #cols = df.columns.tolist()[::-1]
     cols = df.columns.tolist()
     cols = cols[-1:] + cols[:-1]
@@ -325,6 +329,7 @@ def save_binned_df_as_file(path_to_file, df_orig, comments):
 
     #print("changing permissions to 774")
     call(['chmod', '774', path_to_file])
+    dfgd
 
 
 
