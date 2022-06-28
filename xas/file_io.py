@@ -260,14 +260,28 @@ def find_e0(db, uid):
     return e0
 
 
-def save_interpolated_df_as_file(path_to_file, df_orig, comments):
-    if 'pil100k_image' in df_orig.columns:
+def split_df_data_into_primary_and_secondary(df_orig):
+    sec_cols = []
+    for c in df_orig.columns:
+        if len(df_orig[c][0].shape) > 0:
+            sec_cols.append(c)
+
+    if len(sec_cols) > 0:
         df = df_orig.copy()
-        df.pop('pil100k_image')
-        df_aug = df_orig[['timestamp', 'energy', 'pil100k_image']]
-        # TODO: save the interpolated data somewhere
+        for col in sec_cols:
+            df.pop(col)
+        df_sec = df_orig[sec_cols]
     else:
         df = df_orig
+        df_sec = None
+    return df, df_sec
+
+
+
+def save_interpolated_df_as_file(path_to_file, df_orig, comments):
+    df, df_sec = split_df_data_into_primary_and_secondary(df_orig)
+    # TODO: save the interpolated data in df_sec somewhere
+
     cols = df.columns.tolist()
     fmt = '%17.6f ' + '%12.6e ' + (' '.join(['%12.6e' for i in range(len(cols)-2)]))
     header = '# ' + ' '.join(cols)
@@ -290,10 +304,11 @@ def save_interpolated_df_as_file(path_to_file, df_orig, comments):
 
 
 
-def save_binned_df_as_file(path_to_file, df, comments):
+def save_binned_df_as_file(path_to_file, df_orig, comments):
+    df, df_sec = split_df_data_into_primary_and_secondary(df_orig)
     (path, extension) = os.path.splitext(path_to_file)
     path_to_file = path + '.dat'
-    path_to_file = validate_file_exists(path_to_file,file_type = 'bin')
+    path_to_file = validate_file_exists(path_to_file, file_type = 'bin')
     #cols = df.columns.tolist()[::-1]
     cols = df.columns.tolist()
     cols = cols[-1:] + cols[:-1]
