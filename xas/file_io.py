@@ -260,8 +260,14 @@ def find_e0(db, uid):
     return e0
 
 
-def save_interpolated_df_as_file(path_to_file, df, comments):
-    if []
+def save_interpolated_df_as_file(path_to_file, df_orig, comments):
+    if 'pil100k_image' in df_orig.columns:
+        df = df_orig.copy()
+        df.pop('pil100k_image')
+        df_aug = df_orig[['timestamp', 'energy', 'pil100k_image']]
+        # TODO: save the interpolated data somewhere
+    else:
+        df = df_orig
     cols = df.columns.tolist()
     fmt = '%17.6f ' + '%12.6e ' + (' '.join(['%12.6e' for i in range(len(cols)-2)]))
     header = '# ' + ' '.join(cols)
