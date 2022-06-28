@@ -310,9 +310,7 @@ def save_binned_df_as_file(path_to_file, df_orig, comments):
     path_to_file = path + '.dat'
     path_to_file = validate_file_exists(path_to_file, file_type = 'bin')
 
-    folder, file = os.path.split(path_to_file)
-    filename, _ = os.path.splitext(file)
-    path_to_h5 = os.path.join(folder, 'h5_storage', filename + '.h5')
+
     #cols = df.columns.tolist()[::-1]
     cols = df.columns.tolist()
     cols = cols[-1:] + cols[:-1]
@@ -329,7 +327,21 @@ def save_binned_df_as_file(path_to_file, df_orig, comments):
 
     #print("changing permissions to 774")
     call(['chmod', '774', path_to_file])
-    dfgd
+
+    if df_sec is not None:
+        folder, file = os.path.split(path_to_file)
+        folder = os.path.join(folder, 'extended_data')
+        filename, _ = os.path.splitext(file)
+        path_to_json = os.path.join(folder, filename + '.json')
+
+        try:
+            os.mkdir(folder)
+        except FileExistsError:
+            pass
+
+        df_sec.to_json(path_to_json, orient='records')
+
+
 
 
 
