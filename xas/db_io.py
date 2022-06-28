@@ -172,12 +172,14 @@ def load_pil100k_dataset_from_db(db, uid, apb_trig_timestamps):
     hdr = db[uid]
     output = {}
     # t = hdr.table(stream_name='pil100k_stream', fill=True)
-    field_list = ['pil100k_roi1', 'pil100k_roi2', 'pil100k_roi3', 'pil100k_roi4']
-    t = pd.DataFrame({field : list(hdr.data(stream_name='pil100k_stream', field=field))[0] for field in field_list})
+    field_list = ['pil100k_roi1', 'pil100k_roi2', 'pil100k_roi3', 'pil100k_roi4']#, 'pil100k_image']
+    _t = {field : list(hdr.data(stream_name='pil100k_stream', field=field))[0] for field in field_list}
+    # _t['pil100k_image'] = [i for i in list(hdr.data(stream_name='pil100k_stream', field='pil100k_image'))[0]]
+    t = pd.DataFrame(_t)
     # n_images = t.shape[0]
     n_images = min(t['pil100k_roi1'].size, apb_trig_timestamps.size)
     pil100k_timestamps = apb_trig_timestamps[:n_images]
-    keys = [k for k in t.keys() if (k != 'time') and (k != 'pil100k_image')]
+    keys = [k for k in t.keys() if (k != 'time') ]#and (k != 'pil100k_image')]
     t = t[:n_images]
     for j, key in enumerate(keys):
         output[key] = pd.DataFrame(np.vstack((pil100k_timestamps, t[key])).T, columns=['timestamp', f'{key}'])

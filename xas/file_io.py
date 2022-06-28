@@ -330,7 +330,7 @@ def load_binned_df_from_file(filename):
 
     energy_key = None
     for col in df.columns:
-        if 'energy' in col:
+        if ('energy' in col.lower()) or ('e' in col.lower()):
             energy_key = col
             break
 
