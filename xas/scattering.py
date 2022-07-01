@@ -37,6 +37,18 @@ res2 = ai.integrate2d_ng(image,
 
 jupyter.plot2d(res2)
 
+
+
+# hdr = db['928a1184-5ea7-4eb3-aa44-3b5b725ce1b3']# Ir dimer sample
+hdr = db['c723a571-e3e2-4d15-9b36-cf573bf85834'] # neat MeCN
+pil100k_data = hdr.table(stream_name='pil100k_stream', fill=True)
+
+
+images_raw = pil100k_data['pil100k_image'][1]
+
+
+
+
 from scipy.signal import medfilt2d
 def process_image(image, nw=5):
     a, b = image.shape
@@ -79,12 +91,14 @@ def process_image(image, nw=5):
 process_image(image)
 
 
-def integrate_pil100k_image_stack(df_images, energies=None, dist=40, center_ver=100, center_hor=480):
-    ai = get_ai(dist=40, center_ver=100, center_hor=480)
+def integrate_pil100k_image_stack(df_images, dist=40, center_ver=100, center_hor=480, deadtime_cor=True):
+    ai = get_ai(dist=dist, center_ver=center_ver, center_hor=center_hor)
     s = []
     mask = None
     for item in df_images.values:
         image = np.array(item[0])
+        if deadtime_cor:
+            image *= image * np.exp(- image * 25 * 120e-9)
         if mask is None:
             mask = image < np.percentile(image.ravel(), 5)
         res = ai.integrate1d_ng(image,
