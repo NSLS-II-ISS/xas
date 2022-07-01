@@ -40,11 +40,11 @@ jupyter.plot2d(res2)
 
 
 # hdr = db['928a1184-5ea7-4eb3-aa44-3b5b725ce1b3']# Ir dimer sample
-hdr = db['c723a571-e3e2-4d15-9b36-cf573bf85834'] # neat MeCN
-pil100k_data = hdr.table(stream_name='pil100k_stream', fill=True)
-
-
-images_raw = pil100k_data['pil100k_image'][1]
+# hdr = db['c723a571-e3e2-4d15-9b36-cf573bf85834'] # neat MeCN
+# pil100k_data = hdr.table(stream_name='pil100k_stream', fill=True)
+#
+#
+# images_raw = pil100k_data['pil100k_image'][1]
 
 
 
@@ -98,7 +98,7 @@ def integrate_pil100k_image_stack(df_images, dist=40, center_ver=100, center_hor
     for item in df_images.values:
         image = np.array(item[0])
         if deadtime_cor:
-            image *= image * np.exp(- image * 25 * 120e-9)
+            image *= np.exp(-image * 25 * 160e-9)
         if mask is None:
             mask = image < np.percentile(image.ravel(), 5)
         res = ai.integrate1d_ng(image,
@@ -110,8 +110,12 @@ def integrate_pil100k_image_stack(df_images, dist=40, center_ver=100, center_hor
     return tth, np.array(s)
 
 
-df, _ = load_binned_df_from_file('/nsls2/data/iss/legacy/processed/2022/2/300010/Ir sample 2 AXS try4 cont 0037-r0002.dat')
-data = pd.read_json('/nsls2/data/iss/legacy/processed/2022/2/300010/extended_data/Ir sample 2 AXS try4 cont 0037-r0002.json')
+df, _ = load_binned_df_from_file('/nsls2/data/iss/legacy/processed/2022/2/300010/Ir sample 2 AXS try4 cont 0037-r0003.dat')
+data = pd.read_json('/nsls2/data/iss/legacy/processed/2022/2/300010/extended_data/Ir sample 2 AXS try4 cont 0037-r0003.json')
+
+# df, _ = load_binned_df_from_file('/nsls2/data/iss/legacy/processed/2022/2/300010/Neat MeCN AXS 0019-r0013.dat')
+# data = pd.read_json('/nsls2/data/iss/legacy/processed/2022/2/300010/extended_data/Neat MeCN AXS 0019-r0013.json')
+
 tth, s = integrate_pil100k_image_stack(data)
 i0s = -df['i0']
 i0s /= i0s[50]
@@ -211,8 +215,8 @@ def fit_stack_of_patterns(energy, s, iff, ff0, ff_real, ff_imag):
     for i in range(s.shape[1]):
         ff_lin = ff_real
         ff_quad = ff_real ** 2 + ff_imag ** 2
-        ff_lin_use = ff_lin# - ff_lin[0]
-        ff_quad_use = ff_quad# - ff_quad[0]
+        ff_lin_use = ff_lin - ff_lin[0]
+        ff_quad_use = ff_quad - ff_quad[0]
 
         basis = np.vstack((np.ones(energy.size), energy, energy ** 2,
                            ff_lin_use, ff_quad_use)).T
@@ -226,7 +230,8 @@ def fit_stack_of_patterns(energy, s, iff, ff0, ff_real, ff_imag):
         anomalous_scat[:, i] = c[-2:]
     return s_fit, s_bkg, anomalous_scat
 
-
+from kkcalc import kk
+import xraydb
 ff_data = kk.kk_calculate_real('/nsls2/data/iss/legacy/processed/2022/2/300010/Ir sample 2 AXS try4 cont 0037-r0002 iff-i0.mu',
                                'Ir', input_data_type='xanes')
 ff_real = np.interp(df['energy'], ff_data[:, 0], ff_data[:, 1])

@@ -118,6 +118,11 @@ class ISSPilatusHDF5Handler(Xspress3HDF5Handler): # Denis: I used Xspress3HDF5Ha
         self.hdfrois = [f'ROI{i + 1}' for i in range(4)]
         self.chanrois = [f'pil100k_ROI{i + 1}' for i in range(4)]
 
+    def close(self):
+        # print('Closing pilatus h5 file')
+        super().close()
+        self._image_data = None
+        self._roi_data = None
 
     def _get_dataset(self):
         if self._dataset is not None:

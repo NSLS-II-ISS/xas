@@ -65,6 +65,7 @@ def _generate_convolution_bin_matrix(sample_points, data_x):
                                         fwhm.reshape(-1, 1),
                                         sample_points.reshape(-1, 1))
     mat *= delta_en.reshape(1, -1)
+    mat /= np.sum(mat, axis=1)[:, None]
     return mat
 
 
