@@ -106,8 +106,7 @@ def make_user_dir(path):
         call(['chmod', '777', path])
     return folder_exists
 
-def validate_path_exists(db, uid):
-    path_to_file = db[uid].start['interp_filename']
+def validate_path_exists(path_to_file):
     (path, filename) = os.path.split(path_to_file)
     if not os.path.isdir(path):
         os.mkdir(path)
@@ -120,8 +119,7 @@ def _get_value_from_hdr_start(hdr, key):
     else:
         return ''
 
-def create_file_header(db,uid):
-    hdr = db[uid]
+def create_file_header(hdr):
     facility = hdr['start']['Facility']
     beamline = hdr['start']['beamline_id']
     pi = hdr['start']['PI']
@@ -253,10 +251,10 @@ def create_file_header(db,uid):
 
     return  comments
 
-def find_e0(db, uid):
+def find_e0(hdr):
     e0 = -1
-    if 'e0' in db[uid]['start']:
-        e0 = float(db[uid]['start']['e0'])
+    if 'e0' in hdr['start']:
+        e0 = float(hdr['start']['e0'])
     return e0
 
 
@@ -301,6 +299,8 @@ def save_interpolated_df_as_file(path_to_file, df_orig, comments):
 # def dump_uid_bundle(base_name, uids, db):
 #     path_to_interp_file = db[uids[0]].start()['interp_filename']
 #     (path, extension) = os.path.splitext(path_to_interp_file)
+
+
 
 
 
@@ -543,6 +543,9 @@ def save_stepscan_as_file(path_to_file, df, comments):
     write_df_to_file(path_to_file, df_upd, comments)
     return df_upd
 
+
+def save_processed_df_as_file(path_to_file, df, comments):
+    write_df_to_file(path_to_file, df, comments)
 
 # # ########@
 # fpath = '/nsls2/xf08id/users/2021/1/306253/'

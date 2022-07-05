@@ -2,7 +2,7 @@
 from .bin import bin
 from .file_io import (load_dataset_from_files, create_file_header, validate_file_exists, validate_path_exists,
                       save_interpolated_df_as_file, save_binned_df_as_file, find_e0, save_stepscan_as_file,
-                      stepscan_remove_offsets, stepscan_normalize_xs, combine_xspress3_channels)
+                      stepscan_remove_offsets, stepscan_normalize_xs, combine_xspress3_channels, filter_df_by_valid_keys)
 from .db_io import load_apb_dataset_from_db, translate_apb_dataset, load_apb_trig_dataset_from_db, load_xs3_dataset_from_db, load_pil100k_dataset_from_db
 from .interpolate import interpolate
 
@@ -32,14 +32,14 @@ def process_interpolate_bin_from_uid(uid, db, draw_func_interp = None, draw_func
     logger = get_logger()
     hdr = db[uid]
     experiment = hdr.start['experiment']
+    comments = create_file_header(hdr)
+    path_to_file = hdr.start['interp_filename']
+    validate_path_exists(path_to_file)
+    e0 = find_e0(hdr)
 
     if experiment == 'fly_scan':
-        path_to_file = hdr.start['interp_filename']
-        e0 = find_e0(db, uid)
-        comments = create_file_header(db, uid)
-        validate_path_exists(db, uid)
-        path_to_file = validate_file_exists(path_to_file, file_type='interp')
 
+        path_to_file = validate_file_exists(path_to_file, file_type='interp')
         stream_names = hdr.stream_names
         try:
             # default detectors
@@ -66,154 +66,76 @@ def process_interpolate_bin_from_uid(uid, db, draw_func_interp = None, draw_func
             logger.info(f'({ttime.ctime()}) Interpolation successful for {path_to_file}')
             save_interpolated_df_as_file(path_to_file, interpolated_df, comments)
         except Exception as e:
-
             logger.info(f'({ttime.ctime()}) Interpolation failed for {path_to_file}')
             raise e
+
         try:
             if e0 > 0:
-                binned_df = bin(interpolated_df, e0)
+                processed_df = bin(interpolated_df, e0)
+                (path, extension) = os.path.splitext(path_to_file)
+                path_to_file = path + '.dat'
                 logger.info(f'({ttime.ctime()}) Binning successful for {path_to_file}')
-                save_binned_df_as_file(path_to_file, binned_df, comments)
+
                 if draw_func_interp is not None:
                     draw_func_interp(interpolated_df)
                 if draw_func_bin is not None:
-                    draw_func_bin(binned_df, path_to_file)
+                    draw_func_bin(processed_df, path_to_file)
             else:
                 print(f'({ttime.ctime()}) Energy E0 is not defined')
         except Exception as e:
             logger.info(f'({ttime.ctime()}) Binning failed for {path_to_file}')
             raise e
-        (path, extension) = os.path.splitext(path_to_file)
-        path_to_binned = path + '.dat'
 
-        try:
-            if cloud_dispatcher is not None:
-                cloud_dispatcher.load_to_dropbox(path_to_binned)
-                logger.info(f'({ttime.ctime()}) Sending data to the cloud successful for {path_to_binned}')
-        #         #WIP workaround
-        #         #channel = db[uid].start['slack_channel']
-        #         #slack_service = cloud_dispatcher.slack_service
-        #         #image_path = os.path.splitext(path_to_binned)[0] + '.png'
-        #         #generate_output_figures(path_to_binned, image_path)
-        #         #label = os.path.basename(path).split('.')[0]
-        #         #slack_upload_image(slack_service,channel,image_path,label)
-        #         #cloud_dispatcher.post_to_slack(path_to_binned ,db[uid].start['slack_channel'])
-        #         logger.info(f'Sending data to the cloud successful for {path_to_binned}')
-        except Exception as e:
-            logger.info(f'({ttime.ctime()}) Sending data to the cloud failed for {path_to_binned}')
-            raise e
 
-        # # if cloud_dispatcher is not None:
-        # #     cloud_dispatcher.load_to_dropbox(path_to_binned)
-        # #     cloud_dispatcher.post_to_slack(path_to_binned ,db[uid].start['slack_channel'])
-        # #     logger.info(f'Sending data to the cloud successful for {path_to_binned}')
-    elif experiment == 'step_scan':
-        path_to_file = db[uid].start['interp_filename']
-        validate_path_exists(db, uid)
-        path_to_file = validate_file_exists(path_to_file, file_type='interp')
-        comments = create_file_header(db, uid)
-        df = stepscan_remove_offsets(db[uid])
+
+        save_binned_df_as_file(path_to_file, processed_df, comments)
+
+
+    elif (experiment == 'step_scan') or (experiment == 'collect_n_exposures'):
+        df = stepscan_remove_offsets(hdr)
         df = stepscan_normalize_xs(df)
-        df = combine_xspress3_channels(df)
-        # ghnfg
-        df_processed = save_stepscan_as_file(path_to_file, df, comments)
+        df = filter_df_by_valid_keys(df)
+        df_processed = combine_xspress3_channels(df)
 
-        if dump_to_tiff: dump_tiff_images(db, uid, path_to_file, df)
-        try:
-            if cloud_dispatcher is not None:
-                cloud_dispatcher.load_to_dropbox(path_to_file)
-                logger.info(f'({ttime.ctime()}) Sending data to the cloud successful for {path_to_file}')
-        #         #WIP workaround
-        #         #channel = db[uid].start['slack_channel']
-        #         #slack_service = cloud_dispatcher.slack_service
-        #         #image_path = os.path.splitext(path_to_binned)[0] + '.png'
-        #         #generate_output_figures(path_to_binned, image_path)
-        #         #label = os.path.basename(path).split('.')[0]
-        #         #slack_upload_image(slack_service,channel,image_path,label)
-        #         #cloud_dispatcher.post_to_slack(path_to_binned ,db[uid].start['slack_channel'])
-        #         logger.info(f'Sending data to the cloud successful for {path_to_binned}')
-        except Exception as e:
-            logger.info(f'({ttime.ctime()}) Sending data to the cloud failed for {path_to_file}')
-            raise e
+        save_stepscan_as_file(path_to_file, df, comments)
+
+        # if dump_to_tiff: dump_tiff_images(db, uid, path_to_file, df)
 
 
+        # if dump_to_tiff: dump_tiff_images(db, uid, path_to_file, df)
 
-    elif experiment == 'collect_n_exposures':
-        path_to_file = db[uid].start['interp_filename']
-        validate_path_exists(db, uid)
-        path_to_file = validate_file_exists(path_to_file, file_type='interp')
-        comments = create_file_header(db, uid)
-        df = stepscan_remove_offsets(db[uid])
-        df = stepscan_normalize_xs(df)
-        df = combine_xspress3_channels(df)
-        df_processed = save_stepscan_as_file(path_to_file, df, comments)
 
-        if dump_to_tiff: dump_tiff_images(db, uid, path_to_file, df)
+    try:
+        if cloud_dispatcher is not None:
+            cloud_dispatcher.load_to_dropbox(path_to_file)
+            logger.info(f'({ttime.ctime()}) Sending data to the cloud successful for {path_to_file}')
+    #         #WIP workaround
+    #         #channel = db[uid].start['slack_channel']
+    #         #slack_service = cloud_dispatcher.slack_service
+    #         #image_path = os.path.splitext(path_to_binned)[0] + '.png'
+    #         #generate_output_figures(path_to_binned, image_path)
+    #         #label = os.path.basename(path).split('.')[0]
+    #         #slack_upload_image(slack_service,channel,image_path,label)
+    #         #cloud_dispatcher.post_to_slack(path_to_binned ,db[uid].start['slack_channel'])
+    #         logger.info(f'Sending data to the cloud successful for {path_to_binned}')
+    except Exception as e:
+        logger.info(f'({ttime.ctime()}) Sending data to the cloud failed for {path_to_file}')
+        raise e
 
-        try:
-            if cloud_dispatcher is not None:
-                cloud_dispatcher.load_to_dropbox(path_to_file)
-                logger.info(f'({ttime.ctime()}) Sending data to the cloud successful for {path_to_file}')
-        #         #WIP workaround
-        #         #channel = db[uid].start['slack_channel']
-        #         #slack_service = cloud_dispatcher.slack_service
-        #         #image_path = os.path.splitext(path_to_binned)[0] + '.png'
-        #         #generate_output_figures(path_to_binned, image_path)
-        #         #label = os.path.basename(path).split('.')[0]
-        #         #slack_upload_image(slack_service,channel,image_path,label)
-        #         #cloud_dispatcher.post_to_slack(path_to_binned ,db[uid].start['slack_channel'])
-        #         logger.info(f'Sending data to the cloud successful for {path_to_binned}')
-        except Exception as e:
-            logger.info(f'({ttime.ctime()}) Sending data to the cloud failed for {path_to_file}')
-            raise e
+    if 'spectrometer' in hdr.start.keys():
+        if hdr.start['spectrometer'] == 'von_hamos':
+            vh_scan = process_von_hamos_scan(df_processed, df, roi='auto')
+            save_vh_scan_to_file(path_to_file, vh_scan, comments)
 
-        if 'spectrometer' in db[uid].start.keys():
-            if db[uid].start['spectrometer'] == 'von_hamos':
-                vh_scan = process_von_hamos_scan(df_processed, df, roi='auto')
-                save_vh_scan_to_file(path_to_file, vh_scan, comments)
+    clear_db_cache(db)
 
+
+
+
+
+def clear_db_cache(db):
     db._catalog._entries.cache_clear()
     gc.collect()
-
-        #     # deal with paths
-        #     tiff_storage_path = os.path.dirname(path_to_file) + '/tiff_storage/'
-        #     scan_name = os.path.splitext(os.path.basename(path_to_file))[0]
-        #     dat_file_fpath = tiff_storage_path + scan_name + '.dat'
-        #     tiff_images_path = tiff_storage_path + scan_name + '/'
-        #
-        #     try:
-        #         os.mkdir(tiff_storage_path)
-        #     except FileExistsError:
-        #         pass
-        #
-        #     try:
-        #         os.mkdir(tiff_images_path)
-        #     except FileExistsError:
-        #         print('Warning Folder exists')
-        #         return
-        # #
-        # #     # deal with images
-        #     t = db[uid].table(fill=True)
-        #     filename_list = []
-        #     for i, im in enumerate(t['pil100k_image']):
-        #         image_data = Image.fromarray(im[0])
-        # #
-        #         tiff_filename = '{}{:04d}{}'.format('image', i + 1, '.tiff')
-        #         tiff_path = tiff_images_path + tiff_filename
-        #         print(f'TIFF STORAGE: tiff will be saved in {tiff_path}')
-        #         image_data.save(tiff_path)
-        #         filename_list.append(tiff_filename)
-        # #
-        # #     # deal with table file
-        #     table_red = df[['hhm_energy', 'apb_ave_ch1_mean', 'apb_ave_ch2_mean', 'apb_ave_ch3_mean', 'apb_ave_ch4_mean']]
-        #
-        #     table_red = table_red.rename(
-        #         columns={'hhm_energy': '# energy', 'apb_ave_ch1': 'i0', 'apb_ave_ch2': 'it', 'apb_ave_ch3': 'ir',
-        #                  'apb_ave_ch4': 'iff'})
-        #     # table_red = df
-        #     table_red['filenames'] = filename_list
-        #     print(f'TIFF STORAGE: dat will be saved in {dat_file_fpath}')
-        #     table_red.to_csv(dat_file_fpath, sep='\t', index=False)
 
 
 def dump_tiff_images(db, uid, path_to_file, df, tiff_storage_path='/tiff_storage/'):

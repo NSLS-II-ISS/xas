@@ -124,7 +124,7 @@ def bin(interpolated_dataset, e0, edge_start=-30, edge_end=50, preedge_spacing=5
                               preedge_spacing, xanes_spacing, exafs_k_spacing)
 
         convo_mat = _generate_convolution_bin_matrix(binned_energy_grid, interpolated_energy_grid)
-        ret = {}
+        ret = {'energy' : binned_energy_grid}
         for k, v in interpolated_dataset.items():
             if k != 'energy':
                 data_array = v.values
@@ -134,11 +134,10 @@ def bin(interpolated_dataset, e0, edge_start=-30, edge_end=50, preedge_spacing=5
                    data_ndarray = np.array([i for i in data_array], dtype = np.float64)
                    data_conv = np.tensordot(convo_mat, data_ndarray, axes=(1, 0))
                    ret[k] =  [i for i in data_conv]
-        ret['energy'] = binned_energy_grid
-        binned_df = pd.DataFrame(ret)
-    print(f'({ttime.ctime()}) Binning the data: DONE')
-    binned_df = binned_df.drop('timestamp', 1)
 
+        binned_df = pd.DataFrame(ret)
+    binned_df = binned_df.drop('timestamp', 1)
+    print(f'({ttime.ctime()}) Binning the data: DONE')
     return binned_df
 
 
