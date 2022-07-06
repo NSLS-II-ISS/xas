@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 from . import xray
 from PIL import Image
-
+import h5py
 
 def load_dataset_from_files(db, uid):
     def load_adc_trace(filename=''):
@@ -560,15 +560,15 @@ def save_processed_df_as_file(path_to_file, df_orig, comments, ext_data_path='ex
         except FileExistsError:
             pass
         path_to_ext_file = os.path.join(folder, filename)
-        # df_sec.to_json(path_to_json, orient='records')
         comments += f'# ExtendedData.path: {ext_data_path}/{filename}\n'
 
     write_df_to_file(path_to_file, df, comments)
-    dfgsd
+
     if df_ext is not None:
-        pass
-
-
+        with h5py.File(path_to_ext_file, 'a') as f:
+            for c in df_ext.columns:
+                arr = np.array([v for v in df_ext[c].values], dtype=np.float64)
+                f[c] = arr
 
 
 
@@ -603,17 +603,6 @@ def dump_tiff_images(path_to_file, df, tiff_storage_path='/tiff_storage/'):
             image_data.save(tiff_path)
             filepath_list.append(tiff_path)
             filename_list.append(tiff_filename)
-            # cloud_dispatcher.load_to_dropbox(tiff_path)
-            #
-            # #     # deal with table files
-            #     table_red = df[['hhm_energy', 'apb_ave_ch1_mean', 'apb_ave_ch2_mean', 'apb_ave_ch3_mean', 'apb_ave_ch4_mean']]
-            # tiff_filename = '{}{:04d}{}'.format('image', i + 1, '.tiff')
-            # tiff_path = tiff_images_path + tiff_filename
-            # print(f'TIFF STORAGE: tiff will be saved in {tiff_path}')
-            # image_data.save(tiff_path)
-            # filename_list.append(tiff_filename)
-        #
-        #     # deal with table file
 
         df_red = pd.concat([df[c] for c in ['energy', 'i0', 'it', 'ir', 'iff'] if c in df.columns], axis=1)
 
