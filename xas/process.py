@@ -2,18 +2,19 @@
 from .bin import bin
 from .file_io import (load_dataset_from_files, create_file_header, validate_file_exists, validate_path_exists,
                       save_interpolated_df_as_file, save_binned_df_as_file, find_e0, save_stepscan_as_file,
-                      stepscan_remove_offsets, stepscan_normalize_xs, combine_xspress3_channels, filter_df_by_valid_keys)
+                      stepscan_remove_offsets, stepscan_normalize_xs, combine_xspress3_channels, filter_df_by_valid_keys,
+                      save_processed_df_as_file, dump_tiff_images)
 from .db_io import load_apb_dataset_from_db, translate_apb_dataset, load_apb_trig_dataset_from_db, load_xs3_dataset_from_db, load_pil100k_dataset_from_db
 from .interpolate import interpolate
 
 from .xas_logger import get_logger
-import matplotlib.pyplot as plt
-import numpy as np
+# import matplotlib.pyplot as plt
+# import numpy as np
 import time as ttime
 import os
-from isscloudtools.slack import slack_upload_image
-from isscloudtools.cloud_dispatcher import generate_output_figures
-from PIL import Image
+# from isscloudtools.slack import slack_upload_image
+# from isscloudtools.cloud_dispatcher import generate_output_figures
+
 from .vonhamos import process_von_hamos_scan, save_vh_scan_to_file
 import gc
 
@@ -88,18 +89,30 @@ def process_interpolate_bin_from_uid(uid, db, draw_func_interp = None, draw_func
 
 
 
-        save_binned_df_as_file(path_to_file, processed_df, comments)
+        # save_binned_df_as_file(path_to_file, processed_df, comments)
 
 
     elif (experiment == 'step_scan') or (experiment == 'collect_n_exposures'):
         df = stepscan_remove_offsets(hdr)
         df = stepscan_normalize_xs(df)
-        df = filter_df_by_valid_keys(df)
-        df_processed = combine_xspress3_channels(df)
+        processed_df = filter_df_by_valid_keys(df)
+        # df_processed = combine_xspress3_channels(df)
 
-        save_stepscan_as_file(path_to_file, df, comments)
+    else:
+        return
 
-        # if dump_to_tiff: dump_tiff_images(db, uid, path_to_file, df)
+    processed_df = combine_xspress3_channels(processed_df)
+
+    ### WIP
+    if 'spectrometer' in hdr.start.keys():
+        if hdr.start['spectrometer'] == 'von_hamos':
+            processed_df = process_von_hamos_scan(processed_df, comments, hdr, roi='auto')
+            # save_vh_scan_to_file(path_to_file, vh_scan, comments)
+
+
+    save_processed_df_as_file(path_to_file, processed_df, comments)
+    if dump_to_tiff:
+        tiff_files = dump_tiff_images(path_to_file, processed_df)
 
 
         # if dump_to_tiff: dump_tiff_images(db, uid, path_to_file, df)
@@ -109,23 +122,11 @@ def process_interpolate_bin_from_uid(uid, db, draw_func_interp = None, draw_func
         if cloud_dispatcher is not None:
             cloud_dispatcher.load_to_dropbox(path_to_file)
             logger.info(f'({ttime.ctime()}) Sending data to the cloud successful for {path_to_file}')
-    #         #WIP workaround
-    #         #channel = db[uid].start['slack_channel']
-    #         #slack_service = cloud_dispatcher.slack_service
-    #         #image_path = os.path.splitext(path_to_binned)[0] + '.png'
-    #         #generate_output_figures(path_to_binned, image_path)
-    #         #label = os.path.basename(path).split('.')[0]
-    #         #slack_upload_image(slack_service,channel,image_path,label)
-    #         #cloud_dispatcher.post_to_slack(path_to_binned ,db[uid].start['slack_channel'])
-    #         logger.info(f'Sending data to the cloud successful for {path_to_binned}')
     except Exception as e:
         logger.info(f'({ttime.ctime()}) Sending data to the cloud failed for {path_to_file}')
         raise e
 
-    if 'spectrometer' in hdr.start.keys():
-        if hdr.start['spectrometer'] == 'von_hamos':
-            vh_scan = process_von_hamos_scan(df_processed, df, roi='auto')
-            save_vh_scan_to_file(path_to_file, vh_scan, comments)
+
 
     clear_db_cache(db)
 
@@ -137,62 +138,6 @@ def clear_db_cache(db):
     db._catalog._entries.cache_clear()
     gc.collect()
 
-
-def dump_tiff_images(db, uid, path_to_file, df, tiff_storage_path='/tiff_storage/'):
-
-    # deal with paths
-    tiff_storage_path = os.path.dirname(path_to_file) + tiff_storage_path
-    scan_name = os.path.splitext(os.path.basename(path_to_file))[0]
-    dat_file_fpath = tiff_storage_path + scan_name + '.dat'
-    tiff_images_path = tiff_storage_path + scan_name + '/'
-
-    try:
-        os.mkdir(tiff_storage_path)
-    except FileExistsError:
-        pass
-
-    try:
-        os.mkdir(tiff_images_path)
-    except FileExistsError:
-        print('Warning Folder exists')
-        return
-    #
-    #     # deal with images
-    t = db[uid].table(fill=True)
-    filename_list = []
-    if 'pil100k_image' in t.columns:
-        for i, im in enumerate(t['pil100k_image']):
-            image_data = Image.fromarray(im[0])
-            #
-            tiff_filename = '{}{:04d}{}'.format('image', i + 1, '.tif')
-            tiff_path = tiff_images_path + tiff_filename
-            print(f'TIFF STORAGE: tiff will be saved in {tiff_path}')
-            image_data.save(tiff_path)
-            filename_list.append(tiff_filename)
-            # cloud_dispatcher.load_to_dropbox(tiff_path)
-            #
-            # #     # deal with table files
-            #     table_red = df[['hhm_energy', 'apb_ave_ch1_mean', 'apb_ave_ch2_mean', 'apb_ave_ch3_mean', 'apb_ave_ch4_mean']]
-            # tiff_filename = '{}{:04d}{}'.format('image', i + 1, '.tiff')
-            # tiff_path = tiff_images_path + tiff_filename
-            # print(f'TIFF STORAGE: tiff will be saved in {tiff_path}')
-            # image_data.save(tiff_path)
-            # filename_list.append(tiff_filename)
-        #
-        #     # deal with table file
-        if 'hhm_energy' in df.columns:
-            table_red = df[['hhm_energy', 'apb_ave_ch1_mean', 'apb_ave_ch2_mean', 'apb_ave_ch3_mean', 'apb_ave_ch4_mean']]
-        else:
-            table_red = df[['apb_ave_ch1_mean', 'apb_ave_ch2_mean', 'apb_ave_ch3_mean', 'apb_ave_ch4_mean']]
-            table_red['hhm_energy'] = db[uid].start['hhm_energy']
-
-        table_red = table_red.rename(
-            columns={'hhm_energy': '# energy', 'apb_ave_ch1_mean': 'i0', 'apb_ave_ch2_mean': 'it', 'apb_ave_ch3_mean': 'ir',
-                     'apb_ave_ch4_mean': 'iff'})
-        # table_red = df
-        table_red['filenames'] = filename_list
-        print(f'TIFF STORAGE: dat will be saved in {dat_file_fpath}')
-        table_red.to_csv(dat_file_fpath, sep='\t', index=False)
 
 
 def process_interpolate_only(doc, db):

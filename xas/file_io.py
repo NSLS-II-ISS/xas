@@ -4,7 +4,7 @@ from subprocess import call
 import numpy as np
 import pandas as pd
 from . import xray
-
+from PIL import Image
 
 
 def load_dataset_from_files(db, uid):
@@ -258,7 +258,7 @@ def find_e0(hdr):
     return e0
 
 
-def split_df_data_into_primary_and_secondary(df_orig):
+def split_df_data_into_primary_and_extended(df_orig):
     sec_cols = []
     for c in df_orig.columns:
         if len(df_orig[c][0].shape) > 0:
@@ -277,7 +277,7 @@ def split_df_data_into_primary_and_secondary(df_orig):
 
 
 def save_interpolated_df_as_file(path_to_file, df_orig, comments):
-    df, df_sec = split_df_data_into_primary_and_secondary(df_orig)
+    df, df_sec = split_df_data_into_primary_and_extended(df_orig)
     # TODO: save the interpolated data in df_sec somewhere
 
     cols = df.columns.tolist()
@@ -305,7 +305,7 @@ def save_interpolated_df_as_file(path_to_file, df_orig, comments):
 
 
 def save_binned_df_as_file(path_to_file, df_orig, comments):
-    df, df_sec = split_df_data_into_primary_and_secondary(df_orig)
+    df, df_sec = split_df_data_into_primary_and_extended(df_orig)
     (path, extension) = os.path.splitext(path_to_file)
     path_to_file = path + '.dat'
     path_to_file = validate_file_exists(path_to_file, file_type = 'bin')
@@ -397,6 +397,7 @@ def convert_header_to_dict(header):
 
 
 
+
 stepscan_channel_dict = {
     'hhm_energy': 'energy',
     'motor_emission_energy' : 'energy',
@@ -408,65 +409,68 @@ stepscan_channel_dict = {
     'apb_ave_ch6_mean': 'aux2',
     'apb_ave_ch7_mean': 'aux3',
     'apb_ave_ch8_mean': 'aux4',
-    'pil100k_stats1_total': 'pil100_ROI1',
-    'pil100k_stats2_total': 'pil100_ROI2',
-    'pil100k_stats3_total': 'pil100_ROI3',
-    'pil100k_stats4_total': 'pil100_ROI4',
-    'xs_channel1_rois_roi01_value' : 'xs_channel1_rois_roi01_value',
-    'xs_channel2_rois_roi01_value' : 'xs_channel2_rois_roi01_value',
-    'xs_channel3_rois_roi01_value' : 'xs_channel3_rois_roi01_value',
-    'xs_channel4_rois_roi01_value' : 'xs_channel4_rois_roi01_value',
-    'xs_channel1_rois_roi02_value' : 'xs_channel1_rois_roi02_value',
-    'xs_channel2_rois_roi02_value' : 'xs_channel2_rois_roi02_value',
-    'xs_channel3_rois_roi02_value' : 'xs_channel3_rois_roi02_value',
-    'xs_channel4_rois_roi02_value' : 'xs_channel4_rois_roi02_value',
-    'xs_channel1_rois_roi03_value' : 'xs_channel1_rois_roi03_value',
-    'xs_channel2_rois_roi03_value' : 'xs_channel2_rois_roi03_value',
-    'xs_channel3_rois_roi03_value' : 'xs_channel3_rois_roi03_value',
-    'xs_channel4_rois_roi03_value' : 'xs_channel4_rois_roi03_value',
-    'xs_channel1_rois_roi04_value' : 'xs_channel1_rois_roi04_value',
-    'xs_channel2_rois_roi04_value' : 'xs_channel2_rois_roi04_value',
-    'xs_channel3_rois_roi04_value' : 'xs_channel3_rois_roi04_value',
-    'xs_channel4_rois_roi04_value' : 'xs_channel4_rois_roi04_value',
-    'xs_ROI1': 'xs_ROI1',
-    'xs_ROI2': 'xs_ROI2',
-    'xs_ROI3': 'xs_ROI3',
-    'xs_ROI4': 'xs_ROI4'}
-
+    # 'pil100k_stats1_total': 'pil100_ROI1',
+    # 'pil100k_stats2_total': 'pil100_ROI2',
+    # 'pil100k_stats3_total': 'pil100_ROI3',
+    # 'pil100k_stats4_total': 'pil100_ROI4',
+    'pil100k_stats1_total': 'pil100k_roi1',
+    'pil100k_stats2_total': 'pil100k_roi2',
+    'pil100k_stats3_total': 'pil100k_roi3',
+    'pil100k_stats4_total': 'pil100k_roi4',
+    'xs_channel1_rois_roi01_value' : 'xs_ch01_roi01',
+    'xs_channel2_rois_roi01_value' : 'xs_ch01_roi02',
+    'xs_channel3_rois_roi01_value' : 'xs_ch01_roi03',
+    'xs_channel4_rois_roi01_value' : 'xs_ch01_roi04',
+    'xs_channel1_rois_roi02_value' : 'xs_ch02_roi01',
+    'xs_channel2_rois_roi02_value' : 'xs_ch02_roi02',
+    'xs_channel3_rois_roi02_value' : 'xs_ch02_roi03',
+    'xs_channel4_rois_roi02_value' : 'xs_ch02_roi04',
+    'xs_channel1_rois_roi03_value' : 'xs_ch03_roi01',
+    'xs_channel2_rois_roi03_value' : 'xs_ch03_roi02',
+    'xs_channel3_rois_roi03_value' : 'xs_ch03_roi03',
+    'xs_channel4_rois_roi03_value' : 'xs_ch03_roi04',
+    'xs_channel1_rois_roi04_value' : 'xs_ch04_roi01',
+    'xs_channel2_rois_roi04_value' : 'xs_ch04_roi02',
+    'xs_channel3_rois_roi04_value' : 'xs_ch04_roi03',
+    'xs_channel4_rois_roi04_value' : 'xs_ch04_roi04',
+    'xs_roi01': 'xs_roi01',
+    'xs_roi02': 'xs_roi02',
+    'xs_roi03': 'xs_roi03',
+    'xs_roi04': 'xs_roi04'}
 xs_channel_list = [
-    'xs_channel1_rois_roi01_value',
-    'xs_channel1_rois_roi02_value',
-    'xs_channel1_rois_roi03_value',
-    'xs_channel1_rois_roi04_value',
-    'xs_channel2_rois_roi01_value',
-    'xs_channel2_rois_roi02_value',
-    'xs_channel2_rois_roi03_value',
-    'xs_channel2_rois_roi04_value',
-    'xs_channel3_rois_roi01_value',
-    'xs_channel3_rois_roi02_value',
-    'xs_channel3_rois_roi03_value',
-    'xs_channel3_rois_roi04_value',
-    'xs_channel4_rois_roi01_value',
-    'xs_channel4_rois_roi02_value',
-    'xs_channel4_rois_roi03_value',
-    'xs_channel4_rois_roi04_value']
+    'xs_ch01_roi01',
+    'xs_ch02_roi01',
+    'xs_ch03_roi01',
+    'xs_ch04_roi01',
+    'xs_ch01_roi02',
+    'xs_ch02_roi02',
+    'xs_ch03_roi02',
+    'xs_ch04_roi02',
+    'xs_ch01_roi03',
+    'xs_ch02_roi03',
+    'xs_ch03_roi03',
+    'xs_ch04_roi03',
+    'xs_ch01_roi04',
+    'xs_ch02_roi04',
+    'xs_ch03_roi04',
+    'xs_ch04_roi04']
 
-xs_channel_comb_dict = {'xs_ROI1' : [#'xs_channel1_rois_roi01_value',
-                                     'xs_channel2_rois_roi01_value',
-                                     'xs_channel3_rois_roi01_value',]
-                                     #'xs_channel4_rois_roi01_value'],
-                        # 'xs_ROI2': [#'xs_channel1_rois_roi02_value',
-                        #             'xs_channel2_rois_roi02_value',
-                        #             'xs_channel3_rois_roi02_value',]
-                        #             #'xs_channel4_rois_roi02_value'],
-                        # 'xs_ROI3': [#'xs_channel1_rois_roi03_value',
-                        #             'xs_channel2_rois_roi03_value',
-                        #             'xs_channel3_rois_roi03_value',]
-                        #             #'xs_channel4_rois_roi03_value'],
-                        # 'xs_ROI4': [#'xs_channel1_rois_roi04_value',
-                        #             'xs_channel2_rois_roi04_value',
-                        #             'xs_channel3_rois_roi04_value',]
-                                    #'xs_channel4_rois_roi04_value'],
+xs_channel_comb_dict = {'xs_roi01' : ['xs_ch01_roi01',
+                                      'xs_ch02_roi01',
+                                      'xs_ch03_roi01',
+                                      'xs_ch04_roi01'],
+                        'xs_roi02' : ['xs_ch01_roi01',
+                                      'xs_ch02_roi02',
+                                      'xs_ch03_roi03',
+                                      'xs_ch04_roi04'],
+                        'xs_roi03' : ['xs_ch01_roi01',
+                                      'xs_ch02_roi02',
+                                      'xs_ch03_roi03',
+                                      'xs_ch04_roi04'],
+                        'xs_roi04' : ['xs_ch01_roi01',
+                                      'xs_ch02_roi02',
+                                      'xs_ch03_roi03',
+                                      'xs_ch04_roi04'],
                         }
 
 
@@ -492,17 +496,15 @@ def stepscan_normalize_xs(df):
 
 
 def combine_xspress3_channels(df):
-
-    # if xs_channel_list[0] in df.columns:
-    #     df_out = df.copy()
-    #     for k in xs_channel_comb_dict.keys():
-    #         df_out[k] = 0
-    #         for channel in xs_channel_comb_dict[k]:
-    #             df_out[k] += df_out[channel]
-    #     return df_out
-    #
-    # else:
-    #     return df
+    if xs_channel_list[0] in df.columns:
+        aug_df = {}
+        for k, chs in xs_channel_comb_dict.items():
+            aug_df[k] = np.sum(df[chs].values, axis=1)
+        aug_df = pd.DataFrame(aug_df)
+        cols = [c for c in df.columns if c not in xs_channel_list]
+        cols = cols + list(xs_channel_comb_dict.keys()) + xs_channel_list
+        df = pd.concat((df, aug_df), axis=1)
+        df = df[cols]
     return df
 
 
@@ -544,23 +546,80 @@ def save_stepscan_as_file(path_to_file, df, comments):
     return df_upd
 
 
-def save_processed_df_as_file(path_to_file, df, comments):
-    write_df_to_file(path_to_file, df, comments)
+def save_processed_df_as_file(path_to_file, df_orig, comments, ext_data_path='extended_data'):
+    df, df_ext = split_df_data_into_primary_and_extended(df_orig)
 
-# # ########@
-# fpath = '/nsls2/xf08id/users/2021/1/306253/'
-# for i, file in enumerate(flist_actual):
-#     this_df, _ = load_interpolated_df_from_file(fpath+file)
-#     if i == 0:
-#         master_energy = this_df['energy'].values
-#         mu_all = np.zeros(master_energy.shape)
-#     this_energy = this_df['energy'].values
-#     this_i0 = this_df['i0']
-#     this_sdd = this_df['CHAN1ROI1'] + this_df['CHAN2ROI1'] + this_df['CHAN3ROI1'] + this_df['CHAN4ROI1']
-#     this_mu = - (this_sdd / this_i0).values
-#     mu_all += np.interp(master_energy, this_energy, this_mu)
-#
-# data_dict = {'i0' : np.ones(mu_all.size), 'mu_all' : mu_all, 'energy' : master_energy}
-# data_df = pd.DataFrame(data_dict)
-# fname = '3_AfterReduction Ir on TiO2 data 0225.dat'
-# save_binned_df_as_file(fpath+fname, data_df, '')
+
+    if df_ext is not None:
+        folder, file = os.path.split(path_to_file)
+        folder = os.path.join(folder, ext_data_path)
+        filename, _ = os.path.splitext(file)
+        filename += '.h5'
+        try:
+            os.mkdir(folder)
+        except FileExistsError:
+            pass
+        path_to_ext_file = os.path.join(folder, filename)
+        # df_sec.to_json(path_to_json, orient='records')
+        comments += f'# ExtendedData.path: {ext_data_path}/{filename}\n'
+
+    write_df_to_file(path_to_file, df, comments)
+    dfgsd
+    if df_ext is not None:
+        pass
+
+
+
+
+
+
+def dump_tiff_images(path_to_file, df, tiff_storage_path='/tiff_storage/'):
+    if 'pil100k_image' in df.columns:
+        # deal with paths
+        tiff_storage_path = os.path.dirname(path_to_file) + tiff_storage_path
+        scan_name, _ = os.path.splitext(os.path.basename(path_to_file))
+        dat_file_fpath = tiff_storage_path + scan_name + '.dat'
+        tiff_images_path = tiff_storage_path + scan_name + '/'
+
+        try:
+            os.mkdir(tiff_storage_path)
+        except FileExistsError:
+            pass
+
+        try:
+            os.mkdir(tiff_images_path)
+        except FileExistsError:
+            print('These tiff images were saved already')
+            return
+
+        filename_list = []
+        filepath_list = []
+        for i, im in enumerate(df['pil100k_image']):
+            image_data = Image.fromarray(im[0])
+            #
+            tiff_filename = '{}{:04d}{}'.format('image', i + 1, '.tif')
+            tiff_path = tiff_images_path + tiff_filename
+            print(f'TIFF STORAGE: tiff will be saved in {tiff_path}')
+            image_data.save(tiff_path)
+            filepath_list.append(tiff_path)
+            filename_list.append(tiff_filename)
+            # cloud_dispatcher.load_to_dropbox(tiff_path)
+            #
+            # #     # deal with table files
+            #     table_red = df[['hhm_energy', 'apb_ave_ch1_mean', 'apb_ave_ch2_mean', 'apb_ave_ch3_mean', 'apb_ave_ch4_mean']]
+            # tiff_filename = '{}{:04d}{}'.format('image', i + 1, '.tiff')
+            # tiff_path = tiff_images_path + tiff_filename
+            # print(f'TIFF STORAGE: tiff will be saved in {tiff_path}')
+            # image_data.save(tiff_path)
+            # filename_list.append(tiff_filename)
+        #
+        #     # deal with table file
+
+        df_red = pd.concat([df[c] for c in ['energy', 'i0', 'it', 'ir', 'iff'] if c in df.columns], axis=1)
+
+        df_red['filenames'] = filename_list
+        print(f'TIFF STORAGE: dat will be saved in {dat_file_fpath}')
+        df_red.to_csv(dat_file_fpath, sep='\t', index=False)
+        filepath_list.append(dat_file_fpath)
+        return filepath_list
+

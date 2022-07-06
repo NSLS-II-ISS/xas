@@ -26,13 +26,13 @@ def interpolate(dataset, key_base = None, sort=True):
     interpolated_dataset['timestamp'] = timestamps.values
 
     for key in dataset.keys():
+        time = dataset.get(key).iloc[:, 0].values
+        val = dataset.get(key).iloc[:, 1].values
         if len(dataset.get(key).iloc[:, 0]) > 5 * len(timestamps):
-            time = [np.mean(array) for array in np.array_split(dataset.get(key).iloc[:, 0].values, len(timestamps))]
-            val = [np.mean(array) for array in np.array_split(dataset.get(key).iloc[:, 1].values, len(timestamps))]
+            time = [time[0]] + [np.mean(array) for array in np.array_split(time[1:-1], len(timestamps))] + [time[-1]]
+            val = [val[0]] + [np.mean(array) for array in np.array_split(val[1:-1], len(timestamps))] + [val[-1]]
             # interpolated_dataset[key] = np.array([timestamps, np.interp(timestamps, time, val)]).transpose()
-        else:
-            time = dataset.get(key).iloc[:, 0].values
-            val = dataset.get(key).iloc[:, 1].values
+
         # interpolated_dataset[key] = np.array([timestamps, np.interp(timestamps, time, val)]).transpose()
         interpolator_func = interp1d(time, np.array([v for v in val]), axis=0)
         val_interp = interpolator_func(timestamps)
