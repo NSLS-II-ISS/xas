@@ -3,7 +3,7 @@ from .bin import bin
 from .file_io import (load_dataset_from_files, create_file_header, validate_file_exists, validate_path_exists,
                       save_interpolated_df_as_file, save_binned_df_as_file, find_e0, save_stepscan_as_file,
                       stepscan_remove_offsets, stepscan_normalize_xs, combine_xspress3_channels, filter_df_by_valid_keys,
-                      save_processed_df_as_file, dump_tiff_images)
+                      save_primary_df_as_file, save_extended_data_as_file, dump_tiff_images)
 from .db_io import load_apb_dataset_from_db, translate_apb_dataset, load_apb_trig_dataset_from_db, load_xs3_dataset_from_db, load_pil100k_dataset_from_db
 from .interpolate import interpolate
 
@@ -26,17 +26,48 @@ def process_interpolate_bin(doc, db, draw_func_interp = None, draw_func_bin = No
 
 
 def process_interpolate_bin_from_uid(uid, db, draw_func_interp = None, draw_func_bin = None, cloud_dispatcher = None, print_func=None, dump_to_tiff=False):
+
+
+    logger = get_logger()
+    hdr, primary_df, extended_data, comments, path_to_file, data_kind = get_processed_df_from_uid(uid, db,
+                                                                          logger=logger,
+                                                                          draw_func_interp=draw_func_interp,
+                                                                          draw_func_bin=draw_func_bin,
+                                                                          print_func=print_func)
+
+    save_primary_df_as_file(path_to_file, primary_df, comments, data_kind=data_kind)
+    save_extended_data_as_file(path_to_file, extended_data, data_kind=data_kind)
+    if dump_to_tiff:
+        tiff_files = dump_tiff_images(path_to_file, primary_df, extended_data)
+
+
+    try:
+        if cloud_dispatcher is not None:
+            cloud_dispatcher.load_to_dropbox(path_to_file)
+            logger.info(f'({ttime.ctime()}) Sending data to the cloud successful for {path_to_file}')
+    except Exception as e:
+        logger.info(f'({ttime.ctime()}) Sending data to the cloud failed for {path_to_file}')
+        raise e
+
+
+
+    clear_db_cache(db)
+
+
+def get_processed_df_from_uid(uid, db, logger=None, draw_func_interp=None, draw_func_bin = None, print_func=None):
     if print_func is None:
         print_func = print
+    if logger is None:
+        logger = get_logger()
 
-    # logger = get_logger(print_func=print_func)
-    logger = get_logger()
+        # logger = get_logger(print_func=print_func)
     hdr = db[uid]
     experiment = hdr.start['experiment']
     comments = create_file_header(hdr)
     path_to_file = hdr.start['interp_filename']
     validate_path_exists(path_to_file)
     e0 = find_e0(hdr)
+    data_kind = 'default'
 
     if experiment == 'fly_scan':
 
@@ -49,7 +80,8 @@ def process_interpolate_bin_from_uid(uid, db, draw_func_interp = None, draw_func
 
             for stream_name in stream_names:
                 if stream_name == 'pil100k_stream':
-                    apb_trigger_pil100k_timestamps = load_apb_trig_dataset_from_db(db, uid, use_fall=True, stream_name='apb_trigger_pil100k')
+                    apb_trigger_pil100k_timestamps = load_apb_trig_dataset_from_db(db, uid, use_fall=True,
+                                                                                   stream_name='apb_trigger_pil100k')
                     pil100k_dict = load_pil100k_dataset_from_db(db, uid, apb_trigger_pil100k_timestamps)
                     raw_dict = {**raw_dict, **pil100k_dict}
 
@@ -87,8 +119,6 @@ def process_interpolate_bin_from_uid(uid, db, draw_func_interp = None, draw_func
             logger.info(f'({ttime.ctime()}) Binning failed for {path_to_file}')
             raise e
 
-
-
         # save_binned_df_as_file(path_to_file, processed_df, comments)
 
 
@@ -103,35 +133,35 @@ def process_interpolate_bin_from_uid(uid, db, draw_func_interp = None, draw_func
 
     processed_df = combine_xspress3_channels(processed_df)
 
+    primary_df, extended_data = split_df_data_into_primary_and_extended(processed_df)
+
     ### WIP
     if 'spectrometer' in hdr.start.keys():
         if hdr.start['spectrometer'] == 'von_hamos':
-            processed_df = process_von_hamos_scan(processed_df, comments, hdr, roi='auto')
+            extended_data, comments = process_von_hamos_scan(primary_df, extended_data, comments, hdr, roi='auto')
+            data_kind = 'von_hamos'
             # save_vh_scan_to_file(path_to_file, vh_scan, comments)
 
+    return hdr, primary_df, extended_data, comments, path_to_file, data_kind
 
-    save_processed_df_as_file(path_to_file, processed_df, comments)
-    if dump_to_tiff:
-        tiff_files = dump_tiff_images(path_to_file, processed_df)
+import numpy as np
+def split_df_data_into_primary_and_extended(df_orig):
+    sec_cols = []
+    for c in df_orig.columns:
+        if len(df_orig[c][0].shape) > 0:
+            sec_cols.append(c)
 
+    if len(sec_cols) > 0:
+        extended_data = {}
+        df = df_orig.copy()
+        for col in sec_cols:
+            v = df.pop(col)
+            extended_data[col] = np.array([i for i in v])
 
-        # if dump_to_tiff: dump_tiff_images(db, uid, path_to_file, df)
-
-
-    try:
-        if cloud_dispatcher is not None:
-            cloud_dispatcher.load_to_dropbox(path_to_file)
-            logger.info(f'({ttime.ctime()}) Sending data to the cloud successful for {path_to_file}')
-    except Exception as e:
-        logger.info(f'({ttime.ctime()}) Sending data to the cloud failed for {path_to_file}')
-        raise e
-
-
-
-    clear_db_cache(db)
-
-
-
+    else:
+        df = df_orig
+        extended_data = None
+    return df, extended_data
 
 
 def clear_db_cache(db):

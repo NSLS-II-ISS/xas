@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 from xas.file_io import load_binned_df_from_file, write_df_to_file
 import time as ttime
 from xas.fitting import fit_gaussian_with_estimation, fit_gaussian, Nominal2ActualConverter
@@ -12,18 +13,18 @@ import os
 
 class VonHamosScan:
 
-    @classmethod
-    def from_db(cls, db, uid):
-        df = db[uid].table(fill=True)
-        return cls(df)
+    # @classmethod
+    # def from_db(cls, db, uid):
+    #     df = db[uid].table(fill=True)
+    #     return cls(df)
+    #
+    # @classmethod
+    # def from_file(cls, db, path_to_file):
+    #     _, header = load_binned_df_from_file(path_to_file)
+    #     uid = [i for i in header.split('\n# ') if 'uid' in i][0].split(' ')[-1]
+    #     return cls.from_db(db, uid)
 
-    @classmethod
-    def from_file(cls, db, path_to_file):
-        _, header = load_binned_df_from_file(path_to_file)
-        uid = [i for i in header.split('\n# ') if 'uid' in i][0].split(' ')[-1]
-        return cls.from_db(db, uid)
-
-    def __init__(self, df, df_raw):
+    def __init__(self, df, extended_data, image_key='pil100k_image'):
 
         if 'energy' in df.columns:
             self.energy = df.energy.values
@@ -32,50 +33,61 @@ class VonHamosScan:
             self.kind = 'xes'
 
         self.i0 = df.i0.values
-        self.iff = df.iff.values
-        self.images = np.array([i[0].squeeze() for i in df_raw.pil100k_image])
+        # self.iff = df.iff.values
+        self.images = extended_data[image_key]
 
         if self.kind == 'rixs':
-            if not np.isclose(df_raw.hhm_energy.values[0], self.energy[0], 1e-4):
+            if not np.isclose(df.energy.values[0], self.energy[0], 1e-4):
                 self.images = self.images[::-1, :, :]
 
         self.images = self.images#/np.abs(self.i0)[:, None, None]
-        self.muf = self.iff#/self.i0
+        # self.muf = self.iff#/self.i0
 
         self.total_image = np.sum(self.images, axis=0)
-        self.y = 0
-        self.x = 0
-        self.dy, self.dx = self.total_image.shape
         self.energy_converter = None
 
 
-    def set_roi(self, y, dy, x, dx):
-        self.y = y
-        self.dy = dy
-        self.x = x
-        self.dx = dx
+    def set_roi(self, roi_dict, droi=5):
+        self.roi_dict = roi_dict
+        self.droi = droi
 
     def show_roi(self, fignum=1, vmin=None, vmax=None):
         if vmin is None: vmin = self.total_image.min()
         if vmax is None: vmax = np.percentile(np.unique(self.total_image), 50)
         ysize, xsize = self.total_image.shape
 
-        plt.figure(fignum)
-        plt.clf()
-        plt.imshow(self.total_image, vmin=vmin, vmax=vmax)
-        plt.vlines([self.x, self.x + self.dx], 0, ysize, colors='r')
-        plt.hlines([self.y, self.y + self.dy], 0, xsize, colors='r')
+        fig, ax = plt.subplots(num=fignum, clear=True)
+        ax.imshow(self.total_image, vmin=vmin, vmax=vmax)
+        for k, roi in self.roi_dict.items():
+            rect = patches.Rectangle((roi['x'], roi['y']), roi['dx'], roi['dy'],
+                                     linewidth=1, edgecolor='r', facecolor='none')
+            ax.add_patch(rect)
 
-        plt.xlim(self.x - 10, self.x + self.dx + 10)
-        plt.ylim(self.y - 10, self.y + self.dy + 10)
-
+        plt.xlim(0, xsize)
+        plt.ylim(0, ysize)
 
     def integrate_images(self):
-        self.pixel = np.arange(self.x, self.x +  self.dx + 1)
-        self.xes = np.sum(self.images[:, self.y: self.y + self.dy + 1, self.x: self.x + self.dx + 1], axis=1).T
+        self.xes = {}
+        ysize, xsize = self.total_image.shape
+        for k, roi in self.roi_dict.items():
+            x, y, dx, dy = roi['x'], roi['y'], roi['dx'], roi['dy']
+            x1 = x
+            x2 = np.min([x + dx + 1, xsize])
+            y1 = y
+            y2 = np.min([y + dy + 1, ysize])
+            pixel = np.arange(x1, x2)
+            intensity = np.sum(self.images[:, y1: y2, x1: x2], axis=1)
+            self.xes[k] = {'pixel' : pixel, 'intensity' : intensity}
 
     def append_calibration(self, calibration):
         self.energy_converter = calibration.energy_converter
+
+    def augment_extended_data(self, extended_data):
+        aug_data = {}
+        for k, v in self.xes.items():
+            key = f'pil100k_{k}_vh'
+            aug_data[key] = v
+        return {**extended_data, **aug_data}
 
     @property
     def emission_energy(self):
@@ -133,13 +145,21 @@ class VonHamosCalibration(VonHamosScan):
         return cen, fwhm, y_fit
 
 
-def process_von_hamos_scan(df_processed, df_raw, roi='auto'):
-    vh_scan = VonHamosScan(df_processed, df_raw)
+def process_von_hamos_scan(df, extended_data, comments, hdr, detector='Pilatus 100k', roi='auto', droi=5):
+    vh_scan = VonHamosScan(df, extended_data)
+
     if roi == 'auto':
-        roi = (141, 25, 16, 468) # y, dy, x, dx
-    vh_scan.set_roi(*roi)
+        roi_dict = hdr.start['detectors'][detector]['config']['roi']
+    else:
+        # TODO: assert roi to be a dict
+        roi_dict = roi
+
+    vh_scan.set_roi(roi_dict, droi=droi)
     vh_scan.integrate_images()
-    return vh_scan
+
+    df = vh_scan.augment_df(df)
+
+    return df, comments
 
 
 def save_vh_scan_to_file(path_to_file, vh_scan, comments):

@@ -546,11 +546,11 @@ def save_stepscan_as_file(path_to_file, df, comments):
     return df_upd
 
 
-def save_processed_df_as_file(path_to_file, df_orig, comments, ext_data_path='extended_data'):
-    df, df_ext = split_df_data_into_primary_and_extended(df_orig)
+def save_primary_df_as_file(path_to_file, df, comments):
+    write_df_to_file(path_to_file, df, comments)
 
-
-    if df_ext is not None:
+def save_extended_data_as_file(path_to_file, extended_data, data_kind='default', ext_data_path='extended_data'):
+    if extended_data is not None:
         folder, file = os.path.split(path_to_file)
         folder = os.path.join(folder, ext_data_path)
         filename, _ = os.path.splitext(file)
@@ -560,18 +560,18 @@ def save_processed_df_as_file(path_to_file, df_orig, comments, ext_data_path='ex
         except FileExistsError:
             pass
         path_to_ext_file = os.path.join(folder, filename)
-        comments += f'# ExtendedData.path: {ext_data_path}/{filename}\n'
-
-    write_df_to_file(path_to_file, df, comments)
-
-    if df_ext is not None:
         with h5py.File(path_to_ext_file, 'a') as f:
-            for c in df_ext.columns:
-                arr = np.array([v for v in df_ext[c].values], dtype=np.float64)
-                f[c] = arr
+            f['data_kind'] = data_kind
+            for k, v in recursively_parse_dict(extended_data):
+                f[k] = v
 
-
-
+def recursively_parse_dict(data_dict):
+    for k, v in data_dict.items():
+        if type(v) == dict:
+            for sub_k, sub_v in recursively_parse_dict(v):
+                yield f'{k}/{sub_k}', sub_v
+        else:
+            yield k, v
 
 def dump_tiff_images(path_to_file, df, tiff_storage_path='/tiff_storage/'):
     if 'pil100k_image' in df.columns:
