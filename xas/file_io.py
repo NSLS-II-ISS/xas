@@ -573,6 +573,24 @@ def recursively_parse_dict(data_dict):
         else:
             yield k, v
 
+def recuresively_parse_h5(f):
+    output = {}
+    if type(f) == h5py._hl.dataset.Dataset:
+        return f[()]
+    else:
+        for k in f.keys():
+            v = recuresively_parse_h5(f[k])
+            if k not in output.keys():
+                output[k] = {}
+            output[k] = v
+        return output
+
+
+def load_extended_data_from_file(path_to_ext_file):
+    with h5py.File(path_to_ext_file, 'r') as f:
+        extended_data = recuresively_parse_h5(f)
+    return extended_data
+
 def dump_tiff_images(path_to_file, df, tiff_storage_path='/tiff_storage/'):
     if 'pil100k_image' in df.columns:
         # deal with paths

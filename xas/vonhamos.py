@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
-from xas.file_io import load_binned_df_from_file, write_df_to_file
+from xas.file_io import load_binned_df_from_file, write_df_to_file, load_extended_data_from_file
 import time as ttime
 from xas.fitting import fit_gaussian_with_estimation, fit_gaussian, Nominal2ActualConverter
 import pandas as pd
@@ -13,16 +13,25 @@ from xas.fitting import fit_linear_surf
 
 class VonHamosScan:
 
-    # @classmethod
-    # def from_db(cls, db, uid):
-    #     df = db[uid].table(fill=True)
-    #     return cls(df)
+    @classmethod
+    def from_db(cls, db, uid, ext_data_path='extended_data'):
+        hdr = db[uid]
+        fpath = hdr.start['interp_file']
+        fpath, _ = os.path.splitext(fpath)
+        fpath += '.dat'
+        return cls.from_h5(fpath, ext_data_path=ext_data_path)
     #
-    # @classmethod
-    # def from_file(cls, db, path_to_file):
-    #     _, header = load_binned_df_from_file(path_to_file)
-    #     uid = [i for i in header.split('\n# ') if 'uid' in i][0].split(' ')[-1]
-    #     return cls.from_db(db, uid)
+    @classmethod
+    def from_h5(cls, path_to_file, ext_data_path='extended_data'):
+
+        df, _ = load_binned_df_from_file(path_to_file)
+        folder, file = os.path.split(path_to_file)
+        folder = os.path.join(folder, ext_data_path)
+        filename, _ = os.path.splitext(file)
+        filename += '.h5'
+        path_to_ext_file = os.path.join(folder, filename)
+        extended_data = load_extended_data_from_file(path_to_ext_file)
+        return cls(df, extended_data)
 
     def __init__(self, df, extended_data, image_key='pil100k_image'):
 
@@ -127,8 +136,8 @@ class VonHamosScan:
                            'intensity_bkg' : intensity_bkg,
                            'intensity_no_bkg' : intensity_no_bkg}
 
-    def append_calibration(self, calibration):
-        self.energy_converter = calibration.energy_converter
+    # def append_calibration(self, calibration):
+    #     self.energy_converter = calibration.energy_converter
 
     def augment_extended_data(self, extended_data):
         aug_data = {}
@@ -163,23 +172,38 @@ class VonHamosCalibration(VonHamosScan):
     def __init__(self, *args):
         super().__init__(*args)
 
-    def calibrate(self, n_poly=2, plotting=False):
-        self.xes /= np.max(self.xes, axis=0)[None, :]
+    def calibrate(self, rois=None, n_poly=2, plotting=False):
+        if rois is None:
+            rois = self.roi_dict.keys()
+        for roi in rois:
+            self.calibrate_roi(roi, n_poly=2, plotting=False)
 
-        n_scans = self.xes.shape[1]
 
-        self.pixel_cen = np.zeros(n_scans)
-        self.pixel_fwhm = np.zeros(n_scans)
-        self.energy_converter = Nominal2ActualConverter(self.pixel_cen, self.energy, n_poly=n_poly)
+    def calibrate_roi(self, roi, n_poly=2, plotting=False):
+        xes = self.xes[roi]
+        pixel = xes['pixel']
+        intensity = xes['intensity'].copy()
+
+        intensity /= np.max(intensity, axis=0)[None, :]
+
+        n_scans = intensity.shape[1]
+
+        pixel_cen = np.zeros(n_scans)
+        pixel_fwhm = np.zeros(n_scans)
 
         if plotting:
-            plt.figure(clear=True)
+            plt.figure()
 
-            for i in range(n_scans):
-                self.pixel_cen[i], self.pixel_fwhm[i], I_fit_raw = self._fit_elastic_line(self.pixel, self.xes[:, i])
+        for i in range(n_scans):
+            pixel_cen[i], pixel_fwhm[i], intensity_fit = self._fit_elastic_line(pixel, intensity)
 
-                plt.plot(self.pixel, self.xes[:, i] - i, 'k-')
-                plt.plot(self.pixel, I_fit_raw - i, 'r')
+            if plotting:
+                plt.plot(pixel, intensity[:, i] - i, 'k-')
+                plt.plot(pixel, intensity_fit - i, 'r')
+
+        energy_converter = Nominal2ActualConverter(pixel_cen, self.energy, n_poly=n_poly)
+        self.xes[roi]['emission_energy'] = energy_converter.nom2act(pixel)
+
 
 
 
@@ -193,8 +217,12 @@ class VonHamosCalibration(VonHamosScan):
         return cen, fwhm, y_fit
 
 
-def process_von_hamos_scan(df, extended_data, comments, hdr, detector='Pilatus 100k', roi='auto', droi=5):
-    vh_scan = VonHamosScan(df, extended_data)
+def process_von_hamos_scan(df, extended_data, comments, hdr, detector='Pilatus 100k', roi='auto', droi=5, save_dat=True):
+
+    # if ('spectrometer_scan_kind' in hdr.start.keys()) and (hdr.start['spectrometer_scan_kind'] == 'calibration'):
+    #     vh_scan = VonHamosCalibration(df, extended_data)
+    # else:
+    #     vh_scan = VonHamosScan(df, extended_data)
 
     if roi == 'auto':
         roi_dict = hdr.start['detectors'][detector]['config']['roi']
@@ -205,7 +233,27 @@ def process_von_hamos_scan(df, extended_data, comments, hdr, detector='Pilatus 1
     vh_scan.set_roi(roi_dict, droi=droi)
     vh_scan.integrate_images()
 
+    # if ('spectrometer_scan_kind' in hdr.start.keys()) and (hdr.start['spectrometer_scan_kind'] == 'calibration'):
+    #     try:
+    #         vh_scan.calibrate(['roi1'])
+    #     except Exception as e:
+    #         print(e)
+    #
+    # if ('spectrometer_calibration_uid' in hdr.start.keys()):
+    #     spectrometer_calibration_uid = hdr.start['spectrometer_calibration_uid']
+    #     vh_calibration = vh_scan.from_db(hdr.start[spectrometer_calibration_uid])
+
     extended_data = vh_scan.augment_extended_data(extended_data)
+
+    comments += f'# Spectrometer.type: von Hamos\n' \
+                f'# Spectrometer.detector: {detector}'
+    for k, roi in roi_dict.items():
+        for c, v in roi.items():
+            comments += f'# Spectrometer.detector.{k}.{c}: {v}\n'
+
+    # if save_dat:
+
+
 
     return extended_data, comments
 
