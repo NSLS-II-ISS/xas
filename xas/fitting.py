@@ -49,6 +49,20 @@ def fit_gaussian_with_estimation(E, I):
     return fit_gaussian(E, I, Ecen0, fwhm0)
 
 
+def fit_linear_surf(x, y, z, plotting=False):
+    A = np.hstack((x[:, None], y[:, None], np.ones((x.size, 1))))
+    c, _, _, _ = np.linalg.lstsq(A, z, rcond=-1)
+    # if plotting:
+    #     try:
+    #         mplot3d
+    #     except NameError:
+    #         from mpl_toolkits import mplot3d
+    #     fig = plt.figure()
+    #     ax = plt.axes(projection='3d')
+    #     ax.scatter3D(x, y, z, marker='.', color='k')
+    #     ax.scatter3D(x, y, A @ c, marker='.', color='r')
+    return c
+
 class Nominal2ActualConverter:
 
     def __init__(self, x_nominal, x_actual, n_poly=2):
