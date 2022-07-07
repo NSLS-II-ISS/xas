@@ -35,7 +35,7 @@ def process_interpolate_bin_from_uid(uid, db, draw_func_interp = None, draw_func
                                                                           draw_func_bin=draw_func_bin,
                                                                           print_func=print_func)
 
-    save_primary_df_as_file(path_to_file, primary_df, comments, data_kind=data_kind)
+    save_primary_df_as_file(path_to_file, primary_df, comments)
     save_extended_data_as_file(path_to_file, extended_data, data_kind=data_kind)
     if dump_to_tiff:
         tiff_files = dump_tiff_images(path_to_file, primary_df, extended_data)

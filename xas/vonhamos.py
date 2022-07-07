@@ -89,25 +89,25 @@ class VonHamosScan:
             aug_data[key] = v
         return {**extended_data, **aug_data}
 
-    @property
-    def emission_energy(self):
-        try:
-            return self.energy_converter.nom2act(self.pixel)
-        except:
-            raise Exception('No energy converter')
-
-    def make_dfs(self):
-
-        if self.kind == 'xes':
-            dfs = []
-            for i in range(self.xes.shape[1]):
-                d = {'energy' : self.pixel,
-                     'i0': np.ones(self.pixel.shape) * self.i0[i],
-                     'pil100k_VH_counts' : self.xes[:, i]}
-                dfs.append(pd.DataFrame(d))
-            return dfs
-        elif self.kind == 'rixs':
-            pass
+    # @property
+    # def emission_energy(self):
+    #     try:
+    #         return self.energy_converter.nom2act(self.pixel)
+    #     except:
+    #         raise Exception('No energy converter')
+    #
+    # def make_dfs(self):
+    #
+    #     if self.kind == 'xes':
+    #         dfs = []
+    #         for i in range(self.xes.shape[1]):
+    #             d = {'energy' : self.pixel,
+    #                  'i0': np.ones(self.pixel.shape) * self.i0[i],
+    #                  'pil100k_VH_counts' : self.xes[:, i]}
+    #             dfs.append(pd.DataFrame(d))
+    #         return dfs
+    #     elif self.kind == 'rixs':
+    #         pass
 
 
 class VonHamosCalibration(VonHamosScan):
@@ -157,9 +157,9 @@ def process_von_hamos_scan(df, extended_data, comments, hdr, detector='Pilatus 1
     vh_scan.set_roi(roi_dict, droi=droi)
     vh_scan.integrate_images()
 
-    df = vh_scan.augment_df(df)
+    extended_data = vh_scan.augment_extended_data(extended_data)
 
-    return df, comments
+    return extended_data, comments
 
 
 def save_vh_scan_to_file(path_to_file, vh_scan, comments):
