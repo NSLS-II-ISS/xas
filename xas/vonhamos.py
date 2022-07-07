@@ -8,7 +8,7 @@ import pandas as pd
 import os
 # from lmfit.models import GaussianModel, LinearModel
 # _gmodel = GaussianModel() + LinearModel()
-
+from xas.fitting import fit_linear_surf
 
 
 class VonHamosScan:
@@ -50,6 +50,7 @@ class VonHamosScan:
     def set_roi(self, roi_dict, droi=5):
         self.roi_dict = roi_dict
         self.droi = droi
+        self.remove_bkg_from_images()
 
     def show_roi(self, fignum=1, vmin=None, vmax=None):
         if vmin is None: vmin = self.total_image.min()
@@ -66,18 +67,65 @@ class VonHamosScan:
         plt.xlim(0, xsize)
         plt.ylim(0, ysize)
 
+    def _convert_roi_to_indexes(self, roi, droi=False):
+        ysize, xsize = self.total_image.shape
+        x, y, dx, dy = roi['x'], roi['y'], roi['dx'], roi['dy']
+        if droi:
+            x -= self.droi
+            y -= self.droi
+            dx += 2 * self.droi
+            dy += 2 * self.droi
+        x1 = x
+        x2 = np.min([x + dx + 1, xsize])
+        y1 = y
+        y2 = np.min([y + dy + 1, ysize])
+        return x1, x2, y1, y2
+
+    def remove_bkg_from_images(self):
+        for k, roi in self.roi_dict.items():
+            x1, x2, y1, y2 = self._convert_roi_to_indexes(roi)
+            xw1, xw2, yw1, yw2 = self._convert_roi_to_indexes(roi, droi=True)
+
+
+            bkg_mask = np.zeros(self.total_image.shape, dtype=bool)
+            bkg_mask[yw1:yw2, xw1:xw2] = True
+            bkg_mask[y1:y2, x1:x2] = False
+
+            # image_bkg = image.copy()
+            # image_bkg[~bkg_mask] = -100
+
+            ysize, xsize = self.total_image.shape
+            y_mesh, x_mesh = np.meshgrid(np.arange(ysize), np.arange(xsize), indexing='ij')
+
+            y_bkg = y_mesh[bkg_mask].ravel()
+            x_bkg = x_mesh[bkg_mask].ravel()
+
+            data_bkg = np.array([im[bkg_mask].ravel() for im in self.images])
+            # dfg
+            # mask = mask_by_percentiles(i_bkg)
+            mask = np.all(data_bkg >= 0, axis=0)  # & (i_bkg < thresh)
+            y_bkg = y_bkg[mask]
+            x_bkg = x_bkg[mask]
+            data_bkg = data_bkg[:, mask]
+
+            c = fit_linear_surf(y_bkg, x_bkg, data_bkg.T)
+
+            A_fit = np.hstack((y_mesh.ravel()[:, None], x_mesh.ravel()[:, None], np.ones((y_mesh.ravel().size, 1))))
+            self.images_bkg = (A_fit @ c).reshape(self.images.shape)
+            self.images_no_bkg = self.images - self.images_bkg
+
     def integrate_images(self):
         self.xes = {}
-        ysize, xsize = self.total_image.shape
         for k, roi in self.roi_dict.items():
-            x, y, dx, dy = roi['x'], roi['y'], roi['dx'], roi['dy']
-            x1 = x
-            x2 = np.min([x + dx + 1, xsize])
-            y1 = y
-            y2 = np.min([y + dy + 1, ysize])
+            x1, x2, y1, y2 = self._convert_roi_to_indexes(roi)
             pixel = np.arange(x1, x2)
             intensity = np.sum(self.images[:, y1: y2, x1: x2], axis=1)
-            self.xes[k] = {'pixel' : pixel, 'intensity' : intensity}
+            intensity_bkg = np.sum(self.images_bkg[:, y1: y2, x1: x2], axis=1)
+            intensity_no_bkg = np.sum(self.images_no_bkg[:, y1: y2, x1: x2], axis=1)
+            self.xes[k] = {'pixel' : pixel,
+                           'intensity' : intensity,
+                           'intensity_bkg' : intensity_bkg,
+                           'intensity_no_bkg' : intensity_no_bkg}
 
     def append_calibration(self, calibration):
         self.energy_converter = calibration.energy_converter
