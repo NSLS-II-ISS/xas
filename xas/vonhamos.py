@@ -39,6 +39,7 @@ class VonHamosScan:
             self.energy = df.energy.values
             self.kind = 'rixs'
         else:
+            self.energy = None
             self.kind = 'xes'
 
         self.i0 = df.i0.values
@@ -153,18 +154,28 @@ class VonHamosScan:
     #     except:
     #         raise Exception('No energy converter')
     #
-    # def make_dfs(self):
-    #
-    #     if self.kind == 'xes':
-    #         dfs = []
-    #         for i in range(self.xes.shape[1]):
-    #             d = {'energy' : self.pixel,
-    #                  'i0': np.ones(self.pixel.shape) * self.i0[i],
-    #                  'pil100k_VH_counts' : self.xes[:, i]}
-    #             dfs.append(pd.DataFrame(d))
-    #         return dfs
-    #     elif self.kind == 'rixs':
-    #         pass
+    def make_dfs(self, rois=['roi1', 'roi2']):
+
+        # if self.kind == 'xes':
+        dfs = []
+        suffixes = []
+        for roi in rois:
+            for i in range(self.xes[roi]['intensity'].shape[0]):
+                if self.energy is not None:
+                    energy_str = f' {str(int(self.energy[i]))} eV'
+                else:
+                    energy_str = ''
+                suffixes.append(f'{roi} frame {(i+1):04d}{energy_str}')
+
+                data_dict = {'energy' : self.xes[roi]['pixel'],
+                     'i0': np.ones(self.xes[roi]['pixel'].shape) * self.i0[i],
+                     f'pil100k_VH__intensity' : self.xes[roi]['intensity'][i, :],
+                     f'pil100k_VH__bkg' : self.xes[roi]['intensity_bkg'][i, :],
+                     f'pil100k_VH__intensity_no_bkg' : self.xes[roi]['intensity_no_bkg'][i, :]}
+                dfs.append(pd.DataFrame(data_dict))
+        return dfs, suffixes
+        # elif self.kind == 'rixs':
+        #     pass
 
 
 class VonHamosCalibration(VonHamosScan):
@@ -217,12 +228,12 @@ class VonHamosCalibration(VonHamosScan):
         return cen, fwhm, y_fit
 
 
-def process_von_hamos_scan(df, extended_data, comments, hdr, detector='Pilatus 100k', roi='auto', droi=5, save_dat=True):
+def process_von_hamos_scan(df, extended_data, comments, hdr, path_to_file, detector='Pilatus 100k', roi='auto', droi=5, save_dat=True):
 
     # if ('spectrometer_scan_kind' in hdr.start.keys()) and (hdr.start['spectrometer_scan_kind'] == 'calibration'):
     #     vh_scan = VonHamosCalibration(df, extended_data)
     # else:
-    #     vh_scan = VonHamosScan(df, extended_data)
+    vh_scan = VonHamosScan(df, extended_data)
 
     if roi == 'auto':
         roi_dict = hdr.start['detectors'][detector]['config']['roi']
@@ -251,20 +262,24 @@ def process_von_hamos_scan(df, extended_data, comments, hdr, detector='Pilatus 1
         for c, v in roi.items():
             comments += f'# Spectrometer.detector.{k}.{c}: {v}\n'
 
-    # if save_dat:
+    if save_dat:
+        file_paths = save_vh_scan_to_file(path_to_file, vh_scan, comments)
+    else:
+        file_paths = []
 
-
-
-    return extended_data, comments
+    return extended_data, comments, file_paths
 
 
 def save_vh_scan_to_file(path_to_file, vh_scan, comments):
-    dfs = vh_scan.make_dfs()
+    dfs, suffixes = vh_scan.make_dfs()
     (path, extension) = os.path.splitext(path_to_file)
-    for i, df in enumerate(dfs):
-        path_frame = f'{path} frame {i + 1} {extension}'
+    paths = []
+    for df, suffix in zip(dfs, suffixes):
+        path_frame = f'{path} {suffix}{extension}'
         print(f'VON HAMOS PROCESSING: data will be saved in {path_frame}')
         write_df_to_file(path_frame, df, comments)
+        paths.append(path_frame)
+    return paths
 
 
 

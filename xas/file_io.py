@@ -417,6 +417,7 @@ stepscan_channel_dict = {
     'pil100k_stats2_total': 'pil100k_roi2',
     'pil100k_stats3_total': 'pil100k_roi3',
     'pil100k_stats4_total': 'pil100k_roi4',
+    'pil100k_image': 'pil100k_image',
     'xs_channel1_rois_roi01_value' : 'xs_ch01_roi01',
     'xs_channel2_rois_roi01_value' : 'xs_ch01_roi02',
     'xs_channel3_rois_roi01_value' : 'xs_ch01_roi03',
@@ -512,7 +513,7 @@ def filter_df_by_valid_keys(df):
     d = {}
     for key, new_key in stepscan_channel_dict.items():
         if key in df.columns:
-            d[new_key] = df[key].values
+            d[new_key] = [i.squeeze() for i in df[key].values]
     return pd.DataFrame(d)
 
 

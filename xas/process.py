@@ -29,22 +29,28 @@ def process_interpolate_bin_from_uid(uid, db, draw_func_interp = None, draw_func
 
 
     logger = get_logger()
-    hdr, primary_df, extended_data, comments, path_to_file, data_kind = get_processed_df_from_uid(uid, db,
+    hdr, primary_df, extended_data, comments, path_to_file, file_list, data_kind = get_processed_df_from_uid(uid, db,
                                                                           logger=logger,
                                                                           draw_func_interp=draw_func_interp,
                                                                           draw_func_bin=draw_func_bin,
                                                                           print_func=print_func)
 
     save_primary_df_as_file(path_to_file, primary_df, comments)
-    save_extended_data_as_file(path_to_file, extended_data, data_kind=data_kind)
+    try:
+        save_extended_data_as_file(path_to_file, extended_data, data_kind=data_kind)
+    except Exception  as e:
+        print(e)
+        pass
+
     if dump_to_tiff:
         tiff_files = dump_tiff_images(path_to_file, primary_df, extended_data)
 
 
     try:
         if cloud_dispatcher is not None:
-            cloud_dispatcher.load_to_dropbox(path_to_file)
-            logger.info(f'({ttime.ctime()}) Sending data to the cloud successful for {path_to_file}')
+            for f in file_list:
+                cloud_dispatcher.load_to_dropbox(f)
+                logger.info(f'({ttime.ctime()}) Sending data to the cloud successful for {path_to_file}')
     except Exception as e:
         logger.info(f'({ttime.ctime()}) Sending data to the cloud failed for {path_to_file}')
         raise e
@@ -66,12 +72,14 @@ def get_processed_df_from_uid(uid, db, logger=None, draw_func_interp=None, draw_
     comments = create_file_header(hdr)
     path_to_file = hdr.start['interp_filename']
     validate_path_exists(path_to_file)
+    path_to_file = validate_file_exists(path_to_file, file_type='interp')
     e0 = find_e0(hdr)
     data_kind = 'default'
+    file_list = []
 
     if experiment == 'fly_scan':
 
-        path_to_file = validate_file_exists(path_to_file, file_type='interp')
+        # path_to_file = validate_file_exists(path_to_file, file_type='interp')
         stream_names = hdr.stream_names
         try:
             # default detectors
@@ -123,6 +131,7 @@ def get_processed_df_from_uid(uid, db, logger=None, draw_func_interp=None, draw_
 
 
     elif (experiment == 'step_scan') or (experiment == 'collect_n_exposures'):
+        # path_to_file = validate_file_exists(path_to_file, file_type='interp')
         df = stepscan_remove_offsets(hdr)
         df = stepscan_normalize_xs(df)
         processed_df = filter_df_by_valid_keys(df)
@@ -138,11 +147,12 @@ def get_processed_df_from_uid(uid, db, logger=None, draw_func_interp=None, draw_
     ### WIP
     if 'spectrometer' in hdr.start.keys():
         if hdr.start['spectrometer'] == 'von_hamos':
-            extended_data, comments = process_von_hamos_scan(primary_df, extended_data, comments, hdr, path_to_file, roi='auto')
+            extended_data, comments, file_paths = process_von_hamos_scan(primary_df, extended_data, comments, hdr, path_to_file, roi='auto')
             data_kind = 'von_hamos'
+            file_list = file_paths
             # save_vh_scan_to_file(path_to_file, vh_scan, comments)
-
-    return hdr, primary_df, extended_data, comments, path_to_file, data_kind
+    file_list.append(path_to_file)
+    return hdr, primary_df, extended_data, comments, path_to_file, file_list, data_kind
 
 import numpy as np
 def split_df_data_into_primary_and_extended(df_orig):
