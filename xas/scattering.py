@@ -7,7 +7,7 @@ import pyFAI as pyFAI
 
 
 
-def get_ai(dist=40, center_ver=100, center_hor=480,
+def get_ai(dist=40, center_ver=93, center_hor=440,
            pixel1=0.172, pixel2=0.172,
            rot1=0, rot2=0, rot3=np.pi/2,
            energy=11300):
@@ -91,12 +91,11 @@ def process_image(image, nw=5):
 process_image(image)
 
 
-def integrate_pil100k_image_stack(df_images, dist=40, center_ver=100, center_hor=480, deadtime_cor=True):
+def integrate_pil100k_image_stack(images_array, dist=40, center_ver=93, center_hor=440, deadtime_cor=False):
     ai = get_ai(dist=dist, center_ver=center_ver, center_hor=center_hor)
     s = []
     mask = None
-    for item in df_images.values:
-        image = np.array(item[0])
+    for image in images_array:
         if deadtime_cor:
             image *= np.exp(-image * 25 * 160e-9)
         if mask is None:
@@ -110,8 +109,14 @@ def integrate_pil100k_image_stack(df_images, dist=40, center_ver=100, center_hor
     return tth, np.array(s)
 
 
-df, _ = load_binned_df_from_file('/nsls2/data/iss/legacy/processed/2022/2/300010/Ir sample 2 AXS try4 cont 0037-r0003.dat')
-data = pd.read_json('/nsls2/data/iss/legacy/processed/2022/2/300010/extended_data/Ir sample 2 AXS try4 cont 0037-r0003.json')
+fname = 'Ir sample 2 scan AXS 600 um 8-11_2 keV data 0002'
+folder = '/nsls2/data/iss/legacy/processed/2022/2/300011/'
+
+from xas.file_io import load_binned_df_from_file, load_extended_data_from_file
+
+df, _ = load_binned_df_from_file(f'{folder}{fname}.dat')
+data = load_extended_data_from_file(f'{folder}/extended_data/{fname}.h5')['pil100k_image']
+
 
 # df, _ = load_binned_df_from_file('/nsls2/data/iss/legacy/processed/2022/2/300010/Neat MeCN AXS 0019-r0013.dat')
 # data = pd.read_json('/nsls2/data/iss/legacy/processed/2022/2/300010/extended_data/Neat MeCN AXS 0019-r0013.json')
@@ -121,75 +126,80 @@ i0s = -df['i0']
 i0s /= i0s[50]
 s /= i0s[:, None]
 qq = 4*np.pi / (12.3984 / 11.220) * np.sin(np.deg2rad(tth)/2)
-iff = xview_gui.project[0].flat
-
+iff = xview_gui.project[-1].flat
+s = s.T
+energies = df['energy'].values
 # s /= s.max()
 
-def preproc_s(s, n_lo=5, n_hi=5, n_fit=2):
-    s_lo = s[:n_lo, :]
-    u, _, _ = np.linalg.svd(s_lo.T)
-
+def preproc_s(s, n_lo=5, n_hi=5, n_fit=1):
+    s_lo = s[:, :n_lo]
+    u, _, _ = np.linalg.svd(s_lo)
+    #
     basis = u[:, :n_fit]
-    c, _, _, _ = np.linalg.lstsq(basis, s.T)
+    c, _, _, _ = np.linalg.lstsq(basis, s)
 
     s_b = basis @ c
-    s_preproc = s - s_b.T
+    s_preproc = s - s_b
 
     nc=3
 
     plt.figure(5, clear=True)
     plt.subplot(221)
+    # plt.plot(u[:, :n_fit])
     plt.imshow(s_preproc)
 
     plt.subplot(222)
-    plt.plot(s_preproc[:, 200] * 25)
-    #
+    plt.plot(s_preproc[:, 161] * 25)
+
     plt.subplot(223)
-    plt.plot(s_preproc[:, 94] * 25)
-    #
-    # plt.subplot(224)
-    # plt.plot(v[:, :nc])
+    plt.plot(s_preproc[:, 300] * 25)
+
+    plt.subplot(224)
+    plt.plot(v[:, :nc])
     return s_preproc
 
 s_preproc = preproc_s(s)
 
 def rm_fluorescence(s, iff):
-    c, _, _, _ = np.linalg.lstsq(iff[:, None], s)
+    c, _, _, _ = np.linalg.lstsq(iff[:, None], s.T)
     # c[c<0] = 0
-    s_b = iff[:, None] @ c
+    s_b = (iff[:, None] @ c).T
     plt.figure(6, clear=True)
     plt.subplot(221)
-    plt.imshow(s_preproc)
+    plt.imshow(s)
 
     plt.subplot(222)
-    plt.imshow(s_preproc - s_b)
+    plt.imshow(s - s_b)
 
-    return s_preproc - s_b
+    return s - s_b
 
 s_preproc = rm_fluorescence(s_preproc, iff)
 
 
-def process_stack_of_patterns(energy, s, iff, emin=11200, emax=11250, e0=11217):
+def process_stack_of_patterns(energy, s, iff, emin=11150, emax=11225, e0=11217):
     e_lo_mask = energy <= emin
     e_hi_mask = energy >= emax
+    e_mask = e_lo_mask | e_hi_mask
     poly = np.polyfit(energy[e_lo_mask], s[e_lo_mask, :], 1)
     s_bkg = np.zeros(s.shape)
     s_proc = np.zeros(s.shape)
     # poly_iff = np.polyfit(energy[e_lo_mask], s[e_lo_mask, :], 1)
 
-    basis = np.vstack((np.ones(energy.size), energy, energy**2, energy**3, iff)).T
+    basis = np.vstack((np.ones(energy.size), energy, energy**2, iff, iff*energy)).T
     print(basis.shape, s[:, 0].shape)
     for i in range(s.shape[1]):
-        preedge = np.polyval(poly[:, i], energy)
-        p_postedge = np.polyfit(energy[e_hi_mask], (s[:, i] - preedge)[e_hi_mask], 1)
-        postedge = np.polyval(p_postedge, energy)
-        bkg_loc = preedge.copy()
-        bkg_loc[energy >=e0] = (preedge + postedge)[energy >=e0]
-        iff_bkg_loc = np.zeros(energy.size)
-        iff_bkg_loc[energy >=e0] = 1
+        # preedge = np.polyval(poly[:, i], energy)
+        # p_postedge = np.polyfit(energy[e_hi_mask], (s[:, i] - preedge)[, ], 1)
+        # postedge = np.polyval(p_postedge, energy)
+        # bkg_loc = preedge.copy()
+        # bkg_loc[energy >=e0] = (preedge + postedge)[energy >=e0]
+        # iff_bkg_loc = np.zeros(energy.size)
+        # iff_bkg_loc[energy >=e0] = 1
         # basis = np.vstack((iff, energy)).T
-        c, _, _, _ = np.linalg.lstsq( iff[e_hi_mask, None], (s[:, i] - preedge)[e_hi_mask])
-        s_bkg[:, i] = preedge + c * iff
+        # c, _, _, _ = np.linalg.lstsq( iff[e_hi_mask, None], (s[:, i] - preedge)[e_hi_mask])
+        # s_bkg[:, i] = preedge + c * iff
+        c, _, _, _ = np.linalg.lstsq(basis[e_mask], s[e_mask, i] )
+        s_bkg[:, i] = basis @ c
         # s_proc[:, i] = (s[:, i] - preedge)/postedge
 
         # s_bkg[:, i] = basis @ c + np.polyval(poly[:, i], energy)
@@ -198,6 +208,36 @@ def process_stack_of_patterns(energy, s, iff, emin=11200, emax=11250, e0=11217):
 
     # s_proc /= np.mean(s_proc[e_hi_mask, :], axis=0)
     return s_proc, s_bkg
+
+
+
+s_proc, s_bkg = process_stack_of_patterns(df['energy'].values, s.T, iff)
+
+plt.figure(2, clear=True)
+
+plt.subplot(221)
+plt.imshow(s.T)
+
+plt.subplot(222)
+plt.imshow(s_proc, vmin=-40, vmax=40)
+
+
+plt.subplot(223)
+# plt.plot(energies, s.T[:, 50])
+# plt.plot(energies, s_bkg[:, 50])
+
+plt.plot(energies, s_proc[:, 50])
+
+
+plt.subplot(224)
+nc=[130, 160]
+# plt.plot(qq, s.T[160, :])
+# plt.plot(qq, s_bkg[160, :])
+# for i in nc:
+#     plt.plot(qq, s_proc[i, :])
+
+plt.plot(qq, np.mean(s_proc[125:150, :], axis=0))
+plt.plot(qq, np.mean(s_proc[160:200, :], axis=0))
 
 from scipy.optimize import nnls
 
