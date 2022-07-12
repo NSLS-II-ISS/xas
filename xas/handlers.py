@@ -54,6 +54,23 @@ class PizzaBoxEncHandlerTxtPD(HandlerBase):
 
 
 
+class APBTriggerFileHandler(HandlerBase):
+    "Read APB trigger *.bin files"
+    def __init__(self, fpath):
+        raw_data = np.fromfile(fpath, dtype=np.int32)
+        raw_data = raw_data.reshape((raw_data.size // 3, 3))
+        columns = ['timestamp', 'transition']
+        derived_data = np.zeros((raw_data.shape[0], 2))
+        derived_data[:, 0] = raw_data[:, 1] + raw_data[:, 2]  * 8.0051232 * 1e-9  # Unix timestamp with nanoseconds
+        derived_data[:, 1] = raw_data[:, 0]
+
+        self.df = pd.DataFrame(data=derived_data, columns=columns)
+        self.raw_data = raw_data
+
+    def __call__(self):
+        return self.df
+
+
 class ISSXspress3HDF5Handler(Xspress3HDF5Handler):
 
     def __init__(self, *args, **kwargs):
