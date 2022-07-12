@@ -149,3 +149,15 @@ class ISSPilatusHDF5Handler(Xspress3HDF5Handler): # Denis: I used Xspress3HDF5Ha
             raise KeyError(f'data_type={data_type} not supported')
 
 
+
+def register_all_handlers(db):
+    db.reg.register_handler('PIZZABOX_ENC_FILE_TXT_PD',
+                            PizzaBoxEncHandlerTxtPD, overwrite=True)
+    db.reg.register_handler('APB',
+                            APBBinFileHandler, overwrite=True)
+    db.reg.register_handler('APB_TRIGGER',
+                            APBTriggerFileHandler, overwrite=True)
+    db.reg.register_handler('PIL100k_HDF5',
+                            ISSPilatusHDF5Handler, overwrite=True)
+    db.reg.register_handler(ISSXspress3HDF5Handler.HANDLER_NAME,
+                            ISSXspress3HDF5Handler, overwrite=True)
