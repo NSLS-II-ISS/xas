@@ -358,6 +358,21 @@ def load_interpolated_df_from_file(filename):
         df = df.sort_values('energy'.lower())
     return df, header
 
+def convert_path_to_file_to_path_to_ext_file(path_to_file, ext_data_path='extended_data'):
+    folder, file = os.path.split(path_to_file)
+    folder = os.path.join(folder, ext_data_path)
+    filename, _ = os.path.splitext(file)
+    filename += '.h5'
+    return os.path.join(folder, filename)
+
+
+def load_interpolated_df_and_extended_data_from_file(path_to_file, ext_data_path='extended_data'):
+    df, header = load_binned_df_from_file(path_to_file)
+    path_to_ext_file = convert_path_to_file_to_path_to_ext_file(path_to_file, ext_data_path=ext_data_path)
+    ext_data = load_extended_data_from_file(path_to_ext_file)
+    return df, ext_data, header
+
+
 def load_binned_df_from_file(filename):
     ''' Load interp file and return'''
 

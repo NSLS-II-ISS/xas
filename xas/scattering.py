@@ -109,13 +109,32 @@ def integrate_pil100k_image_stack(images_array, dist=40, center_ver=93, center_h
     return tth, np.array(s)
 
 
-fname = 'Ir sample 2 scan AXS 600 um 8-11_2 keV data 0002'
+fname_base = 'Ir sample 2 scan AXS wide 600 um'
 folder = '/nsls2/data/iss/legacy/processed/2022/2/300011/'
 
 from xas.file_io import load_binned_df_from_file, load_extended_data_from_file
+from xas.file_io import load_interpolated_df_and_extended_data_from_file
 
-df, _ = load_binned_df_from_file(f'{folder}{fname}.dat')
-data = load_extended_data_from_file(f'{folder}/extended_data/{fname}.h5')['pil100k_image']
+
+df = None
+data = None
+for i in range(1, 16):
+    f = f'{folder}{fname_base} {i:04d}-r0002.dat'
+    df_i, ext_data_i, _ = load_interpolated_df_and_extended_data_from_file(f)
+    if df is None:
+        df = df_i
+        data = ext_data_i['pil100k_image']
+    else:
+        df += df_i
+        data += ext_data_i['pil100k_image']
+
+df = df/15
+data = data/15
+
+
+
+# df, _ = load_binned_df_from_file(f'{folder}{fname}.dat')
+# data = load_extended_data_from_file(f'{folder}/extended_data/{fname}.h5')['pil100k_image']
 
 
 # df, _ = load_binned_df_from_file('/nsls2/data/iss/legacy/processed/2022/2/300010/Neat MeCN AXS 0019-r0013.dat')
@@ -127,6 +146,7 @@ i0s /= i0s[50]
 s /= i0s[:, None]
 qq = 4*np.pi / (12.3984 / 11.220) * np.sin(np.deg2rad(tth)/2)
 iff = xview_gui.project[-1].flat
+# iff = df['iff']/df['i0']
 s = s.T
 energies = df['energy'].values
 # s /= s.max()
@@ -176,7 +196,7 @@ def rm_fluorescence(s, iff):
 s_preproc = rm_fluorescence(s_preproc, iff)
 
 
-def process_stack_of_patterns(energy, s, iff, emin=11150, emax=11225, e0=11217):
+def process_stack_of_patterns(energy, s, iff, emin=11000, emax=11270, e0=11217):
     e_lo_mask = energy <= emin
     e_hi_mask = energy >= emax
     e_mask = e_lo_mask | e_hi_mask
@@ -216,10 +236,10 @@ s_proc, s_bkg = process_stack_of_patterns(df['energy'].values, s.T, iff)
 plt.figure(2, clear=True)
 
 plt.subplot(221)
-plt.imshow(s.T)
+plt.imshow(np.log10(s.T))
 
 plt.subplot(222)
-plt.imshow(s_proc, vmin=-40, vmax=40)
+plt.imshow(s_proc, vmin=-20, vmax=20)
 
 
 plt.subplot(223)
@@ -270,9 +290,43 @@ def fit_stack_of_patterns(energy, s, iff, ff0, ff_real, ff_imag):
         anomalous_scat[:, i] = c[-2:]
     return s_fit, s_bkg, anomalous_scat
 
-from kkcalc import kk
+import kkcalc
+
+
+def kk_calculate_real_from_array(energy, mu_flat, element, merge_points=None, add_background=True, fix_distortions=False, curve_tolerance=None, curve_recursion=50):
+    """Do all data loading and processing and then calculate the kramers-Kronig transform.
+    Parameters
+    ----------
+    NearEdgeDataFile : string
+    	Path to file containg near-edge data
+    ChemicalFormula : string
+    	A standard chemical formula string consisting of element symbols, numbers and parentheses.
+    merge_points : list or tuple pair of `float` values, or None
+    	The photon energy values (low, high) at which the near-edge and scattering factor data values
+    	are set equal so as to ensure continuity of the merged data set.
+    Returns
+    -------
+    This function returns a numpy array with columns consisting of the photon energy, the real and the imaginary parts of the scattering factors.
+    """
+    Stoichiometry = kkcalc.data.ParseChemicalFormula(element)
+    Relativistic_Correction = kkcalc.kk.calc_relativistic_correction(Stoichiometry)
+    Full_E, Imaginary_Spectrum = kkcalc.data.calculate_asf(Stoichiometry)
+    _data = np.vstack((energy, mu_flat)).T
+    NearEdge_Data = kkcalc.data.convert_data(_data, FromType='xanes', ToType='asf')
+    Full_E, Imaginary_Spectrum = kkcalc.data.merge_spectra(NearEdge_Data, Full_E, Imaginary_Spectrum, merge_points=merge_points, add_background=add_background, fix_distortions=fix_distortions)
+    Real_Spectrum = kkcalc.kk.KK_PP(Full_E, Full_E, Imaginary_Spectrum, Relativistic_Correction)
+    if curve_tolerance is not None:
+        output_data = kkcalc.kk.improve_accuracy(Full_E, Real_Spectrum, Imaginary_Spectrum, Relativistic_Correction, curve_tolerance, curve_recursion)
+    else:
+        Imaginary_Spectrum_Values = kkcalc.data.coeffs_to_ASF(Full_E, np.vstack((Imaginary_Spectrum, Imaginary_Spectrum[-1])))
+        output_data = np.vstack((Full_E, Real_Spectrum, Imaginary_Spectrum_Values)).T
+    return output_data
+
+
+bla = kk_calculate_real_from_array(energies, iff, 'Ir')
+
 import xraydb
-ff_data = kk.kk_calculate_real('/nsls2/data/iss/legacy/processed/2022/2/300010/Ir sample 2 AXS try4 cont 0037-r0002 iff-i0.mu',
+ff_data = kkcalc.kk.kk_calculate_real('/nsls2/data/iss/legacy/processed/2022/2/300010/Ir sample 2 AXS try4 cont 0037-r0002 iff-i0.mu',
                                'Ir', input_data_type='xanes')
 ff_real = np.interp(df['energy'], ff_data[:, 0], ff_data[:, 1])
 ff_imag = np.interp(df['energy'], ff_data[:, 0], ff_data[:, 2])
