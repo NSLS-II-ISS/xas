@@ -215,8 +215,55 @@ def get_fly_uids_for_proposal(db, year, cycle, proposal):
     runs = db.v2.search({'year': year, 'cycle' : cycle, 'PROPOSAL' : proposal, 'experiment' : 'fly_scan'})
     return list(runs)
 
+from collections import OrderedDict
+import pandas as pd
+def get_uid_tree_for_proposal(db, year, cycle, proposal):
+    year = str(year)
+    cycle = str(cycle)
+    proposal = str(proposal)
+    runs = db.v2.search({'year': year, 'cycle': cycle, 'PROPOSAL': proposal})
+
+    uid_df = []
+    for uid in runs:
+        start = runs[uid].metadata['start']
+        if 'experiment' in start.keys():
+            uid_dict = {'scan_group_uid' : None,
+                        'uid' : uid,
+                        'experiment' : start['experiment'],
+                        'name': start['interp_filename'],
+                        'kind' : 'default'}
+            if 'scan_group_uid' in start.keys():
+                uid_dict['scan_group_uid'] = start['scan_group_uid']
+            uid_df.append(uid_dict)
+    uid_df = pd.DataFrame(uid_df)
+    uid_df['grouped'] = False
+
+    output = []
+    for i, row in uid_df.iterrows():
+        if not row['grouped']:
+            if ((row['scan_group_uid'] is None) or
+                ((uid_df['scan_group_uid'] == row['scan_group_uid']).sum() == 1)):
+                output_row = row.to_dict()
+                output_row.pop('scan_group_uid')
+            else:
+                output_row = {'scan_group_uid' : row['scan_group_uid']}
+                uids_loc = uid_df[uid_df['scan_group_uid'] == row['scan_group_uid']]
+                uids_loc = uids_loc.drop('scan_group_uid', axis=1)
+                output_row['uids'] = uids_loc.to_dict(orient='records')
+            output.append(output_row)
+            uid_df[uid_df['scan_group_uid'] == row['scan_group_uid']]['grouped'] = True
+
+    return output
 
 
+
+
+
+
+
+    #
+    #
+    # return uid_list
 
 
 def plot_normalized(x, y, factor=1):
