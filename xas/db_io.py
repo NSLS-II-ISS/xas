@@ -245,10 +245,11 @@ def get_uid_tree_for_proposal(db, year, cycle, proposal):
                 ((uid_df['scan_group_uid'] == row['scan_group_uid']).sum() == 1)):
                 output_row = row.to_dict()
                 output_row.pop('scan_group_uid')
+                output_row.pop('grouped')
             else:
                 output_row = {'scan_group_uid' : row['scan_group_uid']}
                 uids_loc = uid_df[uid_df['scan_group_uid'] == row['scan_group_uid']]
-                uids_loc = uids_loc.drop('scan_group_uid', axis=1)
+                uids_loc = uids_loc.drop(['scan_group_uid', 'grouped'], axis=1)
                 output_row['uids'] = uids_loc.to_dict(orient='records')
             output.append(output_row)
             uid_df[uid_df['scan_group_uid'] == row['scan_group_uid']]['grouped'] = True
