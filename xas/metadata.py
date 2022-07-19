@@ -57,7 +57,7 @@ metadata_dict = OrderedDict({
 'scan_id':                      {'kind' : 'auto',                                                                   'human_readable_key' : 'Scan.transient_id'},
 'uid':                          {'kind' : 'auto',                                                                   'human_readable_key' : 'Scan.uid'},
 'e0':                           {'kind' : 'auto',                                                                   'human_readable_key' : 'Scan.edge_energy'},
-'start_time':                   {'kind' : 'auto',                                                                   'human_readable_key' : 'Scan.start_time'},
+'time':                         {'kind' : 'auto',                                                                   'human_readable_key' : 'Scan.start_time'},
 'stop_time':                    {'kind' : 'auto',                                                                   'human_readable_key' : 'Scan.end_time'},
 'name':                         {'kind' : 'auto',                                                                   'human_readable_key' : 'Sample.name'},
 'comment':                      {'kind' : 'auto',                                                                   'human_readable_key' : 'Sample.comment'},
@@ -128,6 +128,15 @@ def get_metadata():
         md[key] = value
 
     return md
+
+
+def generate_file_header_from_hdr(hdr):
+    start = hdr.start
+    output = ''
+    for key, hr_key in key_match.items():
+        if key in start.keys():
+            output += f'# {hr_key}: {start[key]}\n'
+    return output
 
 
 
