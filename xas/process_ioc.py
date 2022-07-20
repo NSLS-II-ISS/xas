@@ -59,11 +59,9 @@ class ProcessingIOC(PVGroup):
                 process_uid = self.uid_list.pop(0)
 
                 print(f'PROCESS IOC: File received {process_uid}')
-                if 'experiment' in db[process_uid].start.keys():
-                    process_interpolate_bin_from_uid(process_uid, db)
+                process_interpolate_bin_from_uid(process_uid, db)
 
                 await instance.write(0)
-            await self.pv_heartbeat.write(int(not (self.pv_heartbeat.value == 1)))
 
 if __name__ == '__main__':
     ioc_options, run_options = ioc_arg_parser(
