@@ -2,7 +2,7 @@
 
 import numpy as np
 import pyFAI as pyFAI
-
+import kkcalc, kkcalc.data, kkcalc.kk
 
 
 
@@ -19,23 +19,23 @@ def get_ai(dist=40, center_ver=93, center_hor=440,
                                    wavelength=wavelength)
     return ai
 
-ai = get_ai()
-
-image = np.array(data['pil100k_image'][0])
-mask = image < np.percentile(image.ravel(), 5)
+# ai = get_ai()
 #
-# # res = ai.integrate1d_ng(np.array(data_list[0]),
-# #                         1000,
-# #                         mask=mask,
-# #                         unit="2th_deg")
-# # jupyter.plot1d(res)
+# image = np.array(data['pil100k_image'][0])
+# mask = image < np.percentile(image.ravel(), 5)
+# #
+# # # res = ai.integrate1d_ng(np.array(data_list[0]),
+# # #                         1000,
+# # #                         mask=mask,
+# # #                         unit="2th_deg")
+# # # jupyter.plot1d(res)
+# #
+# res2 = ai.integrate2d_ng(image,
+#                          300, 360,
+#                          mask=mask,
+#                          unit="r_mm")
 #
-res2 = ai.integrate2d_ng(image,
-                         300, 360,
-                         mask=mask,
-                         unit="r_mm")
-
-jupyter.plot2d(res2)
+# jupyter.plot2d(res2)
 
 
 
@@ -88,10 +88,10 @@ def process_image(image, nw=5):
     plt.subplot(224)
     plt.imshow(gains, vmin=0.9, vmax=1.1)
 
-process_image(image)
+# process_image(image)
 
 
-def integrate_pil100k_image_stack(images_array, dist=40, center_ver=93, center_hor=440, deadtime_cor=False):
+def integrate_pil100k_image_stack(images_array, energy, dist=40, center_ver=93, center_hor=440, deadtime_cor=False):
     ai = get_ai(dist=dist, center_ver=center_ver, center_hor=center_hor)
     s = []
     mask = None
@@ -106,30 +106,40 @@ def integrate_pil100k_image_stack(images_array, dist=40, center_ver=93, center_h
                                 unit="2th_deg")
         s.append(res[1])
         tth = res[0]
-    return tth, np.array(s)
 
+    q_all = 4 * np.pi / (12398.4 / energy[np.newaxis, :]) * np.sin(np.deg2rad(tth[:, np.newaxis])/2)
+    qmin = q_all.min(axis=0).max()
+    qmax = q_all.max(axis=0).min()
+    nq = np.sum((q_all >= qmin) & (q_all <= qmax), axis=0).min()
+    q = np.linspace(qmin, qmax, nq)
+    sq = np.zeros((q.size, energy.size))
+    for i in range(energy.size):
+        sq[:, i] = np.interp(q, q_all[:, i], s[i])
 
-fname_base = 'Ir sample 2 scan AXS wide 600 um'
-folder = '/nsls2/data/iss/legacy/processed/2022/2/300011/'
+    return q, sq
 
-from xas.file_io import load_binned_df_from_file, load_extended_data_from_file
-from xas.file_io import load_interpolated_df_and_extended_data_from_file
-
-
-df = None
-data = None
-for i in range(1, 16):
-    f = f'{folder}{fname_base} {i:04d}-r0002.dat'
-    df_i, ext_data_i, _ = load_interpolated_df_and_extended_data_from_file(f)
-    if df is None:
-        df = df_i
-        data = ext_data_i['pil100k_image']
-    else:
-        df += df_i
-        data += ext_data_i['pil100k_image']
-
-df = df/15
-data = data/15
+#
+# fname_base = 'Ir sample 2 scan AXS wide 600 um'
+# folder = '/nsls2/data/iss/legacy/processed/2022/2/300011/'
+#
+# from xas.file_io import load_binned_df_from_file, load_extended_data_from_file
+# from xas.file_io import load_interpolated_df_and_extended_data_from_file
+#
+#
+# df = None
+# data = None
+# for i in range(1, 16):
+#     f = f'{folder}{fname_base} {i:04d}-r0002.dat'
+#     df_i, ext_data_i, _ = load_interpolated_df_and_extended_data_from_file(f)
+#     if df is None:
+#         df = df_i
+#         data = ext_data_i['pil100k_image']
+#     else:
+#         df += df_i
+#         data += ext_data_i['pil100k_image']
+#
+# df = df/15
+# data = data/15
 
 
 
@@ -140,60 +150,60 @@ data = data/15
 # df, _ = load_binned_df_from_file('/nsls2/data/iss/legacy/processed/2022/2/300010/Neat MeCN AXS 0019-r0013.dat')
 # data = pd.read_json('/nsls2/data/iss/legacy/processed/2022/2/300010/extended_data/Neat MeCN AXS 0019-r0013.json')
 
-tth, s = integrate_pil100k_image_stack(data)
-i0s = -df['i0']
-i0s /= i0s[50]
-s /= i0s[:, None]
-qq = 4*np.pi / (12.3984 / 11.220) * np.sin(np.deg2rad(tth)/2)
-iff = xview_gui.project[-1].flat
-# iff = df['iff']/df['i0']
-s = s.T
-energies = df['energy'].values
-# s /= s.max()
-
-def preproc_s(s, n_lo=5, n_hi=5, n_fit=1):
-    s_lo = s[:, :n_lo]
-    u, _, _ = np.linalg.svd(s_lo)
-    #
-    basis = u[:, :n_fit]
-    c, _, _, _ = np.linalg.lstsq(basis, s)
-
-    s_b = basis @ c
-    s_preproc = s - s_b
-
-    nc=3
-
-    plt.figure(5, clear=True)
-    plt.subplot(221)
-    # plt.plot(u[:, :n_fit])
-    plt.imshow(s_preproc)
-
-    plt.subplot(222)
-    plt.plot(s_preproc[:, 161] * 25)
-
-    plt.subplot(223)
-    plt.plot(s_preproc[:, 300] * 25)
-
-    plt.subplot(224)
-    plt.plot(v[:, :nc])
-    return s_preproc
-
-s_preproc = preproc_s(s)
-
-def rm_fluorescence(s, iff):
-    c, _, _, _ = np.linalg.lstsq(iff[:, None], s.T)
-    # c[c<0] = 0
-    s_b = (iff[:, None] @ c).T
-    plt.figure(6, clear=True)
-    plt.subplot(221)
-    plt.imshow(s)
-
-    plt.subplot(222)
-    plt.imshow(s - s_b)
-
-    return s - s_b
-
-s_preproc = rm_fluorescence(s_preproc, iff)
+# tth, s = integrate_pil100k_image_stack(data)
+# i0s = -df['i0']
+# i0s /= i0s[50]
+# s /= i0s[:, None]
+# qq = 4*np.pi / (12.3984 / 11.220) * np.sin(np.deg2rad(tth)/2)
+# iff = xview_gui.project[-1].flat
+# # iff = df['iff']/df['i0']
+# s = s.T
+# energies = df['energy'].values
+# # s /= s.max()
+#
+# def preproc_s(s, n_lo=5, n_hi=5, n_fit=1):
+#     s_lo = s[:, :n_lo]
+#     u, _, _ = np.linalg.svd(s_lo)
+#     #
+#     basis = u[:, :n_fit]
+#     c, _, _, _ = np.linalg.lstsq(basis, s)
+#
+#     s_b = basis @ c
+#     s_preproc = s - s_b
+#
+#     nc=3
+#
+#     plt.figure(5, clear=True)
+#     plt.subplot(221)
+#     # plt.plot(u[:, :n_fit])
+#     plt.imshow(s_preproc)
+#
+#     plt.subplot(222)
+#     plt.plot(s_preproc[:, 161] * 25)
+#
+#     plt.subplot(223)
+#     plt.plot(s_preproc[:, 300] * 25)
+#
+#     plt.subplot(224)
+#     plt.plot(v[:, :nc])
+#     return s_preproc
+#
+# s_preproc = preproc_s(s)
+#
+# def rm_fluorescence(s, iff):
+#     c, _, _, _ = np.linalg.lstsq(iff[:, None], s.T)
+#     # c[c<0] = 0
+#     s_b = (iff[:, None] @ c).T
+#     plt.figure(6, clear=True)
+#     plt.subplot(221)
+#     plt.imshow(s)
+#
+#     plt.subplot(222)
+#     plt.imshow(s - s_b)
+#
+#     return s - s_b
+#
+# s_preproc = rm_fluorescence(s_preproc, iff)
 
 
 def process_stack_of_patterns(energy, s, iff, emin=11000, emax=11270, e0=11217):
@@ -231,66 +241,73 @@ def process_stack_of_patterns(energy, s, iff, emin=11000, emax=11270, e0=11217):
 
 
 
-s_proc, s_bkg = process_stack_of_patterns(df['energy'].values, s.T, iff)
+# s_proc, s_bkg = process_stack_of_patterns(df['energy'].values, s.T, iff)
+#
+# plt.figure(2, clear=True)
+#
+# plt.subplot(221)
+# plt.imshow(np.log10(s.T))
+#
+# plt.subplot(222)
+# plt.imshow(s_proc, vmin=-20, vmax=20)
+#
+#
+# plt.subplot(223)
+# # plt.plot(energies, s.T[:, 50])
+# # plt.plot(energies, s_bkg[:, 50])
+#
+# plt.plot(energies, s_proc[:, 50])
+#
+#
+# plt.subplot(224)
+# nc=[130, 160]
+# # plt.plot(qq, s.T[160, :])
+# # plt.plot(qq, s_bkg[160, :])
+# # for i in nc:
+# #     plt.plot(qq, s_proc[i, :])
+#
+# plt.plot(qq, np.mean(s_proc[125:150, :], axis=0))
+# plt.plot(qq, np.mean(s_proc[160:200, :], axis=0))
+#
+# from scipy.optimize import nnls
 
-plt.figure(2, clear=True)
+def fit_stack_of_patterns(energy, sq, iff, f_real, f_imag):
 
-plt.subplot(221)
-plt.imshow(np.log10(s.T))
+    # s_fit = np.zeros(sq.shape)
+    # s_bkg = np.zeros(sq.shape)
+    # anomalous_scat = np.zeros((2, sq.shape[1]))
 
-plt.subplot(222)
-plt.imshow(s_proc, vmin=-20, vmax=20)
+    f_lin = 2 * f_real
+    f_quad = f_real ** 2 + f_imag ** 2
+    f_lin_use = f_lin - f_lin[0]
+    f_quad_use = f_quad - f_quad[0]
 
+    basis = np.vstack((np.ones(energy.size), energy, energy**2, iff,
+                       f_lin_use, f_quad_use)).T
 
-plt.subplot(223)
-# plt.plot(energies, s.T[:, 50])
-# plt.plot(energies, s_bkg[:, 50])
-
-plt.plot(energies, s_proc[:, 50])
-
-
-plt.subplot(224)
-nc=[130, 160]
-# plt.plot(qq, s.T[160, :])
-# plt.plot(qq, s_bkg[160, :])
-# for i in nc:
-#     plt.plot(qq, s_proc[i, :])
-
-plt.plot(qq, np.mean(s_proc[125:150, :], axis=0))
-plt.plot(qq, np.mean(s_proc[160:200, :], axis=0))
-
-from scipy.optimize import nnls
-
-def fit_stack_of_patterns(energy, s, iff, ff0, ff_real, ff_imag):
-
-    s_fit = np.zeros(s.shape)
-    s_bkg = np.zeros(s.shape)
-    anomalous_scat = np.zeros((2, s.shape[1]))
-    # c, _, _, _ = np.linalg.lstsq(basis, s)
-    # s_fit = basis @ c
-    # c_bkg = c.copy()
-    # c_bkg[-2:, :] = 0
-    # s_bkg = basis @ c_bkg
+    c, _, _, _ = np.linalg.lstsq(basis, sq.T)
+    s_fit = (basis @ c).T
+    c_bkg = c.copy()
+    c_bkg[-2:, :] = 0
+    anomalous_scat = c[-2:, :]
+    s_bkg = (basis @ c_bkg).T
     # print(c.shape)
-    for i in range(s.shape[1]):
-        ff_lin = ff_real
-        ff_quad = ff_real ** 2 + ff_imag ** 2
-        ff_lin_use = ff_lin - ff_lin[0]
-        ff_quad_use = ff_quad - ff_quad[0]
-
-        basis = np.vstack((np.ones(energy.size), energy, energy ** 2,
-                           ff_lin_use, ff_quad_use)).T
-
-        c, _, _, _ = np.linalg.lstsq(basis, s[:, i])
-        # c, _ = nnls(basis, s[:, i])
-        s_fit[:, i] = basis @ c
-        c_bkg = c.copy()
-        c_bkg[-2:] = 0
-        s_bkg[:, i] = basis @ c_bkg
-        anomalous_scat[:, i] = c[-2:]
+    # for i in range(sq.shape[1]):
+    #
+    #
+    #     basis = np.vstack((np.ones(energy.size), energy, energy ** 2,
+    #                        ff_lin_use, ff_quad_use)).T
+    #
+    #     c, _, _, _ = np.linalg.lstsq(basis, sq[:, i])
+    #     # c, _ = nnls(basis, s[:, i])
+    #     s_fit[:, i] = basis @ c
+    #     c_bkg = c.copy()
+    #     c_bkg[-2:] = 0
+    #     s_bkg[:, i] = basis @ c_bkg
+    #     anomalous_scat[:, i] = c[-2:]
     return s_fit, s_bkg, anomalous_scat
 
-import kkcalc
+
 
 
 def kk_calculate_real_from_array(energy, mu_flat, element, merge_points=None, add_background=True, fix_distortions=False, curve_tolerance=None, curve_recursion=50):
@@ -323,57 +340,113 @@ def kk_calculate_real_from_array(energy, mu_flat, element, merge_points=None, ad
     return output_data
 
 
-bla = kk_calculate_real_from_array(energies, iff, 'Ir')
-
-import xraydb
-ff_data = kkcalc.kk.kk_calculate_real('/nsls2/data/iss/legacy/processed/2022/2/300010/Ir sample 2 AXS try4 cont 0037-r0002 iff-i0.mu',
-                               'Ir', input_data_type='xanes')
-ff_real = np.interp(df['energy'], ff_data[:, 0], ff_data[:, 1])
-ff_imag = np.interp(df['energy'], ff_data[:, 0], ff_data[:, 2])
-ff0 = xraydb.f0('Ir', qq)
+def compute_f_real_imag(energy, mu_flat, element):
+    ff_data = kk_calculate_real_from_array(energy, mu_flat, element)
+    ff_energy, ff_real, ff_imag = ff_data.T
+    f_real = np.interp(energy, ff_energy, ff_real)
+    f_imag = np.interp(energy, ff_energy, ff_imag)
+    return f_real, f_imag
 
 
+def integrate_scattering_dataset(ds, dist=40, center_ver=93, center_hor=440, plotting=True):
+    q, sq = integrate_pil100k_image_stack(np.abs(ds.ext_data['pil100k_image']), ds.energy, dist=dist,
+                                           center_ver=center_ver, center_hor=center_hor, deadtime_cor=False)
+    ds.q = q
+    ds.sq = sq
+
+    if plotting:
+        plt.figure()
+        plt.plot(q, sq)
+
+integrate_scattering_dataset(x[0])
+
+def process_scattering_dataset(ds, dist=40, center_ver=93, center_hor=440, plotting=True):
+    element = ds.md['element']
+    f_real, f_imag = compute_f_real_imag(ds.energy, ds.flat, element)
+
+    sq_fit, sq_bkg, anomalous_scat = fit_stack_of_patterns(ds.energy, ds.sq, ds.flat, f_real, f_imag)
+
+    if plotting:
+
+        fig, ax1 = plt.subplots(1)
+        ax2 = ax1.twinx()
+        ax1.plot(ds.energy, f_real, 'k-', label='real')
+        ax2.plot(ds.energy, f_imag, 'r-', label='imag')
+        ax1.legend()
+        ax2.legend()
+
+        plt.figure()
+        plt.subplot(231)
+        plt.imshow(ds.sq)
+
+        plt.subplot(232)
+        plt.imshow(sq_fit)
+
+        plt.subplot(233)
+        plt.imshow(ds.sq - sq_bkg)
+
+        plt.subplot(234)
+        plt.plot(ds.energy, ds.sq[200, :], 'k-')
+        plt.plot(ds.energy, sq_fit[200, :], 'r-')
+        plt.plot(ds.energy, sq_bkg[200, :], 'g-')
+
+        plt.subplot(235)
+        plt.plot(ds.q, anomalous_scat[0, :])
+        plt.plot(ds.q, anomalous_scat[1, :])
 
 
-# s_proc, s_bkg = process_stack_of_patterns(df['energy'], s, iff)
-s_fit, s_bkg, anomalous_scat = fit_stack_of_patterns(df['energy'].values, s_preproc, iff, ff0, ff_real, ff_imag)
-s_proc = s_preproc - s_bkg
-
-plt.figure(1, clear=True);
-
-plt.subplot(221)
-# plt.plot(s.T)
-plt.imshow(s_preproc - s_bkg)
-# plt.plot((s - s_bkg).T)
-
-nc = [100, 200]
-offset = -200
-plt.subplot(222)
-for i, n in enumerate(nc):
-    plt.plot(df['energy'], s_preproc[:, n] - i * offset, 'k-')
-    # plt.plot(df['energy'], s_bkg[:, n] - i * offset)
-    plt.plot(df['energy'], s_fit[:, n] - i * offset, 'r-')
-    plt.plot(df['energy'], s_bkg[:, n] - i * offset, 'm--')
-
-# plt.plot(df['energy'], ff_real/70)
-# plt.plot(df['energy'], iff/10 + 1)
-
-# plt.plot(s[:, 600])
-# plt.plot(s_bkg[:, 600])
-
-plt.subplot(223)
-plt.plot(df['energy'], s_proc[:, 200])
-plt.plot(df['energy'], s_proc[:, 70])
-
-plt.subplot(224)
-plt.plot(qq, anomalous_scat[0, :])
-plt.plot(qq, anomalous_scat[1, :])
-
-# plt.plot(s_proc[130, :])
-# plt.plot(df['iff']/df['i0'])
-# plt.plot(df['energy'], df['iff']/df['i0'])
-
-
+process_scattering_dataset(x[0])
+# bla = kk_calculate_real_from_array(energies, iff, 'Ir')
+#
+# import xraydb
+# ff_data = kkcalc.kk.kk_calculate_real('/nsls2/data/iss/legacy/processed/2022/2/300010/Ir sample 2 AXS try4 cont 0037-r0002 iff-i0.mu',
+#                                'Ir', input_data_type='xanes')
+# ff_real = np.interp(df['energy'], ff_data[:, 0], ff_data[:, 1])
+# ff_imag = np.interp(df['energy'], ff_data[:, 0], ff_data[:, 2])
+# ff0 = xraydb.f0('Ir', qq)
+#
+#
+#
+#
+# # s_proc, s_bkg = process_stack_of_patterns(df['energy'], s, iff)
+# s_fit, s_bkg, anomalous_scat = fit_stack_of_patterns(df['energy'].values, s_preproc, iff, ff0, ff_real, ff_imag)
+# s_proc = s_preproc - s_bkg
+#
+# plt.figure(1, clear=True);
+#
+# plt.subplot(221)
+# # plt.plot(s.T)
+# plt.imshow(s_preproc - s_bkg)
+# # plt.plot((s - s_bkg).T)
+#
+# nc = [100, 200]
+# offset = -200
+# plt.subplot(222)
+# for i, n in enumerate(nc):
+#     plt.plot(df['energy'], s_preproc[:, n] - i * offset, 'k-')
+#     # plt.plot(df['energy'], s_bkg[:, n] - i * offset)
+#     plt.plot(df['energy'], s_fit[:, n] - i * offset, 'r-')
+#     plt.plot(df['energy'], s_bkg[:, n] - i * offset, 'm--')
+#
+# # plt.plot(df['energy'], ff_real/70)
+# # plt.plot(df['energy'], iff/10 + 1)
+#
+# # plt.plot(s[:, 600])
+# # plt.plot(s_bkg[:, 600])
+#
+# plt.subplot(223)
+# plt.plot(df['energy'], s_proc[:, 200])
+# plt.plot(df['energy'], s_proc[:, 70])
+#
+# plt.subplot(224)
+# plt.plot(qq, anomalous_scat[0, :])
+# plt.plot(qq, anomalous_scat[1, :])
+#
+# # plt.plot(s_proc[130, :])
+# # plt.plot(df['iff']/df['i0'])
+# # plt.plot(df['energy'], df['iff']/df['i0'])
+#
+#
 
 
 
