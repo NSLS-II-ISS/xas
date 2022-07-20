@@ -382,7 +382,7 @@ def convert_path_to_file_to_path_to_ext_file(path_to_file, ext_data_path='extend
     return os.path.join(folder, filename)
 
 
-def load_interpolated_df_and_extended_data_from_file(path_to_file, ext_data_path='extended_data'):
+def load_binned_df_and_extended_data_from_file(path_to_file, ext_data_path='extended_data'):
     df, header = load_binned_df_from_file(path_to_file)
     path_to_ext_file = convert_path_to_file_to_path_to_ext_file(path_to_file, ext_data_path=ext_data_path)
     ext_data = load_extended_data_from_file(path_to_ext_file)
@@ -619,9 +619,13 @@ def recuresively_parse_h5(f):
 
 
 def load_extended_data_from_file(path_to_ext_file):
-    with h5py.File(path_to_ext_file, 'r') as f:
-        extended_data = recuresively_parse_h5(f)
-    return extended_data
+    try:
+        with h5py.File(path_to_ext_file, 'r') as f:
+            extended_data = recuresively_parse_h5(f)
+        return extended_data
+    except Exception as e:
+        print(e)
+        return None
 
 def dump_tiff_images(path_to_file, df, tiff_storage_path='/tiff_storage/'):
     if 'pil100k_image' in df.columns:

@@ -15,7 +15,7 @@ class XASDataSet:
 
     def __init__(self, name=None, md=None, energy = None, mu=None,
                  filename=None, datatype=None, process=True,
-                 xasdataset=None,
+                 xasdataset=None, ext_data=None,
                  *args, **kwargs):
         self.larch = xafsgroup()
         if md is not None:
@@ -34,6 +34,8 @@ class XASDataSet:
             self.energy = self.larch.energy
         if filename is not None:
             self._filename = filename
+        if ext_data is not None:
+            self.ext_data = ext_data
         if name is not None:
             self.name = name
         if datatype is not None:
@@ -222,6 +224,9 @@ class XASDataSet:
     @filename.setter
     def filename(self, filename):
         self._filename = filename
+
+    def load_extended_data(self):
+        pass
 
 
 class XASProject(QtCore.QObject):
