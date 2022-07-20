@@ -178,3 +178,10 @@ def register_all_handlers(db):
                             ISSPilatusHDF5Handler, overwrite=True)
     db.reg.register_handler(ISSXspress3HDF5Handler.HANDLER_NAME,
                             ISSXspress3HDF5Handler, overwrite=True)
+
+
+def get_iss_db():
+    from databroker import Broker
+    db = Broker.named('iss-local')
+    register_all_handlers(db)
+    return db
