@@ -6,6 +6,8 @@ import pandas as pd
 from . import xray
 from PIL import Image
 import h5py
+from xas.metadata import generate_file_header_from_hdr as generate_sample_environment_header
+
 
 def load_dataset_from_files(db, uid):
     def load_adc_trace(filename=''):
@@ -176,6 +178,20 @@ def create_file_header(hdr):
     sample_y_position = _get_value_from_hdr_start(hdr, 'sample_y_position')
     plot_hint = _get_value_from_hdr_start(hdr, 'plot_hint')
 
+    # sample_heater_1_T_sp = _get_value_from_hdr_start(hdr, 'sample_heater_1_T_sp')
+    # sample_heater_1_T_rb = _get_value_from_hdr_start(hdr, 'sample_heater_1_T_rb')
+    # sample_heater_1_curr_sp = _get_value_from_hdr_start(hdr, 'sample_heater_1_curr_sp')
+    # sample_heater_1_curr_rb = _get_value_from_hdr_start(hdr, 'sample_heater_1_curr_rb')
+    # sample_heater_2_T_sp = _get_value_from_hdr_start(hdr, 'sample_heater_2_T_sp')
+    # sample_heater_2_T_rb = _get_value_from_hdr_start(hdr, 'sample_heater_2_T_rb')
+    # sample_heater_2_volt_sp = _get_value_from_hdr_start(hdr, 'sample_heater_2_volt_sp')
+    # sample_heater_2_volt_rb = _get_value_from_hdr_start(hdr, 'sample_heater_2_volt_rb')
+    # sample_heater_PID_KP = _get_value_from_hdr_start(hdr, 'sample_heater_PID_KP')
+    # sample_heater_PID_KI = _get_value_from_hdr_start(hdr, 'sample_heater_PID_KI')
+    # sample_heater_PID_KD = _get_value_from_hdr_start(hdr, 'sample_heater_PID_KD')
+
+    comments_sample = generate_sample_environment_header(hdr.start)
+
     # comments =f'# Facility: {facility}\n'\
     #           f'# Beamline: {beamline}\n'\
     #           f'# Year: {year}\n' \
@@ -234,6 +250,7 @@ def create_file_header(hdr):
         f'# Sample.stage: {sample_stage}\n' \
         f'# ISS.sample_x_position: {sample_x_position}\n' \
         f'# ISS.sample_y_position: {sample_y_position}\n' \
+        f'{comments_sample}' \
         f'# Scan.experimenters: {pi}\n' \
         f'# Scan.edge_energy: {e0}\n' \
         f'# Scan.start_time: {human_start_time}\n' \
@@ -247,7 +264,6 @@ def create_file_header(hdr):
         f'# Column.3: it\n' \
         f'# Column.4: ir\n' \
         f'# Column.5: if\n'
-
 
     return  comments
 
