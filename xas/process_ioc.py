@@ -30,6 +30,11 @@ class ProcessingIOC(PVGroup):
         doc='pv uid',
     )
 
+    pv_heartbeat = pvproperty(
+        value=0,
+        doc='pv heartbeat',
+    )
+
     dwell = 0.5
     uid_list = []
 
@@ -54,9 +59,11 @@ class ProcessingIOC(PVGroup):
                 process_uid = self.uid_list.pop(0)
 
                 print(f'PROCESS IOC: File received {process_uid}')
-                process_interpolate_bin_from_uid(process_uid, db)
+                if 'experiment' in db[process_uid].start.keys():
+                    process_interpolate_bin_from_uid(process_uid, db)
 
                 await instance.write(0)
+            await self.pv_heartbeat.write(int(not (self.pv_heartbeat.value == 1)))
 
 if __name__ == '__main__':
     ioc_options, run_options = ioc_arg_parser(
