@@ -627,8 +627,8 @@ def load_extended_data_from_file(path_to_ext_file):
         print(e)
         return None
 
-def dump_tiff_images(path_to_file, df, tiff_storage_path='/tiff_storage/'):
-    if 'pil100k_image' in df.columns:
+def dump_tiff_images(path_to_file, df, extended_data, tiff_storage_path='/tiff_storage/', zip=True):
+    if 'pil100k_image' in extended_data.keys():
         # deal with paths
         tiff_storage_path = os.path.dirname(path_to_file) + tiff_storage_path
         scan_name, _ = os.path.splitext(os.path.basename(path_to_file))
@@ -648,8 +648,8 @@ def dump_tiff_images(path_to_file, df, tiff_storage_path='/tiff_storage/'):
 
         filename_list = []
         filepath_list = []
-        for i, im in enumerate(df['pil100k_image']):
-            image_data = Image.fromarray(im[0])
+        for i, im in enumerate(extended_data['pil100k_image']):
+            image_data = Image.fromarray(im)
             #
             tiff_filename = '{}{:04d}{}'.format('image', i + 1, '.tif')
             tiff_path = tiff_images_path + tiff_filename
@@ -657,6 +657,12 @@ def dump_tiff_images(path_to_file, df, tiff_storage_path='/tiff_storage/'):
             image_data.save(tiff_path)
             filepath_list.append(tiff_path)
             filename_list.append(tiff_filename)
+
+        if zip:
+            zip_file = os.path.splitext(dat_file_fpath)[0]+'.zip'
+            os.system(f"cd '{tiff_images_path}'; zip '{zip_file}' ./*.tif")
+            # os.system(f"zip '{zip_file}' '{tiff_images_path}'/*.tif")
+            filepath_list = [zip_file]
 
         df_red = pd.concat([df[c] for c in ['energy', 'i0', 'it', 'ir', 'iff'] if c in df.columns], axis=1)
 

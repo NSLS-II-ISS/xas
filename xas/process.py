@@ -25,8 +25,7 @@ def process_interpolate_bin(doc, db, draw_func_interp = None, draw_func_bin = No
         process_interpolate_bin_from_uid(uid, db, draw_func_interp=draw_func_interp, draw_func_bin=draw_func_bin, cloud_dispatcher=cloud_dispatcher, print_func=print_func, dump_to_tiff=dump_to_tiff)
 
 
-def process_interpolate_bin_from_uid(uid, db, draw_func_interp = None, draw_func_bin = None, cloud_dispatcher = None, print_func=None, dump_to_tiff=False):
-
+def process_interpolate_bin_from_uid(uid, db, draw_func_interp = None, draw_func_bin = None, cloud_dispatcher = None, print_func=None, dump_to_tiff=True):
 
     logger = get_logger()
     hdr, primary_df, extended_data, comments, path_to_file, file_list, data_kind = get_processed_df_from_uid(uid, db,
@@ -36,6 +35,7 @@ def process_interpolate_bin_from_uid(uid, db, draw_func_interp = None, draw_func
                                                                           print_func=print_func)
 
     save_primary_df_as_file(path_to_file, primary_df, comments)
+
     try:
         save_extended_data_as_file(path_to_file, extended_data, data_kind=data_kind)
     except Exception  as e:
@@ -43,13 +43,18 @@ def process_interpolate_bin_from_uid(uid, db, draw_func_interp = None, draw_func
         pass
 
     if dump_to_tiff:
-        tiff_files = dump_tiff_images(path_to_file, primary_df, extended_data)
+        if extended_data is not None:
+            tiff_files = dump_tiff_images(path_to_file, primary_df, extended_data)
+        print(f' >>>>>>>>>>Tiff file {tiff_files}')
+        file_list += tiff_files
 
 
+    # dfgd
     try:
         if cloud_dispatcher is not None:
+            year, cycle, proposal = hdr.start['year'], hdr.start['cycle'], hdr.start['PROPOSAL']
             for f in file_list:
-                cloud_dispatcher.load_to_dropbox(f)
+                cloud_dispatcher.load_to_dropbox(f, year=year, cycle=cycle, proposal=proposal)
                 logger.info(f'({ttime.ctime()}) Sending data to the cloud successful for {path_to_file}')
     except Exception as e:
         logger.info(f'({ttime.ctime()}) Sending data to the cloud failed for {path_to_file}')

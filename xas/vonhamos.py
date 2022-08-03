@@ -263,7 +263,10 @@ def process_von_hamos_scan(df, extended_data, comments, hdr, path_to_file, detec
             comments += f'# Spectrometer.detector.{k}.{c}: {v}\n'
 
     if save_dat:
-        file_paths = save_vh_scan_to_file(path_to_file, vh_scan, comments)
+        if vh_scan.kind == 'xes':
+            file_paths = save_vh_scan_to_file(path_to_file, vh_scan, comments)
+        else:
+            file_paths = []
     else:
         file_paths = []
 
