@@ -45,8 +45,8 @@ def process_interpolate_bin_from_uid(uid, db, draw_func_interp = None, draw_func
     if dump_to_tiff:
         if extended_data is not None:
             tiff_files = dump_tiff_images(path_to_file, primary_df, extended_data)
-        print(f' >>>>>>>>>>Tiff file {tiff_files}')
-        file_list += tiff_files
+            print(f' >>>>>>>>>>Tiff file {tiff_files}')
+            file_list += tiff_files
 
 
     # dfgd
