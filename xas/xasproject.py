@@ -15,7 +15,7 @@ class XASDataSet:
 
     def __init__(self, name=None, md=None, energy = None, mu=None,
                  filename=None, datatype=None, process=True,
-                 xasdataset=None, ext_data=None,
+                 xasdataset=None, ext_data=None, df=None,
                  *args, **kwargs):
         self.larch = xafsgroup()
         if md is not None:
@@ -36,6 +36,8 @@ class XASDataSet:
             self._filename = filename
         if ext_data is not None:
             self.ext_data = ext_data
+        if df is not None:
+            self.df = df
         if name is not None:
             self.name = name
         if datatype is not None:
