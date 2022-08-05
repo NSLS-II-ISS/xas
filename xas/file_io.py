@@ -627,7 +627,7 @@ def load_extended_data_from_file(path_to_ext_file):
         print(e)
         return None
 
-def dump_tiff_images(path_to_file, df, extended_data, tiff_storage_path='/tiff_storage/', zip=True):
+def dump_tiff_images(path_to_file, df, extended_data, df_red=None, tiff_storage_path='/tiff_storage/', zip=True):
     if 'pil100k_image' in extended_data.keys():
         # deal with paths
         tiff_storage_path = os.path.dirname(path_to_file) + tiff_storage_path
@@ -664,7 +664,8 @@ def dump_tiff_images(path_to_file, df, extended_data, tiff_storage_path='/tiff_s
             # os.system(f"zip '{zip_file}' '{tiff_images_path}'/*.tif")
             filepath_list = [zip_file]
 
-        df_red = pd.concat([df[c] for c in ['energy', 'i0', 'it', 'ir', 'iff'] if c in df.columns], axis=1)
+        if df_red is None:
+            df_red = pd.concat([df[c] for c in ['energy', 'i0', 'it', 'ir', 'iff'] if c in df.columns], axis=1)
 
         df_red['filenames'] = filename_list
         print(f'TIFF STORAGE: dat will be saved in {dat_file_fpath}')
