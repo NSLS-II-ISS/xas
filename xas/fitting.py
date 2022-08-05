@@ -68,6 +68,9 @@ class Nominal2ActualConverter:
     def __init__(self, x_nominal, x_actual, n_poly=2):
         self.p_n2a = np.polyfit(x_nominal, x_actual, n_poly)
         self.p_a2n = np.polyfit(x_actual, x_nominal, n_poly)
+        self.x_nominal = x_nominal
+        self.x_actual = x_actual
+        self.n_poly = n_poly
 
     def nom2act(self, e_nom):
         return np.polyval(self.p_n2a, e_nom)

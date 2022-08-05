@@ -432,6 +432,7 @@ def convert_header_to_dict(header):
 stepscan_channel_dict = {
     'hhm_energy': 'energy',
     'motor_emission_energy' : 'energy',
+    'johann_emission_energy' : 'energy',
     'apb_ave_ch1_mean': 'i0',
     'apb_ave_ch2_mean': 'it',
     'apb_ave_ch3_mean': 'ir',
