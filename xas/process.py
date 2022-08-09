@@ -18,7 +18,7 @@ import os
 from .vonhamos import process_von_hamos_scan, save_vh_scan_to_file
 import gc
 
-def process_interpolate_bin(doc, db, draw_func_interp = None, draw_func_bin = None, cloud_dispatcher = None, print_func=None, dump_to_tiff=True):
+def process_interpolate_bin(doc, db, draw_func_interp = None, draw_func_bin = None, cloud_dispatcher = None, print_func=None, dump_to_tiff=False):
     # logger = get_logger()
     if 'experiment' in db[doc['run_start']].start.keys():
         uid = doc['run_start']

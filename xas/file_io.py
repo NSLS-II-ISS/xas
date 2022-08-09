@@ -396,7 +396,7 @@ def load_binned_df_from_file(filename):
         raise IOError(f'The file {filename} does not exist.')
     header = read_header(filename)
     keys = header[header.rfind('#'):][1:-1].split()
-    df = pd.read_csv(filename, delim_whitespace=True, comment='#', names=keys, index_col=False).sort_values(keys[0])
+    df = pd.read_csv(filename, delim_whitespace=True, comment='#', names=keys, index_col=False)
 
     energy_key = None
     for col in df.columns:
@@ -409,6 +409,8 @@ def load_binned_df_from_file(filename):
 
     if 'energy' not in df.columns:
         df['energy'] = np.arange(len(df.index))
+
+    df = df.sort_values('energy')
     return df, header
 
 def read_header(filename):
