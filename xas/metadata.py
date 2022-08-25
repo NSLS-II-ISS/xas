@@ -22,7 +22,7 @@ metadata_dict = OrderedDict({
 'beamline_fm_bender':           {'kind' : 'epics_pv',                                                               'human_readable_key': 'Beamline.focusing.bender_loading'},
 'beamline_harmonic_rejection':  {'kind' : 'attribute',                                                              'human_readable_key': 'Beamline.harmonic_rejection'},
 'mono_name':                    {'kind' : 'fixed_value', 'value' : 'Si(111)',                                       'human_readable_key': 'Mono.scan_mode'},
-'mono_d_spacing':               {'kind' : 'fixed_value', 'value' : '3.1354951',                                     'human_readable_key': 'Mono.scan_mode'},
+'mono_d_spacing':               {'kind' : 'fixed_value', 'value' : '3.1354951',                                     'human_readable_key': 'Mono.d_spacing'},
 'mono_scan_mode':               {'kind' : 'fixed_value', 'value' : 'pseudo-channel cut',                            'human_readable_key': 'Mono.scan_mode'},
 'experiment':                   {'kind' : 'auto',                                                                   'human_readable_key': 'Mono.scan_type'},
 'trajectory_filename':          {'kind' : 'auto',                                                                   'human_readable_key': 'Mono.trajectory_name'},
