@@ -11,8 +11,49 @@ import os
 
 
 
+from scipy.spatial.transform import Rotation
+from scipy.optimize import fsolve
 
 
+def compute_rowland_circle_geometry(x_src, y_src, R, bragg_deg, det_dR):
+    bragg = np.deg2rad(bragg_deg)
+
+    x_cr = -R * np.cos(np.pi / 2 - bragg)
+    y_cr = 0
+
+    x_det = +2 * x_cr * np.cos(bragg) * np.cos(bragg) - det_dR * np.cos(np.pi - 2 * bragg)
+    y_det = -2 * x_cr * np.cos(bragg) * np.sin(bragg) - det_dR * np.sin(np.pi - 2 * bragg)
+
+    return (x_cr + x_src), (y_cr + y_src), (x_det + x_src), (y_det + y_src)
+
+
+def _rotate_xyz(omega, bragg, xyz):
+    rmat = Rotation.from_euler('zyz', [-(90 - bragg), omega, (90 - bragg)], degrees=True).as_matrix()
+    return rmat @ xyz
+
+def _solve_omega_func(omega, bragg, xyz, dz):
+    _, _, z_cr_rot = _rotate_xyz(omega, bragg, xyz)
+    return z_cr_rot - dz
+
+def compute_rotated_rowland_circle_geometry(x_cr_main, y_cr_main, x_det, y_det, bragg_deg, dz):
+
+    # dz = -dz # quirk of this coordinate system
+    xyz_main_cr = np.array([x_cr_main, y_cr_main, 0])
+    omega0 = dz / 10 # heuristic that seems to work OK
+    omega = fsolve(_solve_omega_func, omega0, args=(bragg_deg, xyz_main_cr, dz))
+
+    x_cr_rot, y_cr_rot, z_cr_rot = _rotate_xyz(omega, bragg_deg, xyz_main_cr)
+
+    roll_cr_rot = np.rad2deg(np.arctan(np.abs((y_det - y_cr_rot) / (x_det - x_cr_rot))))
+    yaw_cr_rot = np.rad2deg(np.arctan(np.abs((z_cr_rot) / (x_det - x_cr_rot))))
+
+    return x_cr_rot, y_cr_rot, roll_cr_rot, yaw_cr_rot
+
+bragg = 65
+R = 1000
+det_dR = 0
+x_cr_main, y_cr_main, x_det, y_det = compute_rowland_circle_geometry(0, 0, R, bragg, det_dR)
+compute_rotated_rowland_circle_geometry(x_cr_main, y_cr_main, x_det, y_det, bragg, 139.5)
 
 
 
