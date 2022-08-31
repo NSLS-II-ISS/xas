@@ -49,11 +49,13 @@ def compute_rotated_rowland_circle_geometry(x_cr_main, y_cr_main, x_det, y_det, 
 
     return x_cr_rot, y_cr_rot, roll_cr_rot, yaw_cr_rot
 
-bragg = 65
-R = 1000
-det_dR = 0
-x_cr_main, y_cr_main, x_det, y_det = compute_rowland_circle_geometry(0, 0, R, bragg, det_dR)
-compute_rotated_rowland_circle_geometry(x_cr_main, y_cr_main, x_det, y_det, bragg, 139.5)
+# bragg = 65
+# R = 1000
+# det_dR = 0
+# x_cr_main, y_cr_main, x_det, y_det = compute_rowland_circle_geometry(0, 0, R, bragg, det_dR)
+# compute_rotated_rowland_circle_geometry(x_cr_main, y_cr_main, x_det, y_det, bragg, 139.5)
+
+
 
 
 
