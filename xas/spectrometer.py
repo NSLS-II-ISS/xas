@@ -44,7 +44,7 @@ def _compute_rotated_rowland_circle_geometry(x_cr_main, y_cr_main, x_det, y_det,
 
     x_cr_rot, y_cr_rot, z_cr_rot = _rotate_xyz(omega, bragg_deg, xyz_main_cr)
 
-    roll_cr_rot = np.rad2deg(np.arctan(np.abs((y_det - y_cr_rot) / (x_det - x_cr_rot))))
+    roll_cr_rot = 90 - np.rad2deg(np.arctan(np.abs((y_det - y_cr_rot) / (x_det - x_cr_rot))))/2
     yaw_cr_rot = np.rad2deg(np.arctan(np.abs((z_cr_rot) / (x_det - x_cr_rot))))
 
     return x_cr_rot, y_cr_rot, roll_cr_rot, yaw_cr_rot
