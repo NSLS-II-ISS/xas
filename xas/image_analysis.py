@@ -133,6 +133,101 @@ def determine_beam_position_from_fb_image(image, line = 420, center_point = 655,
         return None
 
 
+import cv2
+
+def generate_sample_camera_calibration(stage_xs, stage_ys, imgs_orig, dist_tol=10, dist_target=90, assume_ring_scan=True):
+# def generate_sample_camera_calibration(imgs_orig, dist_tol=30, dist_target=75,
+#                                            assume_ring_scan=True):
+    sift = cv2.xfeatures2d.SIFT_create()
+
+    imgs = []
+    img_keypoints = []
+    img_descriptors = []
+    for _img in imgs_orig:
+        img = cv2.normalize(cv2.cvtColor(_img.astype(np.float32), cv2.COLOR_GRAY2BGR), None, 0, 255, cv2.NORM_MINMAX).astype('uint8')
+        imgs.append(img)
+        keypoints, descriptors = sift.detectAndCompute(img, None)
+        img_keypoints.append(keypoints)
+        img_descriptors.append(descriptors)
+
+    pix_xy1 = []
+    pix_xy2 = []
+    stage_xy = []
+
+    n_imgs = len(imgs_orig)
+    idx_pairs = [(i, i+1) for i in range(n_imgs-1)]
+    if assume_ring_scan: idx_pairs.append((n_imgs-1, 0))
+
+    # plt.figure(1, clear=True)
+    pix_dists = []
+    bf = cv2.BFMatcher(cv2.NORM_L1, crossCheck=False)
+    for idx1, idx2 in idx_pairs:
+        descriptors_1 = img_descriptors[idx1]
+        descriptors_2 = img_descriptors[idx2]
+        keypoints_1 = img_keypoints[idx1]
+        keypoints_2 = img_keypoints[idx2]
+
+        stage_dx = stage_xs[idx2] - stage_xs[idx1]
+        stage_dy = stage_ys[idx2] - stage_ys[idx1]
+
+        matches = bf.match(descriptors_1, descriptors_2)
+        pix_xy1_all = np.array([keypoints_1[v.queryIdx].pt for v in matches])
+        pix_xy2_all = np.array([keypoints_2[v.trainIdx].pt for v in matches])
+        pix_dxy_all = pix_xy2_all - pix_xy1_all
+        pix_dist = np.sqrt(pix_dxy_all[:, 0]**2 + pix_dxy_all[:, 1]**2)
+        pix_dists.append(pix_dist)
+        # plt.hist(pix_dist, int(pix_dist.max()))
+        # pix_idx_filtered, = np.where((pix_dist >= dist_target - dist_tol) & (pix_dist <= dist_target + dist_tol))
+        pix_idx_filtered, = np.where((np.abs(pix_dist - dist_target) <=  dist_tol))
+
+        _pix_xy1 = [keypoints_1[matches[pix_idx].queryIdx].pt for pix_idx in pix_idx_filtered]
+        _pix_xy2 = [keypoints_2[matches[pix_idx].trainIdx].pt for pix_idx in pix_idx_filtered]
+
+        pix_xy1 += _pix_xy1
+        pix_xy2 += _pix_xy2
+
+        stage_xy += [(stage_dx, stage_dy)] * pix_idx_filtered.size
+
+        plt.figure()
+
+        plt.subplot(131)
+        plt.hist(pix_dist, 200);
+
+        plt.subplot(132)
+        plt.imshow(imgs[idx1], cmap='gray')
+        for i in range(len(_pix_xy1)):
+            plt.plot(_pix_xy1[i][0], _pix_xy1[i][1], 'o')
+
+        plt.subplot(133)
+        plt.imshow(imgs[idx2], cmap = 'gray')
+        for i in range(len(_pix_xy2)):
+            plt.plot(_pix_xy2[i][0], _pix_xy2[i][1], 'o')
+
+    pix_xy1 = np.array(pix_xy1)
+    pix_xy2 = np.array(pix_xy2)
+    stage_xy = np.array(stage_xy)
+
+    basis_pix_motor = np.hstack((pix_xy1, stage_xy))
+    target_pix = pix_xy2
+
+    basis_pix_pix = np.hstack((pix_xy1, stage_xy))
+    target_motor = stage_xy
+
+    A_pix_motor_2_pixT, _, _, _ = np.linalg.lstsq(basis_pix_motor, target_pix, rcond=-1)
+    A_pix_pix_2_motorT, _, _, _ = np.linalg.lstsq(basis_pix_pix, target_motor, rcond=-1)
+
+    A_pix_motor_2_pix = A_pix_motor_2_pixT.T
+    A_pix_pix_2_motor = A_pix_pix_2_motorT.T
+
+    plt.figure(25, clear=True)
+    plt.subplot(221)
+    plt.plot((basis_pix_motor @ A_pix_motor_2_pixT)[:, 0], pix_xy2[:, 0], 'k.')
+    plt.axis('square')
+
+    return A_pix_motor_2_pix, A_pix_pix_2_motor
+
+
+A_pix_motor_2_pix, A_pix_pix_2_motor = generate_sample_camera_calibration(dxs, dys, OUTPUT['camera_sp1'])
 
 
 
