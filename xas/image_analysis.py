@@ -134,8 +134,9 @@ def determine_beam_position_from_fb_image(image, line = 420, center_point = 655,
 
 
 import cv2
+from sklearn.covariance import MinCovDet
 
-def generate_sample_camera_calibration(stage_xs, stage_ys, imgs_orig, dist_tol=10, dist_target=90, assume_ring_scan=True):
+def generate_sample_camera_calibration(stage_xs, stage_ys, imgs_orig, pix_per_mm=15, pix_per_mm_tol=5, assume_ring_scan=True):
 # def generate_sample_camera_calibration(imgs_orig, dist_tol=30, dist_target=75,
 #                                            assume_ring_scan=True):
     sift = cv2.xfeatures2d.SIFT_create()
@@ -150,9 +151,9 @@ def generate_sample_camera_calibration(stage_xs, stage_ys, imgs_orig, dist_tol=1
         img_keypoints.append(keypoints)
         img_descriptors.append(descriptors)
 
-    pix_xy1 = []
-    pix_xy2 = []
-    stage_xy = []
+    pix_xy1 = np.array([[], []]).T
+    pix_xy2 = np.array([[], []]).T
+    stage_xy = np.array([[], []]).T
 
     n_imgs = len(imgs_orig)
     idx_pairs = [(i, i+1) for i in range(n_imgs-1)]
@@ -174,38 +175,38 @@ def generate_sample_camera_calibration(stage_xs, stage_ys, imgs_orig, dist_tol=1
         pix_xy1_all = np.array([keypoints_1[v.queryIdx].pt for v in matches])
         pix_xy2_all = np.array([keypoints_2[v.trainIdx].pt for v in matches])
         pix_dxy_all = pix_xy2_all - pix_xy1_all
-        pix_dist = np.sqrt(pix_dxy_all[:, 0]**2 + pix_dxy_all[:, 1]**2)
-        pix_dists.append(pix_dist)
-        # plt.hist(pix_dist, int(pix_dist.max()))
-        # pix_idx_filtered, = np.where((pix_dist >= dist_target - dist_tol) & (pix_dist <= dist_target + dist_tol))
-        pix_idx_filtered, = np.where((np.abs(pix_dist - dist_target) <=  dist_tol))
+        pix_dxy_all_norm = pix_dxy_all / np.sqrt(stage_dx**2 + stage_dy**2)
+        pix_dist_norm = np.sqrt(pix_dxy_all_norm[:, 0]**2 + pix_dxy_all_norm[:, 1]**2)
+        pix_dist_mask = np.abs(pix_dist_norm - pix_per_mm) <= pix_per_mm_tol
 
-        _pix_xy1 = [keypoints_1[matches[pix_idx].queryIdx].pt for pix_idx in pix_idx_filtered]
-        _pix_xy2 = [keypoints_2[matches[pix_idx].trainIdx].pt for pix_idx in pix_idx_filtered]
+        robust_cov = MinCovDet().fit(pix_dxy_all_norm[pix_dist_mask])
+        mahal_dist = robust_cov.mahalanobis(pix_dxy_all_norm[pix_dist_mask])
+        inlier_mask = mahal_dist <= np.percentile(mahal_dist, 50)
 
-        pix_xy1 += _pix_xy1
-        pix_xy2 += _pix_xy2
+        _pix_xy1 = pix_xy1_all[pix_dist_mask][inlier_mask]
+        _pix_xy2 = pix_xy2_all[pix_dist_mask][inlier_mask]
 
-        stage_xy += [(stage_dx, stage_dy)] * pix_idx_filtered.size
+        pix_xy1 = np.vstack((pix_xy1, _pix_xy1))
+        pix_xy2 = np.vstack((pix_xy2, _pix_xy2))
+        stage_xy = np.vstack((stage_xy, np.tile(np.array([stage_dx, stage_dy]), (np.sum(inlier_mask), 1))))
 
-        plt.figure()
 
-        plt.subplot(131)
-        plt.hist(pix_dist, 200);
-
-        plt.subplot(132)
-        plt.imshow(imgs[idx1], cmap='gray')
-        for i in range(len(_pix_xy1)):
-            plt.plot(_pix_xy1[i][0], _pix_xy1[i][1], 'o')
-
-        plt.subplot(133)
-        plt.imshow(imgs[idx2], cmap = 'gray')
-        for i in range(len(_pix_xy2)):
-            plt.plot(_pix_xy2[i][0], _pix_xy2[i][1], 'o')
-
-    pix_xy1 = np.array(pix_xy1)
-    pix_xy2 = np.array(pix_xy2)
-    stage_xy = np.array(stage_xy)
+        # plt.figure()
+        #
+        # plt.subplot(131)
+        # plt.hist(pix_dist_norm, 200);
+        #
+        # plt.subplot(132)
+        # plt.imshow(imgs[idx1], cmap='gray')
+        # for i in range(_pix_xy1.shape[0]):
+        #     if inlier_mask[i]:
+        #         plt.plot(_pix_xy1[i, 0], _pix_xy1[i, 1], 'o')
+        #
+        # plt.subplot(133)
+        # plt.imshow(imgs[idx2], cmap = 'gray')
+        # for i in range(_pix_xy2.shape[0]):
+        #     if inlier_mask[i]:
+        #         plt.plot(_pix_xy2[i, 0], _pix_xy2[i, 1], 'o')
 
     basis_pix_motor = np.hstack((pix_xy1, stage_xy))
     target_pix = pix_xy2
@@ -224,13 +225,180 @@ def generate_sample_camera_calibration(stage_xs, stage_ys, imgs_orig, dist_tol=1
     plt.plot((basis_pix_motor @ A_pix_motor_2_pixT)[:, 0], pix_xy2[:, 0], 'k.')
     plt.axis('square')
 
-    return A_pix_motor_2_pix, A_pix_pix_2_motor
+    return A_pix_motor_2_pix, A_pix_pix_2_motor, pix_xy1, pix_xy2, stage_xy, pix_dists
 
 
-A_pix_motor_2_pix, A_pix_pix_2_motor = generate_sample_camera_calibration(dxs, dys, OUTPUT['camera_sp1'])
+# A_pix_motor_2_pix, A_pix_pix_2_motor, pix_xy1, pix_xy2, pix_dists = generate_sample_camera_calibration(dxs, dys, OUTPUT['camera_sp1'], dist_target_x=65, dist_target_y=90)
+
+# A_pix_motor_2_pix, A_pix_pix_2_motor, pix_xy1, pix_xy2, stage_xy, pix_dists = generate_sample_camera_calibration(dxs, dys, OUTPUT['camera_sp2'], dist_target_x=78, dist_target_y=90, dist_tol=40)
+# A_pix_motor_2_pix, A_pix_pix_2_motor, pix_xy1, pix_xy2, stage_xy, pix_dists = generate_sample_camera_calibration(dxs, dys, OUTPUT['camera_sp2'], pix_per_mm=15, pix_per_mm_tol=7)
 
 
 
+class CameraCalibration:
+
+    def __init__(self, pix_xy1, pix_xy2, stage_xy, npoly=2):
+        self.pix_xy1 = pix_xy1
+        self.pix_xy2 = pix_xy2
+        self.stage_xy = stage_xy
+        self.npoly = npoly
+        self.generate_calibration()
+
+    def form_pix_subbasis(self, pix_xy, include_offset=False):
+        if pix_xy.ndim == 1:
+            m = 1
+            x, y = pix_xy
+        else:
+            m = pix_xy.shape[0]
+            x, y = pix_xy.T
+        basis_list = []
+        if include_offset:
+            basis_list += [np.ones((m, 1))]
+        basis_list += [np.vstack([x ** i * y ** (j - i) for i in range(j + 1)]).T for j in range(1, self.npoly + 1)]
+        return np.hstack(basis_list)
+
+    def form_basis_pix_pix(self, pix_xy1, pix_xy2):
+        basis1 = self.form_pix_subbasis(pix_xy1)
+        basis2 = self.form_pix_subbasis(pix_xy2, include_offset=False)
+        return np.hstack((basis1, basis2))
+
+    def form_basis_pix_motor(self, pix_xy, stage_xy):
+        if stage_xy.ndim == 1:
+            stage_xy = stage_xy[None, :]
+        basis = self.form_pix_subbasis(pix_xy)
+        return np.hstack((basis, stage_xy))
+
+    def generate_calibration(self):
+        basis_pix_motor = self.form_basis_pix_motor(self.pix_xy1, self.stage_xy)
+        target_pix = self.pix_xy2
+
+        basis_pix_pix = self.form_basis_pix_pix(self.pix_xy1, self.pix_xy2)
+        target_motor = self.stage_xy
+
+        A_pix_motor_2_pixT, _, _, _ = np.linalg.lstsq(basis_pix_motor, target_pix, rcond=-1)
+        A_pix_pix_2_motorT, _, _, _ = np.linalg.lstsq(basis_pix_pix, target_motor, rcond=-1)
+
+        self.A_pix_motor_2_pix = A_pix_motor_2_pixT.T
+        self.A_pix_pix_2_motor = A_pix_pix_2_motorT.T
+
+    def compute_new_pixel(self, old_xy, stage_xy):
+        old_xy = np.array(old_xy)
+        stage_xy = np.array(stage_xy)
+        basis_pix_motor = self.form_basis_pix_motor(old_xy, stage_xy)
+        return basis_pix_motor @ self.A_pix_motor_2_pix.T
+
+    def compute_stage_motion(self, old_xy, new_xy):
+        old_xy = np.array(old_xy)
+        new_xy = np.array(new_xy)
+        basis_pix_pix = self.form_basis_pix_pix(old_xy, new_xy)
+        return  basis_pix_pix @ self.A_pix_pix_2_motor.T
+
+    def check_quality(self, num=None):
+        pix_xy2_pred = self.compute_new_pixel(self.pix_xy1, self.stage_xy)
+        stage_xy_pred = self.compute_stage_motion(self.pix_xy1, self.pix_xy2)
+
+        plt.figure(num=num, clear=True)
+        plt.subplot(321)
+        plt.plot(self.pix_xy2[:, 0], self.pix_xy2[:, 1], 'k.')
+        plt.plot(pix_xy2_pred[:, 0], pix_xy2_pred[:, 1], 'r.')
+        plt.axis('square')
+
+        plt.subplot(322)
+        plt.plot(self.stage_xy[:, 0], self.stage_xy[:, 1], 'k.')
+        plt.axis('square')
+        plt.plot(stage_xy_pred[:, 0], stage_xy_pred[:, 1], 'r.')
+
+        plt.subplot(323)
+        plt.plot(pix_xy2_pred[:, 0] - self.pix_xy2[:, 0], pix_xy2_pred[:, 1] - self.pix_xy2[:, 1], 'k.')
+        plt.axis('square')
+
+        plt.subplot(324)
+        plt.plot(stage_xy_pred[:, 0] - self.stage_xy[:, 0], stage_xy_pred[:, 1] - self.stage_xy[:, 1], 'k.')
+        plt.axis('square')
+
+        pix_dist_err = np.sqrt(np.sum((pix_xy2_pred - self.pix_xy2) ** 2, axis=1))
+        pix_dist_err_95 = np.percentile(pix_dist_err, 95)
+        plt.subplot(325)
+        cts, _, _ = plt.hist(pix_dist_err)
+        plt.vlines(pix_dist_err_95, cts.min(), cts.max(), colors='r')
+        plt.title(f'95% error level = {pix_dist_err_95:.2f}')
+
+        stage_dist_err = np.sqrt(np.sum((stage_xy_pred - self.stage_xy) ** 2, axis=1))
+        stage_dist_err_95 = np.percentile(stage_dist_err, 95)
+        plt.subplot(326)
+        cts, _, _ = plt.hist(stage_dist_err)
+        plt.vlines(stage_dist_err_95, cts.min(), cts.max(), colors='r')
+        plt.title(f'95% error level = {stage_dist_err_95:.2f}')
+
+
+# npoly=1
+# CC = CameraCalibration(pix_xy1, pix_xy2, stage_xy, npoly=npoly)
+# CC.check_quality(25)
+#
+# npoly=2
+# CC = CameraCalibration(pix_xy1, pix_xy2, stage_xy, npoly=npoly)
+# CC.check_quality(26)
+#
+# npoly=3
+# CC = CameraCalibration(pix_xy1, pix_xy2, stage_xy, npoly=npoly)
+# CC.check_quality(27)
+
+# CC.compute_new_pixel((100, 100), (5, 0))
+
+
+
+# idx_sel = (stage_xy[:, 0] == 5) | (stage_xy[:, 0] == -5)
+# dxy_norm = ((pix_xy2 - pix_xy1) / stage_xy[:, 0][:, None])[idx_sel, :]
+#
+#
+# plt.figure(12, clear=True)
+# plt.subplot(211)
+# plt.plot(dxy_norm[:, 0], dxy_norm[:, 1], 'k.')
+# # plt.plot(dxy_norm[inlier_mask, 0], dxy_norm[inlier_mask, 1], 'r.')
+#
+#
+# idx_sel = (stage_xy[:, 1] == 5) | (stage_xy[:, 1] == -5)
+# dxy_norm = ((pix_xy2 - pix_xy1) / stage_xy[:, 1][:, None])[idx_sel, :]
+#
+# # robust_cov = MinCovDet().fit(dxy_norm)
+# # mahal_dist = robust_cov.mahalanobis(dxy_norm)
+# # inlier_mask = mahal_dist <= np.percentile(mahal_dist, 50)
+#
+# # plt.figure(12, clear=True)
+# plt.subplot(212)
+# plt.plot(dxy_norm[:, 0], dxy_norm[:, 1], 'k.')
+# # plt.plot(dxy_norm[inlier_mask, 0], dxy_norm[inlier_mask, 1], 'r.')
+#
+#
+# # plt.hist(np.sqrt(dxy_norm[:, 0]**2 + dxy_norm[:, 1]**2))
+#
+#
+# plt.figure(13, clear=True)
+# bla = (pix_xy2 - pix_xy1)/5
+# blabla = np.sqrt(bla[:, 0]**2 + bla[:, 1]**2)
+# plt.hist(blabla)
+#
+# pix_xy_test = np.vstack((np.linspace(100, 1200 ,101), 500*np.ones(101)))
+# stage_xy_test = np.vstack((-5*np.ones(101), 0*np.ones(101)))
+# basis_test = np.vstack((pix_xy_test, stage_xy_test))
+#
+#
+# plt.figure(3, clear=True)
+# plt.subplot(221)
+# plt.plot(pix_xy1[:, 0] , pix_xy2[:, 0], 'k.')
+# plt.plot(pix_xy_test.T[:, 0], (A_pix_motor_2_pix @ basis_test).T[:, 0], 'r.')
+#
+# plt.subplot(222)
+# plt.plot(pix_xy1[:, 1], pix_xy2[:, 1], 'k.')
+# plt.plot(pix_xy_test.T[:, 1], (A_pix_motor_2_pix @ basis_test).T[:, 1], 'r.')
+#
+# plt.subplot(223)
+# plt.plot(stage_xy[:, 0], pix_xy2[:, 0] - pix_xy1[:, 0], 'k.')
+#
+# plt.subplot(224)
+# plt.plot(stage_xy[:, 0], pix_xy2[:, 1] - pix_xy1[:, 1], 'k.')
+#
+#
 
 
 # -458 rel_spiral_square a467cce4-30a3-4796-9b87-f176982b15d1
