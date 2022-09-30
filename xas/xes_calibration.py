@@ -105,7 +105,7 @@ def main(data_file=f'{PATH}/{DATA_FILE}', md_file=f'{PATH}/{MD_FILE}'):
     ax = plt.axes(projection='3d')
     ax.scatter(COM['x'], COM['y'], energies, c='darkblue')
     x_grid, y_grid = np.meshgrid(np.arange(0, energy_map.shape[1]), np.arange(0, energy_map.shape[0]))
-    ax.plot_surface(x_grid, y_grid, energy_map, cmap='OrRd')
+    ax.plot_surface(x_grid, y_grid, energy_map, cmap='OrRd', alpha=0.5)
     plt.show()
 
 if __name__ == '__main__':
