@@ -64,9 +64,33 @@ def compute_rotated_rowland_circle_geometry(x_src, y_src, R, bragg, dz):
 # compute_rotated_rowland_circle_geometry(0, 0, R, bragg, 139.5)
 
 
+def normalize_peak(y_orig):
+    y = y_orig.copy()
+    offset = np.mean(np.hstack((y[:2], y[-2:])))
+    y -= offset
+    scale = y.max()
+    y /= scale
+    return y
 
 
+def analyze_elastic_fly_scan(db, uid, plotting=True):
+    fname_proc = db[uid].start['interp_filename'][:-3] + 'dat'
+    df, _ = load_binned_df_from_file(fname_proc)
+    energy = df['energy'].values
+    if plotting: plt.figure()
+    for i in range(3):
+        field = f'pil100k_roi{i+1}'
+        intensity = df[field].values
+        intensity = normalize_peak(intensity)
+        Ecen0, fwhm0 = estimate_center_and_width_of_peak(energy, intensity)
+        Ecen, fwhm, intensity_cor, intensity_fit, intensity_fit_raw = fit_gaussian(energy, intensity, Ecen0, fwhm0)
+        if plotting:
+            plt.plot(energy, intensity_cor - i * 0.5, 'k.-')
+            plt.plot(energy, intensity_fit - i * 0.5, 'r-')
+        print(Ecen, fwhm)
 
+
+# analyze_elastic_fly_scan(db, -1)
 
 def analyze_elastic_scan(db, uid):
     E, I, scale, offset = get_normalized_gaussian_scan(db, uid, return_norm_param=True)

@@ -101,7 +101,7 @@ for i, each_energy_out in enumerate(energy_out):
     rixs_data[:, i] = np.mean(np.array(each_mu_set), axis=0)
 
 
-ds_norm = xview_gui.project[1]
+ds_norm = xview_gui.project[0]
 ds_norm_ka2 = xview_gui.project[11]
 
 xes_norm = np.hstack((ds_norm_ka2.mu[:-2] / np.mean(ds_norm_ka2.mu[-2:]) * np.mean(ds_norm.mu[:2]), ds_norm.mu))
@@ -126,8 +126,14 @@ from xas.spectrometer import convert_rixs_to_energy_transfer
 
 energy_et, rixs_et = convert_rixs_to_energy_transfer(energy_in, energy_out, rixs_data_norm.T)
 
+##
+plt.figure(1, clear=True)
+plt.plot(energy_in, rixs_data_norm[:, 22]/0.823*1.2, label='RIXS')
+plt.plot(herfd_data_energy, herfd_data_ni4, label='HERFD')
+plt.legend()
+plt.xlim(8325, 8355)
 
-
+##
 
 plt.figure(1, clear=True)
 # plt.contourf(energy_in, energy_out, rixs_data_norm.T, 150, vmin=0, vmax=0.3)
@@ -243,3 +249,30 @@ plt.plot(herfd_data_energy, herfd_data_ni4, label='Ni 4+ HERFD')
 plt.legend()
 
 plt.xlim(8330, 8360)
+
+
+###################
+
+plt.figure(1)
+plt.clf()
+
+plt.subplot(1,2,1)
+plt.plot(bla.dataset.x, bla.dataset.data - np.arange(bla.dataset.t.size) * 0.1)
+plt.xlabel('Energy, eV')
+plt.ylabel('mu norm')
+
+plt.xlim(24300, 24550)
+
+plt.subplot(2,2,2)
+plt.plot(bla.dataset.x, bla.data_ref_fit)
+plt.xlabel('Energy, eV')
+plt.ylabel('mu norm')
+
+plt.xlim(24300, 24550)
+
+plt.subplot(2,2,4)
+plt.plot(bla.dataset.t * 45 / 60, bla.c_fit.T, '.-')
+plt.xlabel('time, min')
+plt.ylabel('fraction')
+
+plt.xlim(0, 19*45/60)
