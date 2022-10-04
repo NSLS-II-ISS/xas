@@ -46,15 +46,18 @@ def fit_xy(X, Y):
     slope, intercept = np.polyfit(X, Y, 1)
     return slope, intercept
 
+
 def project_pt2line(x_pt, y_pt, slope, intercept):
     x_proj = (x_pt + slope*y_pt - slope*intercept) / (slope**2 + 1)
     y_proj = slope * x_proj + intercept
     return x_proj, y_proj
 
-def run_calibration(data, md, roi='roi1'):
+
+def run_calibration(data, md, roi='roi1', plot_calibration=False):
     
     det_image = data['pil100k_image']
-    pix_array = np.array(det_image.to_list()).squeeze()
+    # det_image = data['data_vars']['pil100k_image']['data']
+    pix_array = np.array(list(det_image)).squeeze()
 
     # Load ROI
     rois = md['detectors']['Pilatus 100k']['config']['roi']
@@ -102,40 +105,76 @@ def run_calibration(data, md, roi='roi1'):
         # apply energy function to each point on map
         energy_map[y, x] = energy_function(x, y)
 
-    ax1 = plt.subplot(211)
-    ax1.imshow(np.sum(pix_roi, axis=0))
-    for x, y in zip(COM['x'], COM['y']):
-        ax1.plot(x, y, 'o', c='r')
-    for x, energy in zip(COM['x'], energies):
-        plt.axvline(x, c='orange')
-        plt.text(x+1, 3, f'{energy}', c='orange')
+    if plot_calibration:
 
-    x_grid, y_grid = np.meshgrid(np.arange(0, energy_map.shape[1]), np.arange(0, energy_map.shape[0]))
-    ax2 = plt.subplot(212)
-    ax2.contour(energy_map, np.flip(energies), cmap='Reds')
-    ax2.imshow(energy_map, cmap='gray')
-    _x = np.arange(0, energy_map.shape[1], 1)
-    _y = slope_xy * _x + int_xy
+        ax1 = plt.subplot(211)
+        ax1.imshow(np.sum(pix_roi, axis=0))
+        for x, y in zip(COM['x'], COM['y']):
+            ax1.plot(x, y, 'o', c='r')
+        for x, energy in zip(COM['x'], energies):
+            plt.axvline(x, c='orange')
+            plt.text(x+1, 3, f'{energy}', c='orange')
 
-    ax2.plot(_x, _y, '-', c='r')
+        ax2 = plt.subplot(212)
+        # ax2.contour(energy_map, np.flip(energies), colors='orange')
+        ax2.imshow(energy_map, cmap='gray')
+
+        # plot best fit line for x-y
+        _x = np.arange(0, energy_map.shape[1], 1)
+        _y = slope_xy * _x + int_xy
+        ax2.plot(_x, _y, '-', c='r')
+        plt.show()
+
+        # 3D plot
+        plt.clf()
+        ax = plt.axes(projection='3d')
+        ax.scatter(COM['x'], COM['y'], energies, c='darkblue')
+        x_grid, y_grid = np.meshgrid(np.arange(0, energy_map.shape[1]), np.arange(0, energy_map.shape[0]))
+        ax.plot_surface(x_grid, y_grid, energy_map, cmap='viridis', alpha=0.5)
+        plt.show()
+
+    return energy_function, pix_roi
+
+
+def reduce_image(image2d, energy_func):
+
+    calc_energies = {'point': [], 'energy': []}
+    for y, x in np.ndindex(image2d.shape):
+        energy = energy_func(x, y)
+        calc_energies['point'].append((x,y))
+        calc_energies['energy'].append(energy)
+
+    energy_array = np.array(calc_energies['energy'])
+
+    bin_edges = np.arange(energy_array.min(), energy_array.max())
+    inds = np.digitize(energy_array, bin_edges)
+
+    energy_intensities = np.zeros(bin_edges.size)
+
+    for n, pt in enumerate(calc_energies['point']):
+        xpt, ypt = pt[0], pt[1]
+        intensity = image2d[ypt, xpt]
+        energy_intensities[inds[n] - 1] += intensity
+
+    plt.plot(bin_edges, energy_intensities)
+
+    etest = np.arange(7995, 8085+1, 5)
+    for e in etest:
+        plt.axvline(e, c='r')
+
     plt.show()
-
-    # print(energy_map[:,100])
-
-    # 3D plot
-    plt.clf()
-    ax = plt.axes(projection='3d')
-    ax.scatter(COM['x'], COM['y'], energies, c='darkblue')
-    ax.plot_surface(x_grid, y_grid, energy_map, cmap='viridis', alpha=0.5)
-    plt.show()
-
-
 
 
 if __name__ == '__main__':
     
     def main():
+        
         data, md = file_io(f'{PATH}/{DATA_FILE}', f'{PATH}/{MD_FILE}')
-        run_calibration(data, md)
-    
+        e_func, pix_roi = run_calibration(data, md, plot_calibration=False)
+        im2d = np.sum(pix_roi, axis=0)
+
+        print(im2d.shape)
+
+        reduce_image(im2d, e_func)
+
     main()
