@@ -1,14 +1,16 @@
 import json
+import numpy as np
+import pandas as pd
+
 import matplotlib
 from matplotlib import projections
 matplotlib.use('TkAgg')  # something wrong with my (Charlie's) system Qt 
-import numpy as np
 import matplotlib.pyplot as plt
-import pandas as pd
+from mpl_toolkits.mplot3d import Axes3D
+
 from scipy.ndimage import center_of_mass, rotate
 from scipy import linalg
 
-from mpl_toolkits.mplot3d import Axes3D
 
 PATH = '/home/charles/Desktop/XES_calib'
 DATA_FILE = 'Cu_calibration.json'
@@ -33,14 +35,6 @@ def fit_plane(X, Y, Z):
     return a, b, c
 
 
-def file_io(data_file, md_file):
-    """ load data and metadata from local files """
-    data = pd.read_json(data_file)
-    with open(md_file) as metadata:
-        md = json.load(metadata)[1]
-    return data, md
-
-
 def fit_xy(X, Y):
     X,Y = np.array(X), np.array(Y)
     slope, intercept = np.polyfit(X, Y, 1)
@@ -53,28 +47,50 @@ def project_pt2line(x_pt, y_pt, slope, intercept):
     return x_proj, y_proj
 
 
-def run_calibration(data, md, roi='roi1', plot_calibration=False):
-    
-    det_image = data['pil100k_image']
-    # det_image = data['data_vars']['pil100k_image']['data']
-    pix_array = np.array(list(det_image)).squeeze()
+def file_io(data_file, md_file):
+    """ load data and metadata from local files """
+    data = pd.read_json(data_file)
+    with open(md_file) as metadata:
+        md = json.load(metadata)[1]
+    return data, md
 
+
+def get_roi(metadata, roi='roi1'):
     # Load ROI
-    rois = md['detectors']['Pilatus 100k']['config']['roi']
+    rois = metadata['detectors']['Pilatus 100k']['config']['roi']
     # print(rois)
     roi_ = rois[roi]
+    return roi_
 
-    min_x = roi_['x']
-    dx = roi_['dx']
-    max_x = roi_['x'] + dx
 
-    min_y = roi_['y']
-    dy = roi_['dy']
-    max_y = roi_['y'] + dy
+def get_image_array(data):
+    det_image = data['pil100k_image']
+    image_array = np.array(list(det_image)).squeeze()
+    return image_array
 
-    pix_roi = pix_array[:, min_y:max_y, min_x:max_x]
-    for i, image in enumerate(pix_roi):
-        pix_roi[i] = rotate(image, 3, reshape=False)
+
+def crop_roi(image_stack, roi):
+    """ crop 3D image stack to 2D region of interest """
+    min_x = roi['x']
+    dx = roi['dx']
+    max_x = roi['x'] + dx
+
+    min_y = roi['y']
+    dy = roi['dy']
+    max_y = roi['y'] + dy
+
+    crop_image = image_stack[:, min_y:max_y, min_x:max_x]
+    return crop_image
+
+
+def get_calib_energies(data):
+    energies = list(data['hhm_energy'])
+    return energies
+
+
+def run_calibration(pix_roi, energies, plot_calibration=False):
+
+    # assert(pix_roi.shape[0] == len(energies))
 
     filtered_roi = np.zeros(pix_roi.shape)
 
@@ -88,10 +104,9 @@ def run_calibration(data, md, roi='roi1', plot_calibration=False):
         COM['x'].append(x_com)
         COM['y'].append(y_com)
 
-    energies = data['hhm_energy']
-    assert(pix_roi.shape[0] == len(energies))
 
     slope_xy, int_xy = fit_xy(COM['x'], COM['y'])
+
     energy_fit = np.poly1d(np.polyfit(COM['x'], energies, 2))
     # a, b, c = fit_plane(COM['x'], COM['y'], energies)
     def energy_function(x, y):
@@ -99,13 +114,13 @@ def run_calibration(data, md, roi='roi1', plot_calibration=False):
         energy = energy_fit(x_p)
         return energy
 
-    # generate energy map with same dimensions as roi image
-    energy_map = np.zeros(pix_roi[0].shape)
-    for y, x in np.ndindex(energy_map.shape):
-        # apply energy function to each point on map
-        energy_map[y, x] = energy_function(x, y)
-
     if plot_calibration:
+
+        # generate energy map with same dimensions as roi image
+        energy_map = np.zeros(pix_roi[0].shape)
+        for y, x in np.ndindex(energy_map.shape):
+            # apply energy function to each point on map
+            energy_map[y, x] = energy_function(x, y)
 
         ax1 = plt.subplot(211)
         ax1.imshow(np.sum(pix_roi, axis=0))
@@ -133,10 +148,10 @@ def run_calibration(data, md, roi='roi1', plot_calibration=False):
         ax.plot_surface(x_grid, y_grid, energy_map, cmap='viridis', alpha=0.5)
         plt.show()
 
-    return energy_function, pix_roi
+    return energy_function
 
 
-def reduce_image(image2d, energy_func):
+def reduce_image(image2d, energy_func, plot_spectrum=False):
 
     calc_energies = {'point': [], 'energy': []}
     for y, x in np.ndindex(image2d.shape):
@@ -145,8 +160,9 @@ def reduce_image(image2d, energy_func):
         calc_energies['energy'].append(energy)
 
     energy_array = np.array(calc_energies['energy'])
+    # print(energy_array.min(), energy_array.max())
 
-    bin_edges = np.arange(energy_array.min(), energy_array.max())
+    bin_edges, bin_size = np.linspace(energy_array.min(), energy_array.max(), image2d.shape[1], retstep=True)
     inds = np.digitize(energy_array, bin_edges)
 
     energy_intensities = np.zeros(bin_edges.size)
@@ -156,25 +172,35 @@ def reduce_image(image2d, energy_func):
         intensity = image2d[ypt, xpt]
         energy_intensities[inds[n] - 1] += intensity
 
-    plt.plot(bin_edges, energy_intensities)
+    if plot_spectrum:
+        plt.plot(bin_edges + bin_size/2, energy_intensities)
 
-    etest = np.arange(7995, 8085+1, 5)
-    for e in etest:
-        plt.axvline(e, c='r')
+        etest = np.arange(7995, 8085+1, 5)
+        for e in etest:
+            plt.axvline(e, c='r')
 
-    plt.show()
+        plt.show()
 
 
 if __name__ == '__main__':
     
-    def main():
+    def test():
         
         data, md = file_io(f'{PATH}/{DATA_FILE}', f'{PATH}/{MD_FILE}')
-        e_func, pix_roi = run_calibration(data, md, plot_calibration=False)
+        
+        roi = get_roi(md)
+        pix_array = get_image_array(data)
+
+        pix_roi = crop_roi(pix_array, roi)
+        # rotate to test x-y fitting
+        for i, image in enumerate(pix_roi):
+            pix_roi[i] = rotate(image, 3, reshape=False)
+        
+        energies = get_calib_energies(data)
+
+        e_func = run_calibration(pix_roi, energies, plot_calibration=True)
+        
         im2d = np.sum(pix_roi, axis=0)
+        reduce_image(im2d, e_func, plot_spectrum=True)
 
-        print(im2d.shape)
-
-        reduce_image(im2d, e_func)
-
-    main()
+    test()
