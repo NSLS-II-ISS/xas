@@ -33,6 +33,18 @@ def estimate_center_and_width_of_peak(E, I):
     return E_cen, fwhm
 
 
+def estimate_center_and_width_of_peak_update(E, I):
+    # updated to not require normalized spectrum
+    E_cen = E[np.argmax(np.abs(I))]
+    x = np.abs(0.5*(I.max() - I.min()))
+    e_low = E < E_cen
+    e_high = E > E_cen
+    x1 = E[e_low][np.argmin(x[e_low])]
+    x2 = E[e_high][np.argmin(x[e_high])]
+    fwhm = np.abs(x1 - x2)
+    return E_cen, fwhm
+
+
 
 def fit_gaussian(E, I, Ecen0, fwhm0):
     gmodel = Model(gaussian)
