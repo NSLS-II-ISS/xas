@@ -1,3 +1,4 @@
+from code import interact
 import json
 import numpy as np
 import pandas as pd
@@ -41,7 +42,8 @@ def fit_xy(X, Y):
     return slope, intercept
 
 
-def project_pt2line(x_pt, y_pt, slope, intercept):
+def project_pt2line(x_pt, y_pt, p_xy):
+    slope, intercept = p_xy
     x_proj = (x_pt + slope*y_pt - slope*intercept) / (slope**2 + 1)
     y_proj = slope * x_proj + intercept
     return x_proj, y_proj
@@ -88,9 +90,9 @@ def get_calib_energies(data):
     return energies
 
 
-def run_calibration(pix_roi, energies, plot_calibration=False):
+def run_calibration(pix_roi, energies, n_poly=2, plot_calibration=False):
 
-    # assert(pix_roi.shape[0] == len(energies))
+    assert pix_roi.shape[0] == len(energies), "number of calibration images must match number of calibration energies"
 
     filtered_roi = np.zeros(pix_roi.shape)
 
@@ -105,14 +107,17 @@ def run_calibration(pix_roi, energies, plot_calibration=False):
         COM['y'].append(y_com)
 
 
-    slope_xy, int_xy = fit_xy(COM['x'], COM['y'])
+    # slope_xy, int_xy = fit_xy(COM['x'], COM['y'])
+    p_xy = np.polyfit(COM['x'], COM['y'], 1)
 
-    energy_fit = np.poly1d(np.polyfit(COM['x'], energies, 2))
+    # energy_fit = np.poly1d(np.polyfit(COM['x'], energies, n_poly))
+    p_xe = np.polyfit(COM['x'], energies, n_poly)
+
     # a, b, c = fit_plane(COM['x'], COM['y'], energies)
-    def energy_function(x, y):
-        x_p, y_p = project_pt2line(x, y, slope_xy, int_xy)
-        energy = energy_fit(x_p)
-        return energy
+    # def energy_function(x, y):
+    #     x_p, y_p = project_pt2line(x, y, p_xy)
+    #     energy = np.polyval(p_xe, x_p)
+    #     return energy
 
     if plot_calibration:
 
@@ -120,12 +125,13 @@ def run_calibration(pix_roi, energies, plot_calibration=False):
         energy_map = np.zeros(pix_roi[0].shape)
         for y, x in np.ndindex(energy_map.shape):
             # apply energy function to each point on map
-            energy_map[y, x] = energy_function(x, y)
+            energy_map[y, x] = pixel2energy(x, y, p_xy, p_xe)
 
         ax1 = plt.subplot(211)
         ax1.imshow(np.sum(pix_roi, axis=0))
-        for x, y in zip(COM['x'], COM['y']):
-            ax1.plot(x, y, 'o', c='r')
+
+        ax1.plot(COM['x'], COM['y'], 'o', c='r')
+
         for x, energy in zip(COM['x'], energies):
             plt.axvline(x, c='orange')
             plt.text(x+1, 3, f'{energy}', c='orange')
@@ -136,50 +142,73 @@ def run_calibration(pix_roi, energies, plot_calibration=False):
 
         # plot best fit line for x-y
         _x = np.arange(0, energy_map.shape[1], 1)
-        _y = slope_xy * _x + int_xy
+        _y = np.polyval(p_xy, _x)
         ax2.plot(_x, _y, '-', c='r')
         plt.show()
 
-        # 3D plot
-        plt.clf()
-        ax = plt.axes(projection='3d')
-        ax.scatter(COM['x'], COM['y'], energies, c='darkblue')
-        x_grid, y_grid = np.meshgrid(np.arange(0, energy_map.shape[1]), np.arange(0, energy_map.shape[0]))
-        ax.plot_surface(x_grid, y_grid, energy_map, cmap='viridis', alpha=0.5)
-        plt.show()
+        # # 3D plot
+        # plt.clf()
+        # ax = plt.axes(projection='3d')
+        # ax.scatter(COM['x'], COM['y'], energies, c='darkblue')
+        # x_grid, y_grid = np.meshgrid(np.arange(0, energy_map.shape[1]), np.arange(0, energy_map.shape[0]))
+        # ax.plot_surface(x_grid, y_grid, energy_map, cmap='viridis', alpha=0.5)
+        # plt.show()
 
-    return energy_function
+    return p_xy, p_xe
 
 
-def reduce_image(image2d, energy_func, plot_spectrum=False):
+def pixel2energy(x, y, p_xy, p_xe):
+    x_p, y_p = project_pt2line(x, y, p_xy)
+    energy = np.polyval(p_xe, x_p)
+    return energy
 
-    calc_energies = {'point': [], 'energy': []}
-    for y, x in np.ndindex(image2d.shape):
-        energy = energy_func(x, y)
-        calc_energies['point'].append((x,y))
-        calc_energies['energy'].append(energy)
 
-    energy_array = np.array(calc_energies['energy'])
-    # print(energy_array.min(), energy_array.max())
+def reduce_image(image2d_crop, p_xy, p_xe, calib_energies=None, plot_spectrum=False):
 
-    bin_edges, bin_size = np.linspace(energy_array.min(), energy_array.max(), image2d.shape[1], retstep=True)
-    inds = np.digitize(energy_array, bin_edges)
+    x_grid, y_grid = np.meshgrid(np.arange(image2d_crop.shape[1]), np.arange(image2d_crop.shape[0]))
+    x_array, y_array = x_grid.ravel(), y_grid.ravel()
+    image_array = image2d_crop.ravel()
+    energy_array = pixel2energy(x_array, y_array, p_xy, p_xe)
 
-    energy_intensities = np.zeros(bin_edges.size)
+    # energy_map = np.zeros(image2d_crop.shape)
+    # for y, x in np.ndindex(energy_map.shape):
+    #     # apply energy function to each point on map
+    #     energy_map[y, x] = pixel2energy(x, y, p_xy, p_xe)
 
-    for n, pt in enumerate(calc_energies['point']):
-        xpt, ypt = pt[0], pt[1]
-        intensity = image2d[ypt, xpt]
-        energy_intensities[inds[n] - 1] += intensity
+    # calc_energies = {'point': [], 'energy': []}
+    # for y, x in np.ndindex(image2d.shape):
+    #     energy = energy_func(x, y)
+    #     calc_energies['point'].append((x,y))
+    #     calc_energies['energy'].append(energy)
+
+    # energy_array = np.array(calc_energies['energy'])
+    # # print(energy_array.min(), energy_array.max())
+
+    energy_edges, energy_step = np.linspace(energy_array.min() - 1e-6, energy_array.max() + 1e-6, image2d_crop.shape[1] + 1, retstep=True)
+    energy_centers = energy_edges[:-1] + energy_step/2
+    inds = np.digitize(energy_array, energy_edges)
+    inds -= 1  # For Denis 
+
+    intensity = np.zeros(energy_centers.size)
+
+    for i in range(energy_centers.size):
+        intensity[i] = np.sum(image_array[inds == i])
+
+    # for n, pt in enumerate(calc_energies['point']):
+    #     xpt, ypt = pt[0], pt[1]
+    #     intensity = image2d[ypt, xpt]
+    #     energy_bin_intensities[inds[n] - 1] += intensity
 
     if plot_spectrum:
-        plt.plot(bin_edges + bin_size/2, energy_intensities)
+        plt.plot(energy_centers, intensity)
 
-        etest = np.arange(7995, 8085+1, 5)
-        for e in etest:
-            plt.axvline(e, c='r')
+        if calib_energies:
+            for e in calib_energies:
+                plt.axvline(e, c='r')
 
         plt.show()
+
+    return energy_centers, intensity
 
 
 if __name__ == '__main__':
@@ -198,9 +227,11 @@ if __name__ == '__main__':
         
         energies = get_calib_energies(data)
 
-        e_func = run_calibration(pix_roi, energies, plot_calibration=True)
+        p_xy, p_xe = run_calibration(pix_roi, energies, plot_calibration=False)
         
         im2d = np.sum(pix_roi, axis=0)
-        reduce_image(im2d, e_func, plot_spectrum=True)
-
+        energy_centers, intensity = reduce_image(im2d, p_xy, p_xe, calib_energies=energies, plot_spectrum=True)
+        
+        print(energy_centers.size)
+    
     test()
