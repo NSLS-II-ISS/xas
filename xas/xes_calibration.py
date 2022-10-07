@@ -32,7 +32,7 @@ def fit_plane(X, Y, Z):
     C, _, _, _ = linalg.lstsq(A, Z)
     
     # equation for plane: z = a*x + b*y + c
-    a, b, c = C[0], C[1], C[2]
+    a, b, c = C
     return a, b, c
 
 
@@ -90,14 +90,14 @@ def get_calib_energies(data):
     return energies
 
 
-def run_calibration(pix_roi, energies, n_poly=2, plot_calibration=False):
+def run_calibration(image_stack_roi, energies, n_poly=2, plot_calibration=False):
 
-    assert pix_roi.shape[0] == len(energies), "number of calibration images must match number of calibration energies"
+    assert image_stack_roi.shape[0] == len(energies), "number of calibration images must match number of calibration energies"
 
-    filtered_roi = np.zeros(pix_roi.shape)
+    filtered_roi = np.zeros(image_stack_roi.shape)
 
     COM = {'x': [], 'y': []}  # centers of mass
-    for i, image in enumerate(pix_roi):
+    for i, image in enumerate(image_stack_roi):
         # apply percentile filter
         filtered_image = percentile_threshold(image, 99)
         filtered_roi[i] = filtered_image
@@ -108,27 +108,27 @@ def run_calibration(pix_roi, energies, n_poly=2, plot_calibration=False):
 
 
     # slope_xy, int_xy = fit_xy(COM['x'], COM['y'])
-    p_xy = np.polyfit(COM['x'], COM['y'], 1)
+    polynom_xy = np.polyfit(COM['x'], COM['y'], 1)
 
     # energy_fit = np.poly1d(np.polyfit(COM['x'], energies, n_poly))
-    p_xe = np.polyfit(COM['x'], energies, n_poly)
+    polynom_xe = np.polyfit(COM['x'], energies, n_poly)
 
     # a, b, c = fit_plane(COM['x'], COM['y'], energies)
     # def energy_function(x, y):
-    #     x_p, y_p = project_pt2line(x, y, p_xy)
-    #     energy = np.polyval(p_xe, x_p)
+    #     x_p, y_p = project_pt2line(x, y, polynom_xy)
+    #     energy = np.polyval(polynom_xe, x_p)
     #     return energy
 
     if plot_calibration:
 
         # generate energy map with same dimensions as roi image
-        energy_map = np.zeros(pix_roi[0].shape)
+        energy_map = np.zeros(image_stack_roi[0].shape)
         for y, x in np.ndindex(energy_map.shape):
             # apply energy function to each point on map
-            energy_map[y, x] = pixel2energy(x, y, p_xy, p_xe)
+            energy_map[y, x] = pixel2energy(x, y, polynom_xy, polynom_xe)
 
         ax1 = plt.subplot(211)
-        ax1.imshow(np.sum(pix_roi, axis=0))
+        ax1.imshow(np.sum(image_stack_roi, axis=0))
 
         ax1.plot(COM['x'], COM['y'], 'o', c='r')
 
@@ -142,7 +142,7 @@ def run_calibration(pix_roi, energies, n_poly=2, plot_calibration=False):
 
         # plot best fit line for x-y
         _x = np.arange(0, energy_map.shape[1], 1)
-        _y = np.polyval(p_xy, _x)
+        _y = np.polyval(polynom_xy, _x)
         ax2.plot(_x, _y, '-', c='r')
         plt.show()
 
@@ -154,7 +154,33 @@ def run_calibration(pix_roi, energies, n_poly=2, plot_calibration=False):
         # ax.plot_surface(x_grid, y_grid, energy_map, cmap='viridis', alpha=0.5)
         # plt.show()
 
-    return p_xy, p_xe
+    return polynom_xy, polynom_xe
+
+
+def plot_calibration(image_stack, roi, calib_energies, polynom_xy, polynom_xe, ax=None):
+    
+    if ax is None:
+        ax = plt.axes()
+
+    im_sum = np.sum(image_stack, axis=0)
+    ax.imshow(im_sum, vmin=0, vmax=1000)
+
+    x, dx, y, dy = roi.values()
+    # plot box around roi
+    ax.vlines([x, x + dx], y, y + dy, colors='y')
+    ax.hlines([y, y + dy], x, x + dx, colors='y')
+
+    _x_plot = np.arange(2)
+    _y_plot = np.polyval(polynom_xy, _x_plot)
+    ax.axline([_x_plot[0] + x, _y_plot[0] + y], [_x_plot[1] + x, _y_plot[1] + y], c='r')
+
+    energy_map = np.zeros(image_stack.shape[1:])
+    for _y, _x in np.ndindex(energy_map.shape):
+        energy_map[_y, _x] = pixel2energy(_x - x, _y - y, polynom_xy, polynom_xe)
+    
+    ax.contour(energy_map, np.flip(calib_energies), colors='orange')
+
+    return ax
 
 
 def pixel2energy(x, y, p_xy, p_xe):
@@ -218,6 +244,7 @@ if __name__ == '__main__':
         data, md = file_io(f'{PATH}/{DATA_FILE}', f'{PATH}/{MD_FILE}')
         
         roi = get_roi(md)
+        print(roi)
         pix_array = get_image_array(data)
 
         pix_roi = crop_roi(pix_array, roi)
@@ -228,7 +255,12 @@ if __name__ == '__main__':
         energies = get_calib_energies(data)
 
         p_xy, p_xe = run_calibration(pix_roi, energies, plot_calibration=False)
-        
+
+        ax_test = plt.axes()
+        plot_calibration(ax_test, pix_array, roi, energies, p_xy, p_xe)
+        plt.show()
+        plt.clf()
+
         im2d = np.sum(pix_roi, axis=0)
         energy_centers, intensity = reduce_image(im2d, p_xy, p_xe, calib_energies=energies, plot_spectrum=True)
         
