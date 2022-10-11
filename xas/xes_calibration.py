@@ -12,10 +12,7 @@ from mpl_toolkits.mplot3d import Axes3D
 from scipy.ndimage import center_of_mass, rotate
 from scipy import linalg
 
-
-PATH = '/home/charles/Desktop/XES_calib'
-DATA_FILE = 'Cu_calibration.json'
-MD_FILE = 'Cu_calibration_md.json'
+from fitting import fit_gaussian_with_estimation
 
 
 def percentile_threshold(im2d, p):
@@ -52,8 +49,11 @@ def project_pt2line(x_pt, y_pt, p_xy):
 def file_io(data_file, md_file):
     """ load data and metadata from local files """
     data = pd.read_json(data_file)
-    with open(md_file) as metadata:
-        md = json.load(metadata)[1]
+    try:
+        with open(md_file) as metadata:
+            md = json.load(metadata)[1]
+    except:
+        md = None
     return data, md
 
 
@@ -66,8 +66,12 @@ def get_roi(metadata, roi='roi1'):
 
 
 def get_image_array(data):
-    det_image = data['pil100k_image']
-    image_array = np.array(list(det_image)).squeeze()
+    try:
+        det_image = data['pil100k_image']
+        image_array = np.array(list(det_image)).squeeze()
+    except:
+        det_image = data['data_vars']['pil100k_image']['data']
+        image_array = np.array(det_image).squeeze()
     return image_array
 
 
@@ -86,7 +90,10 @@ def crop_roi(image_stack, roi):
 
 
 def get_calib_energies(data):
-    energies = list(data['hhm_energy'])
+    try:
+        energies = list(data['hhm_energy'])
+    except:
+        energies = data['data_vars']['hhm_energy']['data']
     return energies
 
 
@@ -105,6 +112,7 @@ def run_calibration(image_stack_roi, energies, n_poly=2, plot_calibration=False)
         y_com, x_com = center_of_mass(filtered_image)
         COM['x'].append(x_com)
         COM['y'].append(y_com)
+    print(COM)
 
 
     # slope_xy, int_xy = fit_xy(COM['x'], COM['y'])
@@ -170,9 +178,11 @@ def plot_calibration(image_stack, roi, calib_energies, polynom_xy, polynom_xe, a
     ax.vlines([x, x + dx], y, y + dy, colors='y')
     ax.hlines([y, y + dy], x, x + dx, colors='y')
 
-    _x_plot = np.arange(2)
-    _y_plot = np.polyval(polynom_xy, _x_plot)
-    ax.axline([_x_plot[0] + x, _y_plot[0] + y], [_x_plot[1] + x, _y_plot[1] + y], c='r')
+    # plot fitted x-y line across roi
+    ax.plot([x, x+dx], [np.polyval(polynom_xy, 0) + y, np.polyval(polynom_xy, dx) + y], 'r-')
+    # _x_plot = np.arange(2)
+    # _y_plot = np.polyval(polynom_xy, _x_plot)
+    # ax.axline([_x_plot[0] + x, _y_plot[0] + y], [_x_plot[1] + x, _y_plot[1] + y], c='r')
 
     energy_map = np.zeros(image_stack.shape[1:])
     for _y, _x in np.ndindex(energy_map.shape):
@@ -189,7 +199,7 @@ def pixel2energy(x, y, p_xy, p_xe):
     return energy
 
 
-def reduce_image(image2d_crop, p_xy, p_xe, calib_energies=None, plot_spectrum=False):
+def reduce_image(image2d_crop, p_xy, p_xe, plot_spectrum=False):
 
     x_grid, y_grid = np.meshgrid(np.arange(image2d_crop.shape[1]), np.arange(image2d_crop.shape[0]))
     x_array, y_array = x_grid.ravel(), y_grid.ravel()
@@ -227,43 +237,68 @@ def reduce_image(image2d_crop, p_xy, p_xe, calib_energies=None, plot_spectrum=Fa
 
     if plot_spectrum:
         plt.plot(energy_centers, intensity)
-
-        if calib_energies:
-            for e in calib_energies:
-                plt.axvline(e, c='r')
-
         plt.show()
 
     return energy_centers, intensity
+
+
+def test_calibration(calib_image_stack_roi, calib_energies, polynom_xy, polynom_xe):
+    fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
+
+    fwhm_array = np.zeros(calib_image_stack_roi.shape[0])
+
+    # ax1 = plt.subplot(211)
+    for i, im2d in enumerate(calib_image_stack_roi):
+        energy_centers, intensity = reduce_image(im2d, polynom_xy, polynom_xe, plot_spectrum=False)
+        ax1.plot(energy_centers, intensity, c='k')
+
+        Ecen, fwhm, I_cor, I_fit, I_fit_raw = fit_gaussian_with_estimation(energy_centers, intensity)
+        fwhm_array[i] = fwhm
+
+        ax1.axvline(calib_energies[i], c='b')
+        ax1.axvline(Ecen, c='g', ls='--')
+        ax1.plot(energy_centers, I_fit_raw, 'r--')
+    
+    # ax2 = plt.subplot(212)
+    ax2.set_xlabel('Energy (eV)')
+    ax2.set_ylabel('Resolution (fwhm)')
+    ax2.plot(calib_energies, fwhm_array, 'ko')
+
+    plt.show()
+
+    return ax1, ax2
+
 
 
 if __name__ == '__main__':
     
     def test():
         
+        PATH = '/home/charles/Desktop/XES_calib'
+        DATA_FILE = 'Ti_calibration.json'
+        MD_FILE = 'Ti_calibration_md.json'
+
+
         data, md = file_io(f'{PATH}/{DATA_FILE}', f'{PATH}/{MD_FILE}')
         
-        roi = get_roi(md)
+        # roi = get_roi(md)
+        roi = {'x': 100, 'dx': 250, 'y': 80, 'dy': 20}
         print(roi)
         pix_array = get_image_array(data)
 
         pix_roi = crop_roi(pix_array, roi)
         # rotate to test x-y fitting
-        for i, image in enumerate(pix_roi):
-            pix_roi[i] = rotate(image, 3, reshape=False)
+        # for i, image in enumerate(pix_roi):
+        #     pix_roi[i] = rotate(image, 3, reshape=False)
         
         energies = get_calib_energies(data)
 
-        p_xy, p_xe = run_calibration(pix_roi, energies, plot_calibration=False)
+        p_xy, p_xe = run_calibration(pix_roi, energies, plot_calibration=True)
 
         ax_test = plt.axes()
-        plot_calibration(ax_test, pix_array, roi, energies, p_xy, p_xe)
+        plot_calibration(pix_array, roi, energies, p_xy, p_xe, ax=ax_test)
         plt.show()
-        plt.clf()
 
-        im2d = np.sum(pix_roi, axis=0)
-        energy_centers, intensity = reduce_image(im2d, p_xy, p_xe, calib_energies=energies, plot_spectrum=True)
+        # test_calibration(pix_roi, energies, p_xy, p_xe)
         
-        print(energy_centers.size)
-    
     test()
