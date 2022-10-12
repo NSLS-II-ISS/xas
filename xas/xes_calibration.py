@@ -11,6 +11,7 @@ from mpl_toolkits.mplot3d import Axes3D
 
 from scipy.ndimage import center_of_mass, rotate
 from scipy import linalg
+from sklearn.covariance import MinCovDet
 
 from fitting import fit_gaussian_with_estimation
 
@@ -34,7 +35,6 @@ def fit_plane(X, Y, Z):
 
 
 def fit_xy(X, Y):
-    X,Y = np.array(X), np.array(Y)
     slope, intercept = np.polyfit(X, Y, 1)
     return slope, intercept
 
@@ -53,7 +53,8 @@ def file_io(data_file, md_file):
         with open(md_file) as metadata:
             md = json.load(metadata)[1]
     except:
-        md = None
+        with open(md_file) as metadata:
+            md = json.load(metadata)
     return data, md
 
 
@@ -97,23 +98,53 @@ def get_calib_energies(data):
     return energies
 
 
+def gen_count_array(image):
+    count_array = np.empty((0, 2), int)
+    x_grid, y_grid = np.meshgrid(np.arange(image.shape[1]), np.arange(image.shape[0]))
+    for x, y, val in zip(x_grid.ravel(), y_grid.ravel(), image.ravel()):
+        for _ in range(val):
+            count_array = np.vstack([count_array, np.array([x, y])])
+    return count_array
+        
+
+def mahalanobis_dist_filter(image, p):
+    data_array = gen_count_array(image)
+    robust_cov = MinCovDet().fit(data_array)
+    mahalanobis_dist = robust_cov.mahalanobis(data_array)
+    mahalanobis_dist_threshold = np.percentile(mahalanobis_dist, p)
+    
+    mean_x = np.mean(data_array[:, 0])
+    mean_y = np.mean(data_array[:, 1])
+    # plt.imshow(image)
+    # plt.plot(mean_x, mean_y, 'ro')
+    # plt.show()
+    
+
+    for pt, dist in zip(data_array, mahalanobis_dist):
+        if dist > mahalanobis_dist_threshold:
+            image[pt[1], pt[0]] = 0
+
+    # plt.imshow(image)
+    # plt.plot(mean_x, mean_y, 'ro')
+    # plt.show()
+    
+    return image
+
 def run_calibration(image_stack_roi, energies, n_poly=2, plot_calibration=False):
 
     assert image_stack_roi.shape[0] == len(energies), "number of calibration images must match number of calibration energies"
 
-    filtered_roi = np.zeros(image_stack_roi.shape)
+    filtered_roi_stack = np.zeros(image_stack_roi.shape)
 
     COM = {'x': [], 'y': []}  # centers of mass
     for i, image in enumerate(image_stack_roi):
         # apply percentile filter
         filtered_image = percentile_threshold(image, 99)
-        filtered_roi[i] = filtered_image
+        filtered_roi_stack[i] = filtered_image
 
         y_com, x_com = center_of_mass(filtered_image)
         COM['x'].append(x_com)
         COM['y'].append(y_com)
-    print(COM)
-
 
     # slope_xy, int_xy = fit_xy(COM['x'], COM['y'])
     polynom_xy = np.polyfit(COM['x'], COM['y'], 1)
@@ -171,7 +202,7 @@ def plot_calibration(image_stack, roi, calib_energies, polynom_xy, polynom_xe, a
         ax = plt.axes()
 
     im_sum = np.sum(image_stack, axis=0)
-    ax.imshow(im_sum, vmin=0, vmax=1000)
+    ax.imshow(im_sum, vmin=0, vmax=100)
 
     x, dx, y, dy = roi.values()
     # plot box around roi
@@ -180,9 +211,6 @@ def plot_calibration(image_stack, roi, calib_energies, polynom_xy, polynom_xe, a
 
     # plot fitted x-y line across roi
     ax.plot([x, x+dx], [np.polyval(polynom_xy, 0) + y, np.polyval(polynom_xy, dx) + y], 'r-')
-    # _x_plot = np.arange(2)
-    # _y_plot = np.polyval(polynom_xy, _x_plot)
-    # ax.axline([_x_plot[0] + x, _y_plot[0] + y], [_x_plot[1] + x, _y_plot[1] + y], c='r')
 
     energy_map = np.zeros(image_stack.shape[1:])
     for _y, _x in np.ndindex(energy_map.shape):
@@ -275,14 +303,14 @@ if __name__ == '__main__':
     def test():
         
         PATH = '/home/charles/Desktop/XES_calib'
-        DATA_FILE = 'Ti_calibration.json'
-        MD_FILE = 'Ti_calibration_md.json'
+        DATA_FILE = 'Cu_calibration.json'
+        MD_FILE = 'Cu_calibration_md.json'
 
 
         data, md = file_io(f'{PATH}/{DATA_FILE}', f'{PATH}/{MD_FILE}')
         
-        # roi = get_roi(md)
-        roi = {'x': 100, 'dx': 250, 'y': 80, 'dy': 20}
+        roi = get_roi(md)
+        # roi = {'x': 100, 'dx': 250, 'y': 80, 'dy': 20}
         print(roi)
         pix_array = get_image_array(data)
 
@@ -299,6 +327,6 @@ if __name__ == '__main__':
         plot_calibration(pix_array, roi, energies, p_xy, p_xe, ax=ax_test)
         plt.show()
 
-        # test_calibration(pix_roi, energies, p_xy, p_xe)
+        test_calibration(pix_roi, energies, p_xy, p_xe)
         
     test()
