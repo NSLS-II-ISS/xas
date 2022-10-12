@@ -479,11 +479,15 @@ class CameraCalibrationFF:
         new_xy = np.array(new_xy, dtype=np.float64)
         if old_xy.ndim == 1:
             old_xy = old_xy[None, :]
+        npts = old_xy.shape[0]
         if new_xy.ndim == 1:
             new_xy = new_xy[None, :]
 
-        assert old_xy.shape[0] == new_xy.shape[0], 'The number of new and old points should match!'
-        npts = old_xy.shape[0]
+        if new_xy.shape[0] == 1:
+            new_xy = np.tile(new_xy, (npts, 1))
+        else:
+            assert new_xy.shape[0] == npts, 'The number of new and old points should match!'
+
         stage_motions = []
         for i in range(npts):
             stage_motion = self._compute_stage_motion(old_xy[i, :], new_xy[i, :], step_size=step_size)
