@@ -18,8 +18,9 @@ from fitting import fit_gaussian_with_estimation
 
 def percentile_threshold(im2d, p):
    """ set values below percentile equal to 0 """
-   im2d[im2d < np.percentile(im2d, p)] = 0
-   return im2d
+   filt_im = im2d.copy()
+   filt_im[filt_im < np.percentile(filt_im, p)] = 0
+   return filt_im
 
 
 def fit_plane(X, Y, Z):
@@ -108,6 +109,7 @@ def gen_count_array(image):
         
 
 def mahalanobis_dist_filter(image, p):
+    filt_image = image.copy()
     data_array = gen_count_array(image)
     robust_cov = MinCovDet().fit(data_array)
     mahalanobis_dist = robust_cov.mahalanobis(data_array)
@@ -115,20 +117,12 @@ def mahalanobis_dist_filter(image, p):
     
     mean_x = np.mean(data_array[:, 0])
     mean_y = np.mean(data_array[:, 1])
-    # plt.imshow(image)
-    # plt.plot(mean_x, mean_y, 'ro')
-    # plt.show()
     
-
     for pt, dist in zip(data_array, mahalanobis_dist):
         if dist > mahalanobis_dist_threshold:
-            image[pt[1], pt[0]] = 0
+            filt_image[pt[1], pt[0]] = 0
 
-    # plt.imshow(image)
-    # plt.plot(mean_x, mean_y, 'ro')
-    # plt.show()
-    
-    return image
+    return filt_image
 
 def run_calibration(image_stack_roi, energies, n_poly=2, plot_calibration=False):
 
@@ -139,7 +133,9 @@ def run_calibration(image_stack_roi, energies, n_poly=2, plot_calibration=False)
     COM = {'x': [], 'y': []}  # centers of mass
     for i, image in enumerate(image_stack_roi):
         # apply percentile filter
-        filtered_image = percentile_threshold(image, 99)
+        filtered_image = mahalanobis_dist_filter(image, 10)
+        plt.imshow(filtered_image)
+        plt.show()
         filtered_roi_stack[i] = filtered_image
 
         y_com, x_com = center_of_mass(filtered_image)
@@ -275,19 +271,18 @@ def test_calibration(calib_image_stack_roi, calib_energies, polynom_xy, polynom_
 
     fwhm_array = np.zeros(calib_image_stack_roi.shape[0])
 
-    # ax1 = plt.subplot(211)
     for i, im2d in enumerate(calib_image_stack_roi):
         energy_centers, intensity = reduce_image(im2d, polynom_xy, polynom_xe, plot_spectrum=False)
         ax1.plot(energy_centers, intensity, c='k')
 
-        Ecen, fwhm, I_cor, I_fit, I_fit_raw = fit_gaussian_with_estimation(energy_centers, intensity)
-        fwhm_array[i] = fwhm
+        Ecen = energy_centers[np.argmax(intensity)]
+        # Ecen, fwhm, I_cor, I_fit, I_fit_raw = fit_gaussian_with_estimation(energy_centers, intensity)
+        # fwhm_array[i] = fwhm
 
         ax1.axvline(calib_energies[i], c='b')
         ax1.axvline(Ecen, c='g', ls='--')
-        ax1.plot(energy_centers, I_fit_raw, 'r--')
-    
-    # ax2 = plt.subplot(212)
+        # ax1.plot(energy_centers, I_fit_raw, 'r--')
+
     ax2.set_xlabel('Energy (eV)')
     ax2.set_ylabel('Resolution (fwhm)')
     ax2.plot(calib_energies, fwhm_array, 'ko')
@@ -303,19 +298,19 @@ if __name__ == '__main__':
     def test():
         
         PATH = '/home/charles/Desktop/XES_calib'
-        DATA_FILE = 'Cu_calibration.json'
-        MD_FILE = 'Cu_calibration_md.json'
+        DATA_FILE = 'Ti_calibration.json'
+        MD_FILE = 'Ti_calibration_md.json'
 
 
         data, md = file_io(f'{PATH}/{DATA_FILE}', f'{PATH}/{MD_FILE}')
         
-        roi = get_roi(md)
-        # roi = {'x': 100, 'dx': 250, 'y': 80, 'dy': 20}
+        # roi = get_roi(md)
+        roi = {'x': 100, 'dx': 250, 'y': 80, 'dy': 20}
         print(roi)
         pix_array = get_image_array(data)
 
         pix_roi = crop_roi(pix_array, roi)
-        # rotate to test x-y fitting
+        # # rotate to test x-y fitting
         # for i, image in enumerate(pix_roi):
         #     pix_roi[i] = rotate(image, 3, reshape=False)
         
