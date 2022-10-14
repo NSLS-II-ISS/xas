@@ -4,10 +4,8 @@ import numpy as np
 import pandas as pd
 
 import matplotlib
-from matplotlib import projections
 matplotlib.use('TkAgg')  # something wrong with my (Charlie's) system Qt 
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 
 from scipy.ndimage import center_of_mass, rotate
 from scipy import linalg
@@ -16,7 +14,7 @@ from sklearn.covariance import MinCovDet
 from fitting import fit_gaussian_with_estimation
 
 
-def percentile_threshold(im2d, p):
+def percentile_threshold_filter(im2d, p):
    """ set values below percentile equal to 0 """
    filt_im = im2d.copy()
    filt_im[filt_im < np.percentile(filt_im, p)] = 0
@@ -108,21 +106,38 @@ def gen_count_array(image):
     return count_array
         
 
-def mahalanobis_dist_filter(image, p):
+def mahalanobis_dist_filter(image, percentile):
+    """ 
+    sets points with mahalanobis distance above percentile threshold to zero 
+    """
     filt_image = image.copy()
-    data_array = gen_count_array(image)
-    robust_cov = MinCovDet().fit(data_array)
-    mahalanobis_dist = robust_cov.mahalanobis(data_array)
-    mahalanobis_dist_threshold = np.percentile(mahalanobis_dist, p)
-    
-    mean_x = np.mean(data_array[:, 0])
-    mean_y = np.mean(data_array[:, 1])
-    
-    for pt, dist in zip(data_array, mahalanobis_dist):
-        if dist > mahalanobis_dist_threshold:
-            filt_image[pt[1], pt[0]] = 0
+    norm_image = image.copy() ** 3
+    norm_image = np.round(norm_image*100 / norm_image.max()).astype(np.int64)
+    data_pts = gen_count_array(norm_image)
+    robust_cov = MinCovDet().fit(data_pts)
+    mahalanobis_dist = robust_cov.mahalanobis(data_pts)
+    mahalanobis_dist_threshold = np.percentile(mahalanobis_dist, percentile)
+    image_mean = robust_cov.location_
 
-    return filt_image
+    unique_data_pts, unique_ind = np.unique(data_pts, axis=0, return_index=True)
+    unique_dist = mahalanobis_dist[unique_ind]
+    # print(data_pts.shape, unique_data_pts.shape)
+    # print(mahalanobis_dist.shape, unique_dist.shape)
+    unique_data_pts_filt = unique_data_pts[unique_dist > mahalanobis_dist_threshold, :]
+    filt_image[unique_data_pts_filt[:, 1], unique_data_pts_filt[:, 0]] = 0
+
+
+    # plt.imshow(image)
+    # plt.show()
+    # plt.plot(image_mean[0], image_mean[1], 'ro')
+    # plt.imshow(filt_image)
+    # plt.show()
+        
+    # for pt, dist in zip(unique_data_pts, unique_dist):
+    #     if dist > mahalanobis_dist_threshold:
+    #         filt_image[pt[1], pt[0]] = 0
+
+    return filt_image, image_mean
 
 def run_calibration(image_stack_roi, energies, n_poly=2, plot_calibration=False):
 
@@ -133,14 +148,15 @@ def run_calibration(image_stack_roi, energies, n_poly=2, plot_calibration=False)
     COM = {'x': [], 'y': []}  # centers of mass
     for i, image in enumerate(image_stack_roi):
         # apply percentile filter
-        filtered_image = mahalanobis_dist_filter(image, 10)
-        plt.imshow(filtered_image)
-        plt.show()
+        filtered_image = percentile_threshold_filter(image, 99)
+        filtered_image, im_mean = mahalanobis_dist_filter(filtered_image, 1)
+
         filtered_roi_stack[i] = filtered_image
 
         y_com, x_com = center_of_mass(filtered_image)
         COM['x'].append(x_com)
         COM['y'].append(y_com)
+        # print(x_com, y_com)
 
     # slope_xy, int_xy = fit_xy(COM['x'], COM['y'])
     polynom_xy = np.polyfit(COM['x'], COM['y'], 1)
@@ -275,13 +291,13 @@ def test_calibration(calib_image_stack_roi, calib_energies, polynom_xy, polynom_
         energy_centers, intensity = reduce_image(im2d, polynom_xy, polynom_xe, plot_spectrum=False)
         ax1.plot(energy_centers, intensity, c='k')
 
-        Ecen = energy_centers[np.argmax(intensity)]
-        # Ecen, fwhm, I_cor, I_fit, I_fit_raw = fit_gaussian_with_estimation(energy_centers, intensity)
-        # fwhm_array[i] = fwhm
+        # Ecen = energy_centers[np.argmax(intensity)]
+        Ecen, fwhm, I_cor, I_fit, I_fit_raw = fit_gaussian_with_estimation(energy_centers, intensity)
+        fwhm_array[i] = fwhm
 
         ax1.axvline(calib_energies[i], c='b')
         ax1.axvline(Ecen, c='g', ls='--')
-        # ax1.plot(energy_centers, I_fit_raw, 'r--')
+        ax1.plot(energy_centers, I_fit_raw, 'r--')
 
     ax2.set_xlabel('Energy (eV)')
     ax2.set_ylabel('Resolution (fwhm)')
@@ -298,15 +314,17 @@ if __name__ == '__main__':
     def test():
         
         PATH = '/home/charles/Desktop/XES_calib'
-        DATA_FILE = 'Ti_calibration.json'
-        MD_FILE = 'Ti_calibration_md.json'
+        DATA_FILE = 'Cu_calibration.json'
+        MD_FILE = 'Cu_calibration_md.json'
 
 
         data, md = file_io(f'{PATH}/{DATA_FILE}', f'{PATH}/{MD_FILE}')
         
-        # roi = get_roi(md)
-        roi = {'x': 100, 'dx': 250, 'y': 80, 'dy': 20}
-        print(roi)
+        try:
+            roi = get_roi(md)
+        except:
+            roi = {'x': 100, 'dx': 250, 'y': 80, 'dy': 20}
+        
         pix_array = get_image_array(data)
 
         pix_roi = crop_roi(pix_array, roi)
@@ -316,7 +334,7 @@ if __name__ == '__main__':
         
         energies = get_calib_energies(data)
 
-        p_xy, p_xe = run_calibration(pix_roi, energies, plot_calibration=True)
+        p_xy, p_xe = run_calibration(pix_roi, energies, plot_calibration=False)
 
         ax_test = plt.axes()
         plot_calibration(pix_array, roi, energies, p_xy, p_xe, ax=ax_test)

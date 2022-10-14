@@ -46,9 +46,9 @@ def estimate_center_and_width_of_peak_update(E, I):
 
 
 
-def fit_gaussian(E, I, Ecen0, fwhm0):
+def fit_gaussian(E, I, Ecen0, fwhm0, amp=1, bkg=0):
     gmodel = Model(gaussian)
-    result = gmodel.fit(I, x=E, amp=1, cen=Ecen0, sigma=fwhm0/2.355, bkg=0)
+    result = gmodel.fit(I, x=E, amp=amp, cen=Ecen0, sigma=fwhm0/2.355, bkg=bkg)
     Ecen = result.params['cen'].value 
     fwhm = np.abs(result.params['sigma'].value * 2.355)
     I_fit = (result.best_fit - result.params['bkg'].value) / result.params['amp']
@@ -58,7 +58,8 @@ def fit_gaussian(E, I, Ecen0, fwhm0):
 
 def fit_gaussian_with_estimation(E, I):
     Ecen0, fwhm0 = estimate_center_and_width_of_peak_update(E, I)
-    return fit_gaussian(E, I, Ecen0, fwhm0)
+    # print(Ecen0, fwhm0)
+    return fit_gaussian(E, I, Ecen0, fwhm0, amp=np.ptp(I), bkg=I.min())
 
 
 def fit_linear_surf(x, y, z, plotting=False):
