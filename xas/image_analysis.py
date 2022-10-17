@@ -326,6 +326,13 @@ class CameraCalibrationFF:
     def info(self):
         return f'points: {self.pix_xy1.shape[0]}, deg: {self.npoly}'
 
+    @property
+    def calibration_data_dict(self):
+        return {'pix_xy1':  self.pix_xy1,
+                'pix_xy2':  self.pix_xy2,
+                'stage_xy': self.stage_xy,
+                'npoly' :   self.npoly}
+
     def update_npoly(self, npoly):
         self.npoly = npoly
         self.generate_calibration()
@@ -344,16 +351,16 @@ class CameraCalibrationFF:
                        range(1, self.npoly + 1)]
         return np.hstack(basis_list)
 
-    def form_basis_pix_pix(self, pix_xy1, pix_xy2):
-        basis1 = self.form_pix_subbasis(pix_xy1)
-        basis2 = self.form_pix_subbasis(pix_xy2, include_offset=False)
-        return np.hstack((basis1, basis2))
-
-    def form_basis_pix_motor(self, pix_xy, stage_xy):
-        if stage_xy.ndim == 1:
-            stage_xy = stage_xy[None, :]
-        basis = self.form_pix_subbasis(pix_xy)
-        return np.hstack((basis, stage_xy))
+    # def form_basis_pix_pix(self, pix_xy1, pix_xy2):
+    #     basis1 = self.form_pix_subbasis(pix_xy1)
+    #     basis2 = self.form_pix_subbasis(pix_xy2, include_offset=False)
+    #     return np.hstack((basis1, basis2))
+    #
+    # def form_basis_pix_motor(self, pix_xy, stage_xy):
+    #     if stage_xy.ndim == 1:
+    #         stage_xy = stage_xy[None, :]
+    #     basis = self.form_pix_subbasis(pix_xy)
+    #     return np.hstack((basis, stage_xy))
 
     def generate_calibration(self, plotting=False, fignum=1):
 
