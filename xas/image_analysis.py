@@ -137,7 +137,7 @@ import cv2
 from sklearn.covariance import MinCovDet
 import time as ttime
 
-def find_points_moving_with_stage(stage_xs, stage_ys, imgs_orig, pix_per_mm=15, pix_per_mm_tol=7, assume_ring_scan=True):
+def find_points_moving_with_stage(stage_xs, stage_ys, imgs_orig, pix_per_mm=15, pix_per_mm_tol=7, assume_ring_scan=True, plotting=False):
 
     sift = cv2.xfeatures2d.SIFT_create()
 
@@ -189,6 +189,18 @@ def find_points_moving_with_stage(stage_xs, stage_ys, imgs_orig, pix_per_mm=15, 
         pix_xy1 = np.vstack((pix_xy1, _pix_xy1))
         pix_xy2 = np.vstack((pix_xy2, _pix_xy2))
         stage_xy = np.vstack((stage_xy, np.tile(np.array([stage_dx, stage_dy]), (np.sum(inlier_mask), 1))))
+
+    if plotting:
+        plt.figure()
+        plt.subplot(121)
+        plt.imshow(imgs[idx1], cmap='gray')
+        for _px, _py in _pix_xy1:
+            plt.plot(_px, _py, '.')
+
+        plt.subplot(122)
+        plt.imshow(imgs[idx2], cmap='gray')
+        for _px, _py in _pix_xy2:
+            plt.plot(_px, _py, '.')
 
     return {'pix_xy1':      pix_xy1,
             'pix_xy2':      pix_xy2,

@@ -253,26 +253,19 @@ plt.xlim(8330, 8360)
 
 ###################
 
-plt.figure(1)
-plt.clf()
+x = np.arange(0, 1292)
+y = np.arange(0, 1292)
 
-plt.subplot(1,2,1)
-plt.plot(bla.dataset.x, bla.dataset.data - np.arange(bla.dataset.t.size) * 0.1)
-plt.xlabel('Energy, eV')
-plt.ylabel('mu norm')
+_cc = []
+for _x, _y in zip(x, y):
+    __cc = camera_sp1.calibration.C_dmotdpix(np.array((_x, _y)))
+    _cc.append(__cc)
 
-plt.xlim(24300, 24550)
+cc = np.array(_cc)
 
-plt.subplot(2,2,2)
-plt.plot(bla.dataset.x, bla.data_ref_fit)
-plt.xlabel('Energy, eV')
-plt.ylabel('mu norm')
+plt.figure(1, clear=True)
+plt.plot(cc[:, 0, 0])
+plt.plot(cc[:, 1, 0])
+plt.plot(cc[:, 0, 1])
+plt.plot(cc[:, 1, 1])
 
-plt.xlim(24300, 24550)
-
-plt.subplot(2,2,4)
-plt.plot(bla.dataset.t * 45 / 60, bla.c_fit.T, '.-')
-plt.xlabel('time, min')
-plt.ylabel('fraction')
-
-plt.xlim(0, 19*45/60)
