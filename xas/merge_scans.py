@@ -27,6 +27,7 @@ class ScanGroup:
         self.data = data
         self.metadata = metadata
 
+        # md_df keys may be different for older scans
         self.i0_mV = [
             np.array(df["i0"] * 10 ** md_df["ch1_amp_gain"] * 1000)
             for df, md_df in zip(self.data, self.metadata)
@@ -44,24 +45,32 @@ class ScanGroup:
             for df, md_df in zip(self.data, self.metadata)
         ]
 
+        # bad - need to change this
+        self.saturated_scan_inds = []
+        self.zero_amp_inds = []
+
+    def current_arrays(self):
+        _current_arrays = [
+            np.array(currents)
+            for currents in zip(self.i0_mV, self.it_mV, self.ir_mV, self.iff_mV)
+        ]
+        return _current_arrays
+
     def check_saturation(self):
-        # for ind, currents in enumerate(
-        #     zip(self.i0_mV, self.it_mV, self.ir_mV, self.iff_mV)
-        # ):
-        #     current_array = np.array(currents)
-        #     if np.any(current_array < -3200):
-        #         print("saturated - need to check i0, it, iff")
-        for df, md_df in zip(self.data, self.metadata):
-            # md_df keys may be different in older scans
-            i0_mV = df["i0"] * 10 ** md_df["ch1_amp_gain"] * 1000
-            it_mV = df["it"] * 10 ** md_df["ch2_amp_gain"] * 1000
-            ir_mV = df["ir"] * 10 ** md_df["ch3_amp_gain"] * 1000
-            iff_mV = df["iff"] * 10 ** md_df["ch4_amp_gain"] * 1000
-            i_array = np.array([i0_mV, it_mV, ir_mV, iff_mV])
+        for ind, i_array in enumerate(self.current_arrays()):
             if np.any(i_array < -3200):
-                print("saturated - need to check i0, it, iff")
+                print(
+                    f"saturated - need to check i0, it, iff for scan: \n {self.uids[ind]}"
+                )
+                self.saturated_scan_inds.append(ind)
+
+    def check_amplitude(self):
+        for ind, i_array in enumerate(self.current_arrays()):
             if np.all(i_array > 0):
-                print("no useful signal - need to check i0 only")
+                print(
+                    f"no useful signal - need to check i0 for scan: \n {self.uids[ind]}"
+                )
+                self.zero_amp_inds.append(ind)
 
 
 if __name__ == "__main__":
@@ -83,5 +92,6 @@ if __name__ == "__main__":
             print(f"Scan group #{sg}")
             scan_group = ScanGroup(uid_list, data_list, md_list)
             scan_group.check_saturation()
+            scan_group.check_amplitude()
 
     test()
