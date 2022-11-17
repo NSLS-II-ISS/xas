@@ -120,7 +120,35 @@ def integrate_pil100k_image_stack(images_array, energy, dist=40, center_ver=93, 
 
 #
 # fname_base = 'Ir sample 2 scan AXS wide 600 um'
-# folder = '/nsls2/data/iss/legacy/processed/2022/2/300011/'
+
+# reprocess the data
+# process files for sample 2 with AXS wide trajectory
+from xas.process import process_interpolate_bin_from_uid
+for i in range(255080, 255104+1):
+    process_interpolate_bin_from_uid(i, db)
+
+from xas.file_io import load_binned_df_and_extended_data_from_file, save_extended_data_as_file
+folder = '/nsls2/data/iss/legacy/processed/2022/2/300011/'
+fname_base = 'Ir sample 2 scan AXS wide 600 um cont'
+
+
+
+dist=40
+center_ver=105
+center_hor=438
+for i in range(1, 26):
+    f = f'{folder}{fname_base} {i:04d}-r0003.dat'
+    df_i, ext_data_i, _ = load_binned_df_and_extended_data_from_file(f)
+    q_i, sq_i = integrate_pil100k_image_stack(ext_data_i['pil100k_image'], df_i['energy'], dist=dist, center_ver=center_ver, center_hor=center_hor)
+    int_data_i = {'q' : q_i, 'sq' : sq_i, 'dist' : dist, 'center_ver' : center_ver, 'center_hor' : center_hor}
+    f_int = f'{f[:-4]}_int.dat'
+    save_extended_data_as_file(f_int, int_data_i, data_kind='default', ext_data_path='extended_data')
+
+    # if df is None:
+#         df = df_i
+#         data = ext_data_i['pil100k_image']
+
+# df, ext_data, _ = load_binned_df_and_extended_data_from_file('/nsls2/data/iss/legacy/processed/2022/2/300011/Ir sample 2 scan AXS wide 600 um cont 0001-r0003.dat')
 #
 # from xas.file_io import load_binned_df_from_file, load_extended_data_from_file
 # from xas.file_io import load_interpolated_df_and_extended_data_from_file
