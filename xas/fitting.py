@@ -33,11 +33,23 @@ def estimate_center_and_width_of_peak(E, I):
     return E_cen, fwhm
 
 
+def estimate_center_and_width_of_peak_update(E, I):
+    # updated to not require normalized spectrum
+    E_cen = E[np.argmax(np.abs(I))]
+    x = np.abs(I - 0.5*(I.max() - I.min()))
+    e_low = E < E_cen
+    e_high = E > E_cen
+    x1 = E[e_low][np.argmin(x[e_low])]
+    x2 = E[e_high][np.argmin(x[e_high])]
+    fwhm = np.abs(x1 - x2)
+    return E_cen, fwhm
 
-def fit_gaussian(E, I, Ecen0, fwhm0):
+
+
+def fit_gaussian(E, I, Ecen0, fwhm0, amp=1, bkg=0):
     gmodel = Model(gaussian)
-    result = gmodel.fit(I, x=E, amp=1, cen=Ecen0, sigma=fwhm0/2.355, bkg=0)
-    Ecen = result.params['cen'].value
+    result = gmodel.fit(I, x=E, amp=amp, cen=Ecen0, sigma=fwhm0/2.355, bkg=bkg)
+    Ecen = result.params['cen'].value 
     fwhm = np.abs(result.params['sigma'].value * 2.355)
     I_fit = (result.best_fit - result.params['bkg'].value) / result.params['amp']
     I_cor = (I - result.params['bkg'].value) / result.params['amp']
@@ -45,8 +57,9 @@ def fit_gaussian(E, I, Ecen0, fwhm0):
     return Ecen, fwhm, I_cor, I_fit, I_fit_raw
 
 def fit_gaussian_with_estimation(E, I):
-    Ecen0, fwhm0 = estimate_center_and_width_of_peak(E, I)
-    return fit_gaussian(E, I, Ecen0, fwhm0)
+    Ecen0, fwhm0 = estimate_center_and_width_of_peak_update(E, I)
+    # print(Ecen0, fwhm0)
+    return fit_gaussian(E, I, Ecen0, fwhm0, amp=np.ptp(I), bkg=I.min())
 
 
 def fit_linear_surf(x, y, z, plotting=False):
