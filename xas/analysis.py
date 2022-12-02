@@ -25,7 +25,7 @@ def filenames_from_dir(path, base="", ext=""):
     return np.sort(filenames)
 
 
-gain_dict = {
+GAIN_DICT = {
     "i0": ["ch1_amp_gain"],
     "it": ["ch2_amp_gain"],
     "ir": ["ch3_amp_gain"],
@@ -65,6 +65,18 @@ def check_amplitude(df: pd.DataFrame, keys=["i0", "it", "ir", "iff"], threshold=
     return low_amp_dict
 
 
+def check_mu_values(df: pd.DataFrame):
+    mut = -np.log(df["it"] / df["i0"])
+    mur = -np.log(df["ir"] / df["i0"])
+    muf = df["iff"] / df["i0"]
+    valid_values = {
+        "mut": np.all(np.isfinite(mut)),
+        "mur": np.all(np.isfinite(mur)),
+        "muf": np.all(np.isfinite(muf)),
+    }
+    return valid_values
+
+
 def check_scan(df: pd.DataFrame, md: dict):
     df_mV = degain(df, md)
     unsaturated_currents = check_saturation(df_mV)
@@ -83,18 +95,6 @@ def check_scan(df: pd.DataFrame, md: dict):
     ):
         mu_good["mur"] = valid_mu["mur"]
     return mu_good
-
-
-def check_mu_values(df):
-    mut = -np.log(df["it"] / df["i0"])
-    mur = -np.log(df["ir"] / df["i0"])
-    muf = df["iff"] / df["i0"]
-    valid_values = {
-        "mut": np.all(np.isfinite(mut)),
-        "mur": np.all(np.isfinite(mur)),
-        "muf": np.all(np.isfinite(muf)),
-    }
-    return valid_values
 
 
 def test():
