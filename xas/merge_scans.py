@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 import matplotlib
-
+from functools import reduce
 matplotlib.use("TkAgg")
 
 
@@ -98,6 +98,157 @@ class ScanGroup:
             print(i_array)
             ax.plot(e_array, i_array.T)
             plt.show()
+
+
+def find_all_scans_for_element(element, db):
+    return db.search({'element' : element})
+
+def search_db_for_scans(db, df_uid, elements_to_search, number_of_scans):
+    for element in elements_to_search:
+        element_uids = list(find_all_scans_for_element(element, db))[::-1][:number_of_scans]
+        n_uids = len(element_uids)
+        for i, uid in enumerate(element_uids):
+            if i % 100 == 0: print(f'Progress: {i} / {n_uids}')
+            # start = db[uid].start
+            start = db[uid].metadata['start']
+            stop = db[uid].metadata['stop']
+            if stop['exit_status'] == 'fail':
+                continue
+
+            for key in df_uid.keys():
+                try:
+                    if key == 'filename':
+                        val = start['interp_filename']
+                        val = val[:-3] + 'dat'
+                    else:
+                        val = start[key]
+                except KeyError:
+                    val = None
+                df_uid[key].append(val)
+
+def search_db_for_entries(elements_to_search=['Fe'], number_of_scans=100):
+    db = databroker.catalog['iss-local']
+    # db_old = databroker.catalog['iss']
+    df_uid = {'element': [], 'edge': [], 'uid': [], 'year': [],
+              'cycle': [], 'PROPOSAL': [], 'time': [], 'name': [],
+              'filename': [], 'scan_group_uid': [], 'sample_uid': []}
+    search_db_for_scans(db, df_uid, elements_to_search, number_of_scans)
+    df_uid = pd.DataFrame(df_uid)
+    df_uid['scan_group'] = None
+    return df_uid
+
+df_uid = search_db_for_entries()
+
+def filter_df_uid_by_strings(df_uid, strings_to_drop=['test', 'bla', 'calibration']):
+    return df_uid[~df_uid['name'].str.contains('|'.join(strings_to_drop))]
+
+df_uid = filter_df_uid_by_strings(df_uid)
+
+def reduce_name(name):
+    if 'pos' in name:
+        if ' (pos ' in name:
+            idx = name.find(' (pos')
+        else:
+            idx = name.find(' pos')
+        reduced_name = name[:idx]
+    else:
+        reduced_name = name[:-5]
+    return reduced_name
+
+df_uid['reduced_name'] = df_uid['name'].apply(reduce_name)
+
+
+def get_relevant_scans_for_row(df_uid, row, time_window=600, ls_dist_thresh=4):
+    # filter by element/proposal
+    filter_keys = ['element', 'edge', 'year', 'cycle', 'PROPOSAL']
+    filter_list = [df_uid[k] == row[k] for k in filter_keys]
+
+    # filter by time
+    filter_list.append((row['time'] - df_uid['time']).abs() < time_window)
+
+    # filter by ungrouped
+    filter_list.append([(i is None) for i in df_uid['scan_group']])
+
+    # filter by name
+    filter_list.append((~(row['reduced_name'] != df_uid['reduced_name'])).tolist())
+
+    relevant_scans = reduce(lambda x, y: x & y, filter_list)
+    return relevant_scans
+
+
+def group_scans(df_uid, time_window=600):
+    df_uid['scan_group'] = None
+    scan_group_id = 0
+    for i in df_uid.index:
+        row = df_uid.loc[i]
+
+        if row['scan_group'] is None:
+            relevant_scans = get_relevant_scans_for_row(df_uid, row, time_window=time_window)
+
+            if any(relevant_scans):
+                df_uid.loc[relevant_scans, ('scan_group',)] = scan_group_id
+            else:
+                df_uid.loc[i, ('scan_group',)] = scan_group_id
+            scan_group_id += 1
+
+group_scans(df_uid)
+
+from xas.analysis import check_scan_from_file
+
+def check_scans_in_df_uid(df_uid):
+    df_uid['mut'] = False
+    df_uid['mur'] = False
+    df_uid['muf'] = False
+    db = databroker.catalog['iss-local']
+    for i in df_uid.index:
+        uid = df_uid.loc[i]['uid']
+        md = db[uid].metadata['start']
+        filename = df_uid.loc[i]['filename']
+        print(i, end=' ')
+        try:
+            mu_good = check_scan_from_file(filename, md)
+            print(mu_good)
+            df_uid.loc[i, ('mut', )] = mu_good['mut']
+            df_uid.loc[i, ('mur', )] = mu_good['mur']
+            df_uid.loc[i, ('muf', )] = mu_good['muf']
+        except Exception as e:
+            print(e)
+            pass
+
+# df_uid that contains data
+def populate_df_uid_with_data(df_uid):
+    df_uid['data'] = None
+    for i in df_uid.index:
+        filename = df_uid.loc[i]['filename']
+        # try:
+        df, _ = load_binned_df_from_file(filename)
+        df_uid.loc[i, ('data',)] = df # does not work
+        # except Exception as e:
+        #     print(e)
+        #     pass
+
+populate_df_uid_with_data(df_uid) # optional - populate with data and transfer for further local assessment of outlier rejection
+
+def average_scangroups_in_df_uid(df_uid):
+    for scangroup in df_uid['scan_group'].unique():
+        subdf = df_uid[df_uid['scan_group'] == scangroup]
+        if np.all(subdf[['mut', 'muf', 'mur']].values):
+            filenames = subdf['filename'].tolist()
+            avg_df, outliers_dict, dev_from_mean_dict = average_scangroup_from_files(filenames)
+            print(scangroup, outliers_dict )
+            # plt.subplot(311)
+            plt.plot(avg_df['energy'], avg_df['mut'])
+
+            # plt.subplot(312)
+            plt.plot(avg_df['energy'], avg_df['mur'])
+
+            # plt.subplot(313)
+            plt.plot(avg_df['energy'], avg_df['muf'])
+
+plt.figure(1, clear=True)
+
+average_scangroups_in_df_uid(df_uid)
+
 
 
 if __name__ == "__main__":

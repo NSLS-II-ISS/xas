@@ -1,28 +1,29 @@
 import matplotlib
 
-matplotlib.use("TkAgg")
+# matplotlib.use("TkAgg")
 
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from scipy import stats
 from xas.file_io import load_binned_df_from_file, save_binned_df_as_file
 import os
 
 
-def filenames_from_dir(path, base="", ext=""):
-    filenames = []
-    if type(base) == str:
-        (_, _, all_filenames) = next(os.walk(path))
-        for f in all_filenames:
-            if f.startswith(base) and f.endswith(ext) and ("merge" not in f):
-                filenames.append(os.path.join(path, f))
-    elif type(base) == list:
-        for f in base:
-            filenames.append(os.path.join(path, f))
-    else:
-        print("Invalid file type. Return None")
-        return None
-    return np.sort(filenames)
+# def filenames_from_dir(path, base="", ext=""):
+#     filenames = []
+#     if type(base) == str:
+#         (_, _, all_filenames) = next(os.walk(path))
+#         for f in all_filenames:
+#             if f.startswith(base) and f.endswith(ext) and ("merge" not in f):
+#                 filenames.append(os.path.join(path, f))
+#     elif type(base) == list:
+#         for f in base:
+#             filenames.append(os.path.join(path, f))
+#     else:
+#         print("Invalid file type. Return None")
+#         return None
+#     return np.sort(filenames)
 
 
 GAIN_DICT = {
@@ -95,6 +96,72 @@ def check_scan(df: pd.DataFrame, md: dict):
     ):
         mu_good["mur"] = valid_mu["mur"]
     return mu_good
+
+
+def check_scan_from_file(filename, md):
+    df, _ = load_binned_df_from_file(filename)
+    return check_scan(df, md)
+
+
+def check_for_outliers(all_data, trim_fraction=0.2, threshold=25):
+    # all_data = np.array([df["mut"] for df in dfs])
+    n_pts = all_data.shape[1]
+    trim_data = stats.trimboth(all_data, trim_fraction, axis=0)
+    trim_mean = np.mean(trim_data, axis=0)
+    trim_std = np.std(trim_data, axis=0)
+    deviation_from_mean = np.sum(((all_data - trim_mean) / trim_std)**2, axis=1) / n_pts
+    return deviation_from_mean, deviation_from_mean > threshold
+
+
+def standardize_energy_grid(dfs, energy_key="energy"):
+    energy_master = dfs[0][energy_key]
+    dfs_out = [dfs[0]]
+    for df in dfs[1:]:
+        _df = {energy_key: energy_master}
+        for column in df.columns:
+            if column != energy_key:
+                _df[column] = np.interp(energy_master, df[energy_key], df[column])
+        dfs_out.append(pd.DataFrame(_df))
+    return dfs_out
+
+
+def prenormalize_data(data):
+    n_curves, n_pts = data.shape
+    data_out = np.zeros(data.shape)
+    data_out[0, :] = data[0, :]
+    for i in range(1, n_curves):
+        basis = np.vstack((np.ones(n_pts), data[i, :])).T
+        c, _, _, _ = np.linalg.lstsq(basis, data[0, :])
+        data_out[i, :] = basis @ c
+    return data_out
+
+def average_scangroup(dfs, columns=["mut", "muf", "mur"], energy_key="energy"):
+    dfs = standardize_energy_grid(dfs)
+    avg_data = {energy_key: dfs[0][energy_key]}
+    outliers_dict = {}
+    dev_from_mean_dict = {}
+    for col in columns:
+        all_data = np.array([df[col] for df in dfs])
+        all_data_prenorm = prenormalize_data(all_data)
+        plt.plot(dfs[0][energy_key], all_data.T, 'k-', alpha=0.25)
+        plt.plot(dfs[0][energy_key], all_data_prenorm.T, 'k-', alpha=1)
+        # check for outliers should be done on data where n_curves >= 5
+        dev_from_mean, outliers = check_for_outliers(all_data)
+        avg_data[col] = np.mean(all_data[~outliers], axis=0)
+        outliers_dict[col] = outliers
+        dev_from_mean_dict[col] = dev_from_mean
+    return pd.DataFrame(avg_data), outliers_dict, dev_from_mean_dict
+
+def average_scangroup_from_files(filenames):
+    dfs = []
+    for filename in filenames:
+        df, _ = load_binned_df_from_file(filename)
+        df_mu = {'energy': df['energy'],
+                 'mut': -np.log(df['it'] / df['i0']),
+                 'muf': df['iff'] / df['i0'],
+                 'mur': -np.log(df['ir'] / df['it'])}
+        dfs.append(pd.DataFrame(df_mu))
+    return average_scangroup(dfs)
 
 
 def test():
