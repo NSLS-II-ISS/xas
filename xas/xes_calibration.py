@@ -4,17 +4,17 @@ import numpy as np
 import pandas as pd
 
 import matplotlib
-matplotlib.use('TkAgg')  # something wrong with my (Charlie's) system Qt 
+# matplotlib.use('TkAgg')  # something wrong with my (Charlie's) system Qt
 import matplotlib.pyplot as plt
 
 from scipy.ndimage import center_of_mass, rotate
 from scipy import linalg
 from sklearn.covariance import MinCovDet
 
-from fitting import fit_gaussian_with_estimation
+from .fitting import fit_gaussian_with_estimation
 
 
-def percentile_threshold_filter(im2d, p):
+def percentile_threshold_filter(im2d, pmin=5, pmax=99.5):
    """ set values below percentile equal to 0 """
    filt_im = im2d.copy()
    filt_im[filt_im < np.percentile(filt_im, p)] = 0
@@ -104,7 +104,7 @@ def gen_count_array(image):
         for _ in range(val):
             count_array = np.vstack([count_array, np.array([x, y])])
     return count_array
-        
+
 
 def mahalanobis_dist_filter(image, percentile):
     """ 
@@ -139,73 +139,151 @@ def mahalanobis_dist_filter(image, percentile):
 
     return filt_image, image_mean
 
-def run_calibration(image_stack_roi, energies, n_poly=2, plot_calibration=False):
+def get_p_xy(image_stack):
+    image_total = np.sum(image_stack, axis=0)
+    ys, xs = image_total.shape
+    _x = np.arange(xs)
+    _y = np.arange(ys)
+    x, y = np.meshgrid(_x, _y)
+    x = x.ravel()
+    y = y.ravel()
+    intensity = image_total.ravel()
+    p_xy = np.polyfit(x, y, 1, w=intensity)
+
+    return p_xy
+
+
+# def reduce_image(image2d_crop, p_xy, p_xe, plot_spectrum=False):
+#     x_grid, y_grid = np.meshgrid(np.arange(image2d_crop.shape[1]), np.arange(image2d_crop.shape[0]))
+#     x_array, y_array = x_grid.ravel(), y_grid.ravel()
+#     image_array = image2d_crop.ravel()
+#     energy_array = pixel2energy(x_array, y_array, p_xy, p_xe)
+#
+#     energy_edges, energy_step = np.linspace(energy_array.min() - 1e-6, energy_array.max() + 1e-6, image2d_crop.shape[1] + 1, retstep=True)
+#     energy_centers = energy_edges[:-1] + energy_step/2
+#     inds = np.digitize(energy_array, energy_edges)
+#     inds -= 1  # For Denis
+#
+#     intensity = np.zeros(energy_centers.size)
+#
+#     for i in range(energy_centers.size):
+#         intensity[i] = np.sum(image_array[inds == i])
+#
+#     if plot_spectrum:
+#         plt.plot(energy_centers, intensity)
+#         plt.show()
+#
+#     return energy_centers, intensity
+
+def reduce_image_alt(image2d_crop, p_xy):
+    ys, xs = image2d_crop.shape
+    x = np.arange(xs)
+    y = np.arange(ys)
+    x_array, y_array = np.meshgrid(x, y)
+    x_array, y_array = x_array.ravel(), y_array.ravel()
+    x_array_p, _ = project_pt2line(x_array, y_array, p_xy)
+    image_array = image2d_crop.ravel()
+
+    intensity = np.zeros(x.size)
+
+    for i in range(x.size):
+        weights = 1 - np.abs(x_array_p - x[i])
+        weights[weights < 0] = 0
+        intensity[i] = weights @ image_array
+    return x, intensity
+
+
+
+def run_calibration(image_stack_roi, energies, n_poly=2, output_diagnostics=False):
 
     assert image_stack_roi.shape[0] == len(energies), "number of calibration images must match number of calibration energies"
 
-    filtered_roi_stack = np.zeros(image_stack_roi.shape)
+    p_xy = get_p_xy(image_stack_roi)
+    intensity_total = None
+    intensity_total_fit = None
+    x_pix_centers = []
+    fwhms = []
 
-    COM = {'x': [], 'y': []}  # centers of mass
-    for i, image in enumerate(image_stack_roi):
+    for image in image_stack_roi:
         # apply percentile filter
-        filtered_image = percentile_threshold_filter(image, 99)
-        filtered_image, im_mean = mahalanobis_dist_filter(filtered_image, 1)
+        # filtered_image = percentile_threshold_filter(image, 99)
+        x_pix, intensity = reduce_image_alt(image, p_xy)
+        x_pix_center, fwhm, _, _, intensity_fit = fit_gaussian_with_estimation(x_pix, intensity)
 
-        filtered_roi_stack[i] = filtered_image
+        if intensity_total is None:
+            intensity_total = np.zeros(intensity.size)
+            intensity_total_fit = np.zeros(intensity.size)
 
-        y_com, x_com = center_of_mass(filtered_image)
-        COM['x'].append(x_com)
-        COM['y'].append(y_com)
-        # print(x_com, y_com)
+        intensity_total += intensity
+        intensity_total_fit += intensity_fit
 
-    # slope_xy, int_xy = fit_xy(COM['x'], COM['y'])
-    polynom_xy = np.polyfit(COM['x'], COM['y'], 1)
+        x_pix_centers.append(x_pix_center)
+        fwhms.append(fwhm)
 
-    # energy_fit = np.poly1d(np.polyfit(COM['x'], energies, n_poly))
-    polynom_xe = np.polyfit(COM['x'], energies, n_poly)
+    p_xe = np.polyfit(x_pix_centers, energies, n_poly)
 
-    # a, b, c = fit_plane(COM['x'], COM['y'], energies)
-    # def energy_function(x, y):
-    #     x_p, y_p = project_pt2line(x, y, polynom_xy)
-    #     energy = np.polyval(polynom_xe, x_p)
-    #     return energy
+    if output_diagnostics:
+        return p_xy, p_xe, x_pix, intensity_total, intensity_total_fit, x_pix_centers
+    else:
+        return p_xy, p_xe
 
-    if plot_calibration:
 
-        # generate energy map with same dimensions as roi image
-        energy_map = np.zeros(image_stack_roi[0].shape)
-        for y, x in np.ndindex(energy_map.shape):
-            # apply energy function to each point on map
-            energy_map[y, x] = pixel2energy(x, y, polynom_xy, polynom_xe)
+def plot_calibration_diagnostics(image_total,
+                                 x_pix, intensity_total, intensity_total_fit,
+                                 x_pix_centers, p_xy, p_xe):
 
-        ax1 = plt.subplot(211)
-        ax1.imshow(np.sum(image_stack_roi, axis=0))
+    y_pix_centers = np.polyval(p_xy, x_pix_centers)
+    ax1 = plt.subplot(221)
+    ax1.imshow(image_total)
+    ax1.plot(x_pix_centers, y_pix_centers, 'o', c='r')
 
-        ax1.plot(COM['x'], COM['y'], 'o', c='r')
+    # generate energy map with same dimensions as roi image
+    energy_map = np.zeros(image_total.shape)
+    for y, x in np.ndindex(energy_map.shape):
+        energy_map[y, x] = pixel2energy(x, y, p_xy, p_xe)
+    ax2 = plt.subplot(222)
+    ax2.imshow(energy_map, cmap='gray')
 
-        for x, energy in zip(COM['x'], energies):
-            plt.axvline(x, c='orange')
-            plt.text(x+1, 3, f'{energy}', c='orange')
+    _x = np.arange(0, energy_map.shape[1], 1)
+    _y = np.polyval(p_xy, _x)
+    ax2.plot(_x, _y, '-', c='r')
 
-        ax2 = plt.subplot(212)
-        # ax2.contour(energy_map, np.flip(energies), colors='orange')
-        ax2.imshow(energy_map, cmap='gray')
+    plt.subplot(223)
+    plt.plot(np.polyval(p_xe, x_pix), intensity_total, 'k.-')
+    plt.plot(np.polyval(p_xe, x_pix), intensity_total_fit, 'r-')
 
-        # plot best fit line for x-y
-        _x = np.arange(0, energy_map.shape[1], 1)
-        _y = np.polyval(polynom_xy, _x)
-        ax2.plot(_x, _y, '-', c='r')
-        plt.show()
+    energy_hi = np.polyval(p_xe, np.array(x_pix_centers) - np.array(fwhms) / 2)
+    energy_lo = np.polyval(p_xe, np.array(x_pix_centers) + np.array(fwhms) / 2)
+    fwhms_energy = energy_hi - energy_lo
 
-        # # 3D plot
-        # plt.clf()
-        # ax = plt.axes(projection='3d')
-        # ax.scatter(COM['x'], COM['y'], energies, c='darkblue')
-        # x_grid, y_grid = np.meshgrid(np.arange(0, energy_map.shape[1]), np.arange(0, energy_map.shape[0]))
-        # ax.plot_surface(x_grid, y_grid, energy_map, cmap='viridis', alpha=0.5)
-        # plt.show()
+    plt.subplot(224)
+    plt.plot(energies, fwhms_energy, 'k.-')
 
-    return polynom_xy, polynom_xe
+
+
+
+def pixel2energy(x, y, p_xy, p_xe):
+    x_p, y_p = project_pt2line(x, y, p_xy)
+    energy = np.polyval(p_xe, x_p)
+    return energy
+
+
+def process_von_hamos_calibration(uid, db, output_diagnostics=False):
+    hdr = db[uid]
+    md = hdr.start
+    t = hdr.table(fill=True)
+    roi = get_roi(md)
+    image_stack = get_image_array(t)
+    image_stack = crop_roi(image_stack, roi)
+    energies = get_calib_energies(t)
+    return run_calibration(image_stack, energies, output_diagnostics=output_diagnostics)
+
+def apply_von_hamos_calibration(image_stack, uid_calibration, db):
+    p_xy, p_xe = process_von_hamos_calibration(uid_calibration, db)
+    # to be continued
+
+
+# process_von_hamos_calibration(uid, db)
 
 
 def plot_calibration(image_stack, roi, calib_energies, polynom_xy, polynom_xe, ax=None):
@@ -233,53 +311,13 @@ def plot_calibration(image_stack, roi, calib_energies, polynom_xy, polynom_xe, a
     return ax
 
 
-def pixel2energy(x, y, p_xy, p_xe):
-    x_p, y_p = project_pt2line(x, y, p_xy)
-    energy = np.polyval(p_xe, x_p)
-    return energy
 
 
-def reduce_image(image2d_crop, p_xy, p_xe, plot_spectrum=False):
 
-    x_grid, y_grid = np.meshgrid(np.arange(image2d_crop.shape[1]), np.arange(image2d_crop.shape[0]))
-    x_array, y_array = x_grid.ravel(), y_grid.ravel()
-    image_array = image2d_crop.ravel()
-    energy_array = pixel2energy(x_array, y_array, p_xy, p_xe)
 
-    # energy_map = np.zeros(image2d_crop.shape)
-    # for y, x in np.ndindex(energy_map.shape):
-    #     # apply energy function to each point on map
-    #     energy_map[y, x] = pixel2energy(x, y, p_xy, p_xe)
 
-    # calc_energies = {'point': [], 'energy': []}
-    # for y, x in np.ndindex(image2d.shape):
-    #     energy = energy_func(x, y)
-    #     calc_energies['point'].append((x,y))
-    #     calc_energies['energy'].append(energy)
 
-    # energy_array = np.array(calc_energies['energy'])
-    # # print(energy_array.min(), energy_array.max())
-
-    energy_edges, energy_step = np.linspace(energy_array.min() - 1e-6, energy_array.max() + 1e-6, image2d_crop.shape[1] + 1, retstep=True)
-    energy_centers = energy_edges[:-1] + energy_step/2
-    inds = np.digitize(energy_array, energy_edges)
-    inds -= 1  # For Denis 
-
-    intensity = np.zeros(energy_centers.size)
-
-    for i in range(energy_centers.size):
-        intensity[i] = np.sum(image_array[inds == i])
-
-    # for n, pt in enumerate(calc_energies['point']):
-    #     xpt, ypt = pt[0], pt[1]
-    #     intensity = image2d[ypt, xpt]
-    #     energy_bin_intensities[inds[n] - 1] += intensity
-
-    if plot_spectrum:
-        plt.plot(energy_centers, intensity)
-        plt.show()
-
-    return energy_centers, intensity
+    # return energy_centers, intensity
 
 
 def test_calibration(calib_image_stack_roi, calib_energies, polynom_xy, polynom_xe):
