@@ -124,7 +124,9 @@ def integrate_pil100k_image_stack(images_array, energy, dist=40, center_ver=93, 
 # reprocess the data
 # process files for sample 2 with AXS wide trajectory
 from xas.process import process_interpolate_bin_from_uid
-for i in range(255080, 255104+1):
+# for i in range(255080, 255104+1):
+for i in range(255114, 255313 + 1):
+    print(i)
     process_interpolate_bin_from_uid(i, db)
 
 from xas.file_io import load_binned_df_and_extended_data_from_file, save_extended_data_as_file
