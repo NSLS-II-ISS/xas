@@ -39,8 +39,8 @@ def project_pt2line(x_pt, y_pt, p_xy):
     return x_proj, y_proj
 
 
-def get_roi(metadata, roi='roi1'):
-    rois = metadata['detectors']['Pilatus 100k']['config']['roi']
+def get_roi(metadata, roi='roi1', detector='Pilatus 100k'):
+    rois = metadata['detectors'][detector]['config']['roi']
     roi_ = rois[roi]
     return roi_
 
@@ -180,19 +180,31 @@ def pixel2energy(x, y, p_xy, p_xe):
     return energy
 
 
-def process_von_hamos_calibration(uid, db, output_diagnostics=False):
-    hdr = db[uid]
-    md = hdr.start
-    t = hdr.table(fill=True)
-    roi = get_roi(md)
+def get_cropped_image_stack(t, roi):
     image_stack = get_image_array(t)
     image_stack = crop_roi(image_stack, roi)
-    energies = get_calib_energies(t)
+    return image_stack
+
+def process_calibration_for_roi(df, md, roi='roi1', detector='Pilatus 100k', output_diagnostics=False):
+    roi_ = get_roi(md, roi=roi, detector=detector)
+    image_stack = get_cropped_image_stack(df, roi_)
+    energies = get_calib_energies(df)
     return run_calibration(image_stack, energies, output_diagnostics=output_diagnostics)
 
+def process_calibration_for_roi_uid(uid, db, **kwargs):
+    if (db is not None) and (uid):
+        hdr = db[uid]
+        md = hdr.start
+        df = hdr.table(fill=True)
+        return process_calibration_for_roi(df, md, **kwargs)
+    else:
+        p_xy, p_xe = [1, 0], [1, 0]
+        return p_xy, p_xe
 
-def apply_von_hamos_calibration_to_image_stack(image_stack, uid_calibration, db):
-    p_xy, p_xe = process_von_hamos_calibration(uid_calibration, db)
+def apply_calibration_for_roi(df, md, uid_calibration, db, roi='roi1', detector='Pilatus 100k'):
+    roi_ = get_roi(md, roi=roi, detector=detector)
+    image_stack = get_cropped_image_stack(df, roi_)
+    p_xy, p_xe = process_calibration_for_roi_uid(uid_calibration, db, roi=roi, detector=detector)
     intensity = []
     for image in image_stack:
         x_pix, _intensity = reduce_image_alt(image, p_xy)
@@ -201,9 +213,27 @@ def apply_von_hamos_calibration_to_image_stack(image_stack, uid_calibration, db)
     return energy, intensity
 
 
-def process_von_hamos_scan(df, extended_data, comments, hdr, path_to_file, detector='Pilatus 100k', roi='auto', droi=5, save_dat=True):
-    pass
+def process_von_hamos_scan(df, extended_data, comments, hdr, path_to_file,
+                           detector='Pilatus 100k', roi_keys=None, roi_dict=None,
+                           droi=5, save_dat=True,
+                           db=None):
 
+    md = hdr.start
+
+    if roi_keys is None:
+        roi_keys = ['roi1']
+
+    if roi_dict is None:
+        for roi_key in roi_keys:
+
+            if md['scan_for_calibration_purpose']:
+                pass
+            else:
+                uid_calibration = md['spectrometer_config']['energy_calibration_uid']
+                emission_energy, xes = apply_calibration_for_roi(df, md, uid_calibration, db, roi=roi_key, detector=detector)
+
+
+        roi_dict = hdr.start['detectors'][detector]['config']['roi']
 
 
 
