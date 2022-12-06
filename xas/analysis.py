@@ -1,6 +1,6 @@
 import matplotlib
 
-# matplotlib.use("TkAgg")
+matplotlib.use("TkAgg")
 
 import numpy as np
 import pandas as pd
@@ -38,15 +38,26 @@ def degain(
     df: pd.DataFrame,
     md: dict,
     df_keys=["i0", "it", "ir", "iff"],
-    md_keys=["ch1_amp_gain", "ch2_amp_gain", "ch3_amp_gain", "ch4_amp_gain"],
 ):
+    """
+    Use channel gain to calculate current in mV.
+    Returns otherwise identical dataframe with current columns in mV.
+    """
     df_mV = df.copy(deep=True)
-    for k, md_k in zip(df_keys, md_keys):
-        df_mV[k] = df[k] * 10 ** md[md_k] * 1000
+    for k in df_keys:
+        # use first key shared by GAIN_DICT[k] and md
+        md_gain_key = list(set(GAIN_DICT[k]) & set(md.keys()))[0]
+        df_mV[k] = df[k] * 10 ** md[md_gain_key] * 1000
     return df_mV
 
 
 def check_saturation(df: pd.DataFrame, keys=["i0", "it", "ir", "iff"], threshold=3200):
+    """
+    Check currents (in mV) are not saturated relative to threshold.
+
+    Returns `dict` with current channel keys (default `["i0", "it", "ir", "iff"]`) and `bool`
+    values. `True` corresponds to unsaturated/good current. `False` corresponds to saturated current.
+    """
     sat_dict = dict()
     for k in keys:
         if np.any(np.abs(df[k]) > threshold):
@@ -57,6 +68,12 @@ def check_saturation(df: pd.DataFrame, keys=["i0", "it", "ir", "iff"], threshold
 
 
 def check_amplitude(df: pd.DataFrame, keys=["i0", "it", "ir", "iff"], threshold=20):
+    """
+    Check currents (in mV) have sufficient non-zero amplitude relative to threshold.
+
+    Returns `dict` with current channel keys (default `["i0", "it", "ir", "iff"]`) and `bool`
+    values. `True` corresponds to good amplitude current. `False` corresponds to poor amplitude.
+    """
     low_amp_dict = dict()
     for k in keys:
         if np.all(np.abs(df[k]) < threshold):
@@ -67,8 +84,16 @@ def check_amplitude(df: pd.DataFrame, keys=["i0", "it", "ir", "iff"], threshold=
 
 
 def check_mu_values(df: pd.DataFrame):
+    """
+    Calculate mu values for each channel (transmission, reference, fluorescence) and
+    check all mu values are valid (no `NaN`, `inf`, etc.).
+
+    Returns `dict` with mu channel keys (`"mut"`, `"mur"`, `"muf"`) and `bool` values.
+    `True` corresponds to all valid values. `False` indicates at least one value is invalid
+    for that channel.
+    """
     mut = -np.log(df["it"] / df["i0"])
-    mur = -np.log(df["ir"] / df["i0"])
+    mur = -np.log(df["ir"] / df["it"])
     muf = df["iff"] / df["i0"]
     valid_values = {
         "mut": np.all(np.isfinite(mut)),
@@ -79,6 +104,14 @@ def check_mu_values(df: pd.DataFrame):
 
 
 def check_scan(df: pd.DataFrame, md: dict):
+    """
+    Combine `degain`, `check_saturation`, `check_amplitude`, and `check_mu_values`
+    to determine data (mu) quality for each channel (transmission, fluorescence, reference).
+
+    Returns `dict` with mu channel keys (`"mut"`, `"mur"`, `"muf"`) and `bool` values.
+    `True` indicates good data quality. `False` indicates poor data quality.
+    """
+
     df_mV = degain(df, md)
     unsaturated_currents = check_saturation(df_mV)
     good_amp_currents = check_amplitude(df_mV)
@@ -99,24 +132,40 @@ def check_scan(df: pd.DataFrame, md: dict):
 
 
 def check_scan_from_file(filename, md):
+
+    # stable function for loading data from beamline file
     df, _ = load_binned_df_from_file(filename)
+
     return check_scan(df, md)
 
 
-def check_for_outliers(all_data, trim_fraction=0.2, threshold=25):
+def check_for_outliers(all_data: np.ndarray, trim_fraction=0.2, threshold=25):
+    """
+    Check set of scans for outliers. Scan data should be in rows in `all_data` array.
+
+    Uses deviation from trimmed mean to determine outliers. Returns boolean array
+    with `True` marking a scan as outlier, and array of deviation from trimmed mean values.
+    """
     # all_data = np.array([df["mut"] for df in dfs])
     n_pts = all_data.shape[1]
     trim_data = stats.trimboth(all_data, trim_fraction, axis=0)
     trim_mean = np.mean(trim_data, axis=0)
     trim_std = np.std(trim_data, axis=0)
-    deviation_from_mean = np.sum(((all_data - trim_mean) / trim_std)**2, axis=1) / n_pts
-    return deviation_from_mean, deviation_from_mean > threshold
+    deviation_from_mean = (
+        np.sum(((all_data - trim_mean) / trim_std) ** 2, axis=1) / n_pts
+    )
+    return deviation_from_mean > threshold, deviation_from_mean
 
 
-def standardize_energy_grid(dfs, energy_key="energy"):
-    energy_master = dfs[0][energy_key]
-    dfs_out = [dfs[0]]
-    for df in dfs[1:]:
+def standardize_energy_grid(dfs: list[pd.DataFrame], energy_key="energy", master_idx=0):
+    """
+    Interpolate data in each `df` to match master energy grid. Master grid can be
+    selected via `master_idx` (default=0 or first DataFrame).
+    """
+    energy_master = dfs[master_idx][energy_key]
+    dfs_out = [dfs[master_idx]]
+    dfs.pop(master_idx)
+    for df in dfs:
         _df = {energy_key: energy_master}
         for column in df.columns:
             if column != energy_key:
@@ -125,7 +174,7 @@ def standardize_energy_grid(dfs, energy_key="energy"):
     return dfs_out
 
 
-def prenormalize_data(data):
+def prenormalize_data(data: np.ndarray):
     n_curves, n_pts = data.shape
     data_out = np.zeros(data.shape)
     data_out[0, :] = data[0, :]
@@ -135,7 +184,27 @@ def prenormalize_data(data):
         data_out[i, :] = basis @ c
     return data_out
 
-def average_scangroup(dfs, columns=["mut", "muf", "mur"], energy_key="energy"):
+
+def average_scangroup(
+    dfs: list[pd.DataFrame],
+    columns=["mut", "muf", "mur"],
+    energy_key="energy",
+):
+    """
+    Takes in scangroup (list of DataFrames), standardizes energy grids,
+    checks each channel for outliers, and averages all non-outlier data.
+
+    ### Returns
+    pd.DataFrame(avg_data)
+        DataFrame with averaged data
+    outliers_dict
+        dict of boolean arrays indicating outliers for each channel
+    dev_from_mean_dict
+        dict of arrays with deviation from mean values for each channel
+
+    If there are too few scans in group (< 5) outlier rejection is not performed
+    so `outlier_dict` and `dev_from_mean_dict` are returned empty.
+    """
     dfs = standardize_energy_grid(dfs)
     avg_data = {energy_key: dfs[0][energy_key]}
     outliers_dict = {}
@@ -143,23 +212,33 @@ def average_scangroup(dfs, columns=["mut", "muf", "mur"], energy_key="energy"):
     for col in columns:
         all_data = np.array([df[col] for df in dfs])
         all_data_prenorm = prenormalize_data(all_data)
-        plt.plot(dfs[0][energy_key], all_data.T, 'k-', alpha=0.25)
-        plt.plot(dfs[0][energy_key], all_data_prenorm.T, 'k-', alpha=1)
-        # check for outliers should be done on data where n_curves >= 5
-        dev_from_mean, outliers = check_for_outliers(all_data)
-        avg_data[col] = np.mean(all_data[~outliers], axis=0)
-        outliers_dict[col] = outliers
-        dev_from_mean_dict[col] = dev_from_mean
+        plt.plot(dfs[0][energy_key], all_data.T, "k-", alpha=0.25)
+        plt.plot(dfs[0][energy_key], all_data_prenorm.T, "k-", alpha=1)
+
+        n_scans = all_data.shape[0]
+        if n_scans >= 5:  # only check for outliers on datasets with at least 5 scans
+            outliers, dev_from_mean = check_for_outliers(all_data)
+            avg_data[col] = np.mean(all_data[~outliers], axis=0)
+            outliers_dict[col] = outliers
+            dev_from_mean_dict[col] = dev_from_mean
+
     return pd.DataFrame(avg_data), outliers_dict, dev_from_mean_dict
 
+
 def average_scangroup_from_files(filenames):
+    """
+    Load data from files, calculate mu for each channel, and return
+    averaged data in `DataFrame`.
+    """
     dfs = []
     for filename in filenames:
         df, _ = load_binned_df_from_file(filename)
-        df_mu = {'energy': df['energy'],
-                 'mut': -np.log(df['it'] / df['i0']),
-                 'muf': df['iff'] / df['i0'],
-                 'mur': -np.log(df['ir'] / df['it'])}
+        df_mu = {
+            "energy": df["energy"],
+            "mut": -np.log(df["it"] / df["i0"]),
+            "muf": df["iff"] / df["i0"],
+            "mur": -np.log(df["ir"] / df["it"]),
+        }
         dfs.append(pd.DataFrame(df_mu))
     return average_scangroup(dfs)
 
@@ -168,17 +247,17 @@ def test():
     PATH = "/home/charles/Desktop/search_and_merge"
     df_data = pd.read_json(f"{PATH}/test_data.json")  # use uids for keys
     df_metadata = pd.read_json(f"{PATH}/test_metadata.json")  # use uids for keys
-    test_df = pd.DataFrame(df_data.iloc[:, 200][0])
-    test_md = dict(df_metadata.iloc[:, 200])
+    test_df = pd.DataFrame(df_data.iloc[:, 1][0])
+    test_md = dict(df_metadata.iloc[:, 1])
 
     test_df_mV = degain(test_df, test_md)
     print(test_df_mV, "\n")
-    print(check_saturation(test_df_mV))
-    print(check_amplitude(test_df_mV))
-    print(check_scan(test_df, test_md))
+    print("unsaturated scans:  ", check_saturation(test_df_mV))
+    print("good amplitude:  ", check_amplitude(test_df_mV))
+    print("good data quality:  ", check_scan(test_df, test_md))
 
     plt.plot(test_df["energy"], -np.log(test_df["it"] / test_df["i0"]))
-    plt.plot(test_df["energy"], -np.log(test_df["ir"] / test_df["i0"]))
+    plt.plot(test_df["energy"], -np.log(test_df["ir"] / test_df["it"]))
     plt.plot(test_df["energy"], test_df["iff"] / test_df["i0"])
 
     plt.show()
