@@ -17,7 +17,8 @@ from .fitting import fit_gaussian_with_estimation
 def percentile_threshold_filter(im2d, pmin=5, pmax=99.5):
    """ set values below percentile equal to 0 """
    filt_im = im2d.copy()
-   filt_im[filt_im < np.percentile(filt_im, p)] = 0
+   mask = (filt_im > np.percentile(filt_im, pmin)) & (filt_im < np.percentile(filt_im, pmax))
+   filt_im[mask] = 0
    return filt_im
 
 
@@ -33,11 +34,6 @@ def fit_plane(X, Y, Z):
     return a, b, c
 
 
-def fit_xy(X, Y):
-    slope, intercept = np.polyfit(X, Y, 1)
-    return slope, intercept
-
-
 def project_pt2line(x_pt, y_pt, p_xy):
     slope, intercept = p_xy
     x_proj = (x_pt + slope*y_pt - slope*intercept) / (slope**2 + 1)
@@ -45,22 +41,8 @@ def project_pt2line(x_pt, y_pt, p_xy):
     return x_proj, y_proj
 
 
-def file_io(data_file, md_file):
-    """ load data and metadata from local files """
-    data = pd.read_json(data_file)
-    try:
-        with open(md_file) as metadata:
-            md = json.load(metadata)[1]
-    except:
-        with open(md_file) as metadata:
-            md = json.load(metadata)
-    return data, md
-
-
 def get_roi(metadata, roi='roi1'):
-    # Load ROI
     rois = metadata['detectors']['Pilatus 100k']['config']['roi']
-    # print(rois)
     roi_ = rois[roi]
     return roi_
 
@@ -96,49 +78,6 @@ def get_calib_energies(data):
         energies = data['data_vars']['hhm_energy']['data']
     return energies
 
-
-def gen_count_array(image):
-    count_array = np.empty((0, 2), int)
-    x_grid, y_grid = np.meshgrid(np.arange(image.shape[1]), np.arange(image.shape[0]))
-    for x, y, val in zip(x_grid.ravel(), y_grid.ravel(), image.ravel()):
-        for _ in range(val):
-            count_array = np.vstack([count_array, np.array([x, y])])
-    return count_array
-
-
-def mahalanobis_dist_filter(image, percentile):
-    """ 
-    sets points with mahalanobis distance above percentile threshold to zero 
-    """
-    filt_image = image.copy()
-    norm_image = image.copy() ** 3
-    norm_image = np.round(norm_image*100 / norm_image.max()).astype(np.int64)
-    data_pts = gen_count_array(norm_image)
-    robust_cov = MinCovDet().fit(data_pts)
-    mahalanobis_dist = robust_cov.mahalanobis(data_pts)
-    mahalanobis_dist_threshold = np.percentile(mahalanobis_dist, percentile)
-    image_mean = robust_cov.location_
-
-    unique_data_pts, unique_ind = np.unique(data_pts, axis=0, return_index=True)
-    unique_dist = mahalanobis_dist[unique_ind]
-    # print(data_pts.shape, unique_data_pts.shape)
-    # print(mahalanobis_dist.shape, unique_dist.shape)
-    unique_data_pts_filt = unique_data_pts[unique_dist > mahalanobis_dist_threshold, :]
-    filt_image[unique_data_pts_filt[:, 1], unique_data_pts_filt[:, 0]] = 0
-
-
-    # plt.imshow(image)
-    # plt.show()
-    # plt.plot(image_mean[0], image_mean[1], 'ro')
-    # plt.imshow(filt_image)
-    # plt.show()
-        
-    # for pt, dist in zip(unique_data_pts, unique_dist):
-    #     if dist > mahalanobis_dist_threshold:
-    #         filt_image[pt[1], pt[0]] = 0
-
-    return filt_image, image_mean
-
 def get_p_xy(image_stack):
     image_total = np.sum(image_stack, axis=0)
     ys, xs = image_total.shape
@@ -149,31 +88,7 @@ def get_p_xy(image_stack):
     y = y.ravel()
     intensity = image_total.ravel()
     p_xy = np.polyfit(x, y, 1, w=intensity)
-
     return p_xy
-
-
-# def reduce_image(image2d_crop, p_xy, p_xe, plot_spectrum=False):
-#     x_grid, y_grid = np.meshgrid(np.arange(image2d_crop.shape[1]), np.arange(image2d_crop.shape[0]))
-#     x_array, y_array = x_grid.ravel(), y_grid.ravel()
-#     image_array = image2d_crop.ravel()
-#     energy_array = pixel2energy(x_array, y_array, p_xy, p_xe)
-#
-#     energy_edges, energy_step = np.linspace(energy_array.min() - 1e-6, energy_array.max() + 1e-6, image2d_crop.shape[1] + 1, retstep=True)
-#     energy_centers = energy_edges[:-1] + energy_step/2
-#     inds = np.digitize(energy_array, energy_edges)
-#     inds -= 1  # For Denis
-#
-#     intensity = np.zeros(energy_centers.size)
-#
-#     for i in range(energy_centers.size):
-#         intensity[i] = np.sum(image_array[inds == i])
-#
-#     if plot_spectrum:
-#         plt.plot(energy_centers, intensity)
-#         plt.show()
-#
-#     return energy_centers, intensity
 
 def reduce_image_alt(image2d_crop, p_xy):
     ys, xs = image2d_crop.shape
@@ -192,13 +107,12 @@ def reduce_image_alt(image2d_crop, p_xy):
         intensity[i] = weights @ image_array
     return x, intensity
 
-
-
 def run_calibration(image_stack_roi, energies, n_poly=2, output_diagnostics=False):
 
     assert image_stack_roi.shape[0] == len(energies), "number of calibration images must match number of calibration energies"
 
     p_xy = get_p_xy(image_stack_roi)
+    x_pix = None
     intensity_total = None
     intensity_total_fit = None
     x_pix_centers = []
@@ -278,9 +192,17 @@ def process_von_hamos_calibration(uid, db, output_diagnostics=False):
     energies = get_calib_energies(t)
     return run_calibration(image_stack, energies, output_diagnostics=output_diagnostics)
 
-def apply_von_hamos_calibration(image_stack, uid_calibration, db):
+def apply_von_hamos_calibration_to_image_stack(image_stack, uid_calibration, db):
     p_xy, p_xe = process_von_hamos_calibration(uid_calibration, db)
-    # to be continued
+    intensity = []
+    for image in image_stack:
+        x_pix, _intensity = reduce_image_alt(image, p_xy)
+        intensity.append(_intensity)
+    energy = np.polyval(p_xe, x_pix)
+    return energy, intensity
+
+# def process_von_hamos_scan(uid, uid_calibration, db):
+
 
 
 # process_von_hamos_calibration(uid, db)
@@ -346,9 +268,86 @@ def test_calibration(calib_image_stack_roi, calib_energies, polynom_xy, polynom_
     return ax1, ax2
 
 
+### testing/attempts
+
+# def reduce_image(image2d_crop, p_xy, p_xe, plot_spectrum=False):
+#     x_grid, y_grid = np.meshgrid(np.arange(image2d_crop.shape[1]), np.arange(image2d_crop.shape[0]))
+#     x_array, y_array = x_grid.ravel(), y_grid.ravel()
+#     image_array = image2d_crop.ravel()
+#     energy_array = pixel2energy(x_array, y_array, p_xy, p_xe)
+#
+#     energy_edges, energy_step = np.linspace(energy_array.min() - 1e-6, energy_array.max() + 1e-6, image2d_crop.shape[1] + 1, retstep=True)
+#     energy_centers = energy_edges[:-1] + energy_step/2
+#     inds = np.digitize(energy_array, energy_edges)
+#     inds -= 1  # For Denis
+#
+#     intensity = np.zeros(energy_centers.size)
+#
+#     for i in range(energy_centers.size):
+#         intensity[i] = np.sum(image_array[inds == i])
+#
+#     if plot_spectrum:
+#         plt.plot(energy_centers, intensity)
+#         plt.show()
+#
+#     return energy_centers, intensity
+
+# def gen_count_array(image):
+#     count_array = np.empty((0, 2), int)
+#     x_grid, y_grid = np.meshgrid(np.arange(image.shape[1]), np.arange(image.shape[0]))
+#     for x, y, val in zip(x_grid.ravel(), y_grid.ravel(), image.ravel()):
+#         for _ in range(val):
+#             count_array = np.vstack([count_array, np.array([x, y])])
+#     return count_array
+
+
+# def mahalanobis_dist_filter(image, percentile):
+#     """
+#     sets points with mahalanobis distance above percentile threshold to zero
+#     """
+#     filt_image = image.copy()
+#     norm_image = image.copy() ** 3
+#     norm_image = np.round(norm_image * 100 / norm_image.max()).astype(np.int64)
+#     data_pts = gen_count_array(norm_image)
+#     robust_cov = MinCovDet().fit(data_pts)
+#     mahalanobis_dist = robust_cov.mahalanobis(data_pts)
+#     mahalanobis_dist_threshold = np.percentile(mahalanobis_dist, percentile)
+#     image_mean = robust_cov.location_
+#
+#     unique_data_pts, unique_ind = np.unique(data_pts, axis=0, return_index=True)
+#     unique_dist = mahalanobis_dist[unique_ind]
+#     # print(data_pts.shape, unique_data_pts.shape)
+#     # print(mahalanobis_dist.shape, unique_dist.shape)
+#     unique_data_pts_filt = unique_data_pts[unique_dist > mahalanobis_dist_threshold, :]
+#     filt_image[unique_data_pts_filt[:, 1], unique_data_pts_filt[:, 0]] = 0
+#
+#     # plt.imshow(image)
+#     # plt.show()
+#     # plt.plot(image_mean[0], image_mean[1], 'ro')
+#     # plt.imshow(filt_image)
+#     # plt.show()
+#
+#     # for pt, dist in zip(unique_data_pts, unique_dist):
+#     #     if dist > mahalanobis_dist_threshold:
+#     #         filt_image[pt[1], pt[0]] = 0
+#
+#     return filt_image, image_mean
+
 
 if __name__ == '__main__':
-    
+
+
+    def file_io(data_file, md_file):
+        """ load data and metadata from local files """
+        data = pd.read_json(data_file)
+        try:
+            with open(md_file) as metadata:
+                md = json.load(metadata)[1]
+        except:
+            with open(md_file) as metadata:
+                md = json.load(metadata)
+        return data, md
+
     def test():
         
         PATH = '/home/charles/Desktop/XES_calib'
