@@ -159,7 +159,7 @@ def check_for_outliers(all_data: np.ndarray, trim_fraction=0.2, threshold=25):
 
 def standardize_energy_grid(dfs: list[pd.DataFrame], energy_key="energy", master_idx=0):
     """
-    Interpolate data in each `df` to match master energy grid. Master grid can be
+    Interpolate data in each df to match master energy grid. Master grid can be
     selected via `master_idx` (default=0 or first DataFrame).
     """
     energy_master = dfs[master_idx][energy_key]
@@ -227,8 +227,8 @@ def average_scangroup(
 
 def average_scangroup_from_files(filenames):
     """
-    Load data from files, calculate mu for each channel, and return
-    averaged data in `DataFrame`.
+    Load data into DataFrames from files, calculate mu for each channel, and return
+    result of `average_scangroup` on DataFrames.
     """
     dfs = []
     for filename in filenames:

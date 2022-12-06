@@ -1,6 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
+from xas.file_io import load_binned_df_from_file
+from xas.analysis import check_scan_from_file, average_scangroup_from_files
 
 import matplotlib
 from functools import reduce
@@ -126,7 +128,12 @@ def search_db_for_scans(db, df_uid, elements_to_search, number_of_scans):
                     val = None
                 df_uid[key].append(val)
 
-def search_db_for_entries(elements_to_search=['Fe'], number_of_scans=100):
+def search_db_for_entries(elements_to_search: list[str], number_of_scans: int):
+    """
+    Search database for scans up to `number_of_scans` for each element in `elements_to_search`.
+    
+    Returns `df_uid`, a DataFrame containing the metadata for all found scans.  
+    """
     db = databroker.catalog['iss-local']
     # db_old = databroker.catalog['iss']
     df_uid = {'element': [], 'edge': [], 'uid': [], 'year': [],
@@ -137,12 +144,11 @@ def search_db_for_entries(elements_to_search=['Fe'], number_of_scans=100):
     df_uid['scan_group'] = None
     return df_uid
 
-df_uid = search_db_for_entries()
 
-def filter_df_uid_by_strings(df_uid, strings_to_drop=['test', 'bla', 'calibration']):
+def filter_df_uid_by_strings(df_uid: pd.DataFrame, strings_to_drop=['test', 'bla', 'calibration']):
+    """ Remove scans containing any of `strings_to_drop` from `df_uid` and return result """
     return df_uid[~df_uid['name'].str.contains('|'.join(strings_to_drop))]
 
-df_uid = filter_df_uid_by_strings(df_uid)
 
 def reduce_name(name):
     if 'pos' in name:
@@ -154,8 +160,6 @@ def reduce_name(name):
     else:
         reduced_name = name[:-5]
     return reduced_name
-
-df_uid['reduced_name'] = df_uid['name'].apply(reduce_name)
 
 
 def get_relevant_scans_for_row(df_uid, row, time_window=600, ls_dist_thresh=4):
@@ -176,7 +180,11 @@ def get_relevant_scans_for_row(df_uid, row, time_window=600, ls_dist_thresh=4):
     return relevant_scans
 
 
-def group_scans(df_uid, time_window=600):
+def group_scans(df_uid: pd.DataFrame, time_window=600):
+    """
+    Sort scans in `df_uid` into scangroups based on metadata, reduced scan name,
+    and scan time proximity.
+    """
     df_uid['scan_group'] = None
     scan_group_id = 0
     for i in df_uid.index:
@@ -191,11 +199,8 @@ def group_scans(df_uid, time_window=600):
                 df_uid.loc[i, ('scan_group',)] = scan_group_id
             scan_group_id += 1
 
-group_scans(df_uid)
 
-from xas.analysis import check_scan_from_file
-
-def check_scans_in_df_uid(df_uid):
+def check_scans_in_df_uid(df_uid: pd.DataFrame):
     df_uid['mut'] = False
     df_uid['mur'] = False
     df_uid['muf'] = False
@@ -245,32 +250,45 @@ def average_scangroups_in_df_uid(df_uid):
             # plt.subplot(313)
             plt.plot(avg_df['energy'], avg_df['muf'])
 
-plt.figure(1, clear=True)
 
-average_scangroups_in_df_uid(df_uid)
 
+def test_df_uid():
+    df_uid = search_db_for_entries(["Fe"], 100)
+    df_uid = filter_df_uid_by_strings(df_uid)
+    df_uid['reduced_name'] = df_uid['name'].apply(reduce_name)
+    group_scans(df_uid)
+    plt.figure(1, clear=True)
+    average_scangroups_in_df_uid(df_uid)
 
 
 if __name__ == "__main__":
+    test_df_uid()
 
-    def test():
-        PATH = "/home/charles/Desktop/search_and_merge"
 
-        df_uid = pd.read_json(f"{PATH}/test_df_uid.json")
-        df_data = pd.read_json(f"{PATH}/test_data.json")  # use uids for keys
-        df_metadata = pd.read_json(f"{PATH}/test_metadata.json")  # use uids for keys
 
-        sorted_sgs = sort_scangroups(df_uid)
-
-        for sg in sorted_sgs:
-            uid_list = sorted_sgs[sg]
-            data_list = [pd.DataFrame(df_data[uid][0]) for uid in sorted_sgs[sg]]
-            md_list = [df_metadata[uid] for uid in sorted_sgs[sg]]
-
-            print(f"Scan group #{sg}")
-            scan_group = ScanGroup(uid_list, data_list, md_list)
-            scan_group.check_saturation()
-            scan_group.check_amplitude()
-            scan_group.plot_scans()
-
-    test()
+######################
+# test ScanGroup class
+######################
+# if __name__ == "__main__":
+#
+#     def test():
+#         PATH = "/home/charles/Desktop/search_and_merge"
+#
+#         df_uid = pd.read_json(f"{PATH}/test_df_uid.json")
+#         df_data = pd.read_json(f"{PATH}/test_data.json")  # use uids for keys
+#         df_metadata = pd.read_json(f"{PATH}/test_metadata.json")  # use uids for keys
+#
+#         sorted_sgs = sort_scangroups(df_uid)
+#
+#         for sg in sorted_sgs:
+#             uid_list = sorted_sgs[sg]
+#             data_list = [pd.DataFrame(df_data[uid][0]) for uid in sorted_sgs[sg]]
+#             md_list = [df_metadata[uid] for uid in sorted_sgs[sg]]
+#
+#             print(f"Scan group #{sg}")
+#             scan_group = ScanGroup(uid_list, data_list, md_list)
+#             scan_group.check_saturation()
+#             scan_group.check_amplitude()
+#             scan_group.plot_scans()
+#
+#     test()
