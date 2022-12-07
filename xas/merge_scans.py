@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
+import databroker
 from xas.file_io import load_binned_df_from_file
 from xas.analysis import check_scan_from_file, average_scangroup_from_files
 
@@ -128,7 +129,7 @@ def search_db_for_scans(db, df_uid, elements_to_search, number_of_scans):
                     val = None
                 df_uid[key].append(val)
 
-def search_db_for_entries(elements_to_search: list[str], number_of_scans: int, databroker):
+def search_db_for_entries(elements_to_search: list[str], number_of_scans: int):
     """
     Search database for scans up to `number_of_scans` for each element in `elements_to_search`.
     
@@ -200,7 +201,7 @@ def group_scans(df_uid: pd.DataFrame, time_window=600):
             scan_group_id += 1
 
 
-def check_scans_in_df_uid(df_uid: pd.DataFrame, databroker):
+def check_scans_in_df_uid(df_uid: pd.DataFrame):
     """
     Check data quality for each scan in `df_uid`. New columns are
     added to `df_uid` for "mut", "mur", and "muf" with bools indicating
@@ -226,16 +227,18 @@ def check_scans_in_df_uid(df_uid: pd.DataFrame, databroker):
             pass
 
 # df_uid that contains data
-def populate_df_uid_with_data(df_uid):
+def populate_df_uid_with_data(df_uid: pd.DataFrame):
     df_uid['data'] = None
     for i in df_uid.index:
         filename = df_uid.loc[i]['filename']
-        # try:
-        df, _ = load_binned_df_from_file(filename)
-        df_uid.loc[i, ('data',)] = df # does not work
-        # except Exception as e:
-        #     print(e)
-        #     pass
+        try:
+            df, _ = load_binned_df_from_file(filename)
+            # df = pd.DataFrame({"test": np.random.rand(10)})
+            df_uid.at[i, "data"] = df.to_dict()
+        # df_uid.loc[i, ('data',)] = 2 # does not work
+        except Exception as e:
+            print(e)
+            pass
 
 # populate_df_uid_with_data(df_uid) # optional - populate with data and transfer for further local assessment of outlier rejection
 
@@ -257,12 +260,13 @@ def average_scangroups_in_df_uid(df_uid: pd.DataFrame):
 
 
 
-def test_df_uid(databroker):
-    df_uid = search_db_for_entries(["Fe"], 100, databroker=databroker)
+def test_df_uid():
+    df_uid = search_db_for_entries(["Fe"], 100)
     df_uid = filter_df_uid_by_strings(df_uid)
     df_uid['reduced_name'] = df_uid['name'].apply(reduce_name)
     group_scans(df_uid)
-    check_scans_in_df_uid(df_uid, databroker=databroker)
+    check_scans_in_df_uid(df_uid)
+    populate_df_uid_with_data(df_uid)
     plt.figure(1, clear=True)
     average_scangroups_in_df_uid(df_uid)
     plt.show()
