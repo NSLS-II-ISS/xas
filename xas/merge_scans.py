@@ -6,7 +6,7 @@ from xas.analysis import check_scan_from_file, average_scangroup_from_files
 
 import matplotlib
 from functools import reduce
-matplotlib.use("TkAgg")
+# matplotlib.use("TkAgg")
 
 
 def sort_scangroups(df_uid):
@@ -128,7 +128,7 @@ def search_db_for_scans(db, df_uid, elements_to_search, number_of_scans):
                     val = None
                 df_uid[key].append(val)
 
-def search_db_for_entries(elements_to_search: list[str], number_of_scans: int):
+def search_db_for_entries(elements_to_search: list[str], number_of_scans: int, databroker):
     """
     Search database for scans up to `number_of_scans` for each element in `elements_to_search`.
     
@@ -200,10 +200,15 @@ def group_scans(df_uid: pd.DataFrame, time_window=600):
             scan_group_id += 1
 
 
-def check_scans_in_df_uid(df_uid: pd.DataFrame):
-    df_uid['mut'] = False
-    df_uid['mur'] = False
-    df_uid['muf'] = False
+def check_scans_in_df_uid(df_uid: pd.DataFrame, databroker):
+    """
+    Check data quality for each scan in `df_uid`. New columns are
+    added to `df_uid` for "mut", "mur", and "muf" with bools indicating
+    good data quality (`True`) or poor data quality (`False`).
+    """
+    df_uid['mut_good'] = None
+    df_uid['mur_good'] = None
+    df_uid['muf_good'] = None
     db = databroker.catalog['iss-local']
     for i in df_uid.index:
         uid = df_uid.loc[i]['uid']
@@ -213,9 +218,9 @@ def check_scans_in_df_uid(df_uid: pd.DataFrame):
         try:
             mu_good = check_scan_from_file(filename, md)
             print(mu_good)
-            df_uid.loc[i, ('mut', )] = mu_good['mut']
-            df_uid.loc[i, ('mur', )] = mu_good['mur']
-            df_uid.loc[i, ('muf', )] = mu_good['muf']
+            df_uid.loc[i, ('mut_good', )] = mu_good['mut']
+            df_uid.loc[i, ('mur_good', )] = mu_good['mur']
+            df_uid.loc[i, ('muf_good', )] = mu_good['muf']
         except Exception as e:
             print(e)
             pass
@@ -232,33 +237,35 @@ def populate_df_uid_with_data(df_uid):
         #     print(e)
         #     pass
 
-populate_df_uid_with_data(df_uid) # optional - populate with data and transfer for further local assessment of outlier rejection
+# populate_df_uid_with_data(df_uid) # optional - populate with data and transfer for further local assessment of outlier rejection
 
-def average_scangroups_in_df_uid(df_uid):
+def average_scangroups_in_df_uid(df_uid: pd.DataFrame):
     for scangroup in df_uid['scan_group'].unique():
-        subdf = df_uid[df_uid['scan_group'] == scangroup]
-        if np.all(subdf[['mut', 'muf', 'mur']].values):
-            filenames = subdf['filename'].tolist()
-            avg_df, outliers_dict, dev_from_mean_dict = average_scangroup_from_files(filenames)
-            print(scangroup, outliers_dict )
+        sub_df_uid = df_uid[df_uid['scan_group'] == scangroup]
+        if np.all(sub_df_uid[['mut_good', 'muf_good', 'mur_good']].values):
+            filenames = sub_df_uid['filename'].tolist()
+            avg_mu_df, outliers_dict, dev_from_mean_dict = average_scangroup_from_files(filenames)
+            print(scangroup, outliers_dict)
             # plt.subplot(311)
-            plt.plot(avg_df['energy'], avg_df['mut'])
+            plt.plot(avg_mu_df['energy'], avg_mu_df['mut'])
 
             # plt.subplot(312)
-            plt.plot(avg_df['energy'], avg_df['mur'])
+            plt.plot(avg_mu_df['energy'], avg_mu_df['mur'])
 
             # plt.subplot(313)
-            plt.plot(avg_df['energy'], avg_df['muf'])
+            plt.plot(avg_mu_df['energy'], avg_mu_df['muf'])
 
 
 
-def test_df_uid():
-    df_uid = search_db_for_entries(["Fe"], 100)
+def test_df_uid(databroker):
+    df_uid = search_db_for_entries(["Fe"], 100, databroker=databroker)
     df_uid = filter_df_uid_by_strings(df_uid)
     df_uid['reduced_name'] = df_uid['name'].apply(reduce_name)
     group_scans(df_uid)
+    check_scans_in_df_uid(df_uid, databroker=databroker)
     plt.figure(1, clear=True)
     average_scangroups_in_df_uid(df_uid)
+    plt.show()
 
 
 if __name__ == "__main__":

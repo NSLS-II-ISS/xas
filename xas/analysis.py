@@ -1,6 +1,6 @@
 import matplotlib
 
-matplotlib.use("TkAgg")
+# matplotlib.use("TkAgg")
 
 import numpy as np
 import pandas as pd
@@ -218,9 +218,12 @@ def average_scangroup(
         n_scans = all_data.shape[0]
         if n_scans >= 5:  # only check for outliers on datasets with at least 5 scans
             outliers, dev_from_mean = check_for_outliers(all_data)
-            avg_data[col] = np.mean(all_data[~outliers], axis=0)
             outliers_dict[col] = outliers
             dev_from_mean_dict[col] = dev_from_mean
+        else: 
+            # if less than 5 scans set outliers to all False 
+            outliers = np.full(n_scans, False)
+        avg_data[col] = np.mean(all_data[~outliers], axis=0)
 
     return pd.DataFrame(avg_data), outliers_dict, dev_from_mean_dict
 
