@@ -175,12 +175,19 @@ def standardize_energy_grid(dfs: list[pd.DataFrame], energy_key="energy", master
 
 
 def prenormalize_data(data: np.ndarray):
+    """
+    Prenormalize spectra to adjust for offset and scaling.
+    Uses least square regression on median data to determine 
+    scale and offset for each spectrum.
+
+    Returns array of prenormalized data. 
+    """
     n_curves, n_pts = data.shape
     data_out = np.zeros(data.shape)
-    data_out[0, :] = data[0, :]
-    for i in range(1, n_curves):
+    data_median = np.median(data, axis=0)
+    for i in range(n_curves):
         basis = np.vstack((np.ones(n_pts), data[i, :])).T
-        c, _, _, _ = np.linalg.lstsq(basis, data[0, :])
+        c, _, _, _ = np.linalg.lstsq(basis, data_median)
         data_out[i, :] = basis @ c
     return data_out
 
