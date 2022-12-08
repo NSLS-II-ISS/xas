@@ -15,7 +15,7 @@ import os
 # from isscloudtools.slack import slack_upload_image
 # from isscloudtools.cloud_dispatcher import generate_output_figures
 
-from .vonhamos import process_von_hamos_scan, save_vh_scan_to_file
+from .vonhamos import process_von_hamos_scan #, save_vh_scan_to_file
 import gc
 
 def process_interpolate_bin(doc, db, draw_func_interp = None, draw_func_bin = None, cloud_dispatcher = None, print_func=None, dump_to_tiff=False):
