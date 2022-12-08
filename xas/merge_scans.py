@@ -227,7 +227,12 @@ def check_scans_in_df_uid(df_uid: pd.DataFrame):
             pass
 
 # df_uid that contains data
-def populate_df_uid_with_data(df_uid: pd.DataFrame):
+def populate_data_from_files(df_uid: pd.DataFrame) -> None:
+    """
+    Attempts to load data from `"filename"` column for each index of df_uid.
+    If data is loaded it will be stored in "data" column at the same index
+    as `pd.DataFrame` converted to `dict` (`df.to_dict()`).
+    """
     df_uid['data'] = None
     for i in df_uid.index:
         filename = df_uid.loc[i]['filename']
@@ -235,7 +240,6 @@ def populate_df_uid_with_data(df_uid: pd.DataFrame):
             df, _ = load_binned_df_from_file(filename)
             # df = pd.DataFrame({"test": np.random.rand(10)})
             df_uid.at[i, "data"] = df.to_dict()
-        # df_uid.loc[i, ('data',)] = 2 # does not work
         except Exception as e:
             print(e)
             pass
@@ -261,12 +265,14 @@ def average_scangroups_in_df_uid(df_uid: pd.DataFrame):
 
 
 def test_df_uid():
-    df_uid = search_db_for_entries(["Fe"], 100)
+    df_uid = search_db_for_entries(["Fe", "Cu"], 5000)
     df_uid = filter_df_uid_by_strings(df_uid)
     df_uid['reduced_name'] = df_uid['name'].apply(reduce_name)
     group_scans(df_uid)
     check_scans_in_df_uid(df_uid)
-    populate_df_uid_with_data(df_uid)
+    populate_data_from_files(df_uid)
+    df_uid.to_json("test_df_uid_5000.json")
+    print(df_uid["data"])
     plt.figure(1, clear=True)
     average_scangroups_in_df_uid(df_uid)
     plt.show()
