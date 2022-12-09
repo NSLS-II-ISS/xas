@@ -152,7 +152,7 @@ def get_processed_df_from_uid(uid, db, logger=None, draw_func_interp=None, draw_
     ### WIP
     if 'spectrometer' in hdr.start.keys():
         if hdr.start['spectrometer'] == 'von_hamos':
-            extended_data, comments, file_paths = process_von_hamos_scan(primary_df, extended_data, comments, hdr, path_to_file, roi='auto')
+            extended_data, comments, file_paths = process_von_hamos_scan(primary_df, extended_data, comments, hdr, path_to_file, db=db)
             data_kind = 'von_hamos'
             file_list = file_paths
             # save_vh_scan_to_file(path_to_file, vh_scan, comments)

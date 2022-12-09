@@ -47,12 +47,14 @@ def get_roi(metadata, roi='roi1', detector='Pilatus 100k'):
     return roi_
 
 
-def get_image_array(data):
+def get_image_array(extended_data):
     try:
-        det_image = data['pil100k_image']
+        det_image = extended_data['pil100k_image']
         image_array = np.array(list(det_image)).squeeze()
+        if image_array.ndim == 2: # this is to handle "over-squeezing"
+            image_array = image_array[None, :, :]
     except:
-        det_image = data['data_vars']['pil100k_image']['data']
+        det_image = extended_data['data_vars']['pil100k_image']['data']
         image_array = np.array(det_image).squeeze()
     return image_array
 
@@ -182,15 +184,15 @@ def pixel2energy(x, y, p_xy, p_xe):
     return energy
 
 
-def get_cropped_image_stack(df, md, roi_coords):
-    image_stack = get_image_array(df)
+def get_cropped_image_stack(data, roi_coords):
+    image_stack = get_image_array(data)
     image_stack = crop_roi(image_stack, roi_coords)
     return image_stack
 
 def process_calibration_for_roi(df, md, roi='roi1', roi_dict=None, detector='Pilatus 100k', output_diagnostics=False):
     if roi_dict is None:
         roi_dict = md['detectors'][detector]['config']['roi']
-    image_stack = get_cropped_image_stack(df, md, roi_dict[roi])
+    image_stack = get_cropped_image_stack(df, roi_dict[roi])
     energies = get_calib_energies(df)
     return run_calibration(image_stack, energies, output_diagnostics=output_diagnostics)
 
@@ -206,13 +208,13 @@ def process_calibration_for_roi_uid(uid, db, **kwargs):
 
 def scan_and_calibration_roi_match(md, uid_calibration, db, roi='roi1', detector='Pilatus 100k'):
     md_calibration = db[uid_calibration].start
-    roi_scan = get_roi(md, roi=roi, detetor=detector)
-    roi_calibration = get_roi(md_calibration, roi=roi, detetor=detector)
+    roi_scan = get_roi(md, roi=roi, detector=detector)
+    roi_calibration = get_roi(md_calibration, roi=roi, detector=detector)
     return (roi_scan == roi_calibration)
 
-def apply_calibration_for_roi(df, md, uid_calibration, db, roi='roi1', roi_dict=None, detector='Pilatus 100k', droi=5):
+def apply_calibration_for_roi(df, extended_data, md, uid_calibration, db, roi='roi1', roi_dict=None, detector='Pilatus 100k', droi=5):
 
-    md = hdr.start
+
     if roi_dict is None:
         roi_dict = md['detectors'][detector]['config']['roi']
         roi_dict_calibration = None
@@ -242,7 +244,7 @@ def apply_calibration_for_roi(df, md, uid_calibration, db, roi='roi1', roi_dict=
     else:
         p_xy, p_xe = process_calibration_for_roi_uid(uid_calibration, db, roi=roi, roi_dict=roi_dict_calibration, detector=detector)
 
-    image_stack = get_cropped_image_stack(df, md, roi=roi, detector=detector)
+    image_stack = get_cropped_image_stack(extended_data, roi_dict[roi])
     # need to do something about the bkg intensity using droi
     intensity = []
     for image in image_stack:
@@ -252,21 +254,22 @@ def apply_calibration_for_roi(df, md, uid_calibration, db, roi='roi1', roi_dict=
     intensity = np.array(intensity)
     energy = np.polyval(p_xe, x_pix)
 
-    vh_roi_data = {roi: {f'energy' : energy, f'{DET2KEY[detector]}' : intensity}}
+    vh_roi_data = {f'energy' : energy, f'{DET2KEY[detector]}' : intensity}
     return vh_roi_data, roi_dict
 
 
-def process_von_hamos_scan(df, extended_data, comments, hdr, path_to_file,
+def process_von_hamos_scan(df, extended_data, comments, hdr, path_to_file, db=None,
                            detector='Pilatus 100k', roi_keys=None, roi_dict=None,
-                           droi=5, save_dat=True,
-                           db=None):
+                           droi=5, save_dat=True):
     comments += f'# Spectrometer.type: von Hamos\n' \
                 f'# Spectrometer.detector: {detector}'
+
+    md = hdr.start
 
     if roi_keys is None:
         roi_keys = ['roi1']
 
-    vh_data_list = []
+    vh_data_dict = {}
 
     for roi_key in roi_keys:
 
@@ -274,13 +277,9 @@ def process_von_hamos_scan(df, extended_data, comments, hdr, path_to_file,
             uid_calibration = md['uid']
         else:
             uid_calibration = md['spectrometer_config']['energy_calibration_uid']
-        vh_data_roi, roi_dict = apply_calibration_for_roi(df, md, uid_calibration, db, roi=roi_key, roi_dict=roi_dict, detector=detector, droi=droi)
-        vh_data_list.append(vh_data_roi)
+        vh_data_dict[roi_key], roi_dict = apply_calibration_for_roi(df, extended_data, md, uid_calibration, db, roi=roi_key, roi_dict=roi_dict, detector=detector, droi=droi)
 
-    vh_data_dict = {k: v for vh_data in vh_data_list for k, v in vh_data.items()}
-
-    extended_data = {**extended_data, 'von_hamos_data' : vh_data_all}
-
+    extended_data = {**extended_data, 'von_hamos_data' : vh_data_dict}
 
     for k, roi in roi_dict.items():
         for c, v in roi.items():
@@ -298,8 +297,11 @@ def process_von_hamos_scan(df, extended_data, comments, hdr, path_to_file,
     return extended_data, comments, file_paths
 
 def make_vh_dfs(df, vh_data_dict):
-    hhm_energy = df['energy'].values()
-    i0 = df['i0'].values()
+    try:
+        hhm_energy = df['energy'].values
+    except:
+        hhm_energy = None
+    i0 = df['i0'].values
     vh_dfs = []
     suffixes = []
     for roi_key, roi_data in vh_data_dict.items():
@@ -309,10 +311,13 @@ def make_vh_dfs(df, vh_data_dict):
                 _df['energy'] = data_array
             else:
                 for k, intensity in enumerate(data_array):
-                    energy_key = f'{hhm_energy[k]:.2f}'.replace('.', '_')
-                    _df_key = f'{data_key}_{roi_key}_{energy_key}'
+                    if hhm_energy is not None:
+                        energy_key = f'_{hhm_energy[k]:.2f}'.replace('.', '_') # note the underscore
+                    else:
+                        energy_key = ''
+                    _df_key = f'{data_key}_{roi_key}{energy_key}'
                     _df[_df_key] = intensity
-                    _df_key = f'i0_{energy_key}'
+                    _df_key = f'i0{energy_key}'
                     _df[_df_key] = i0[k] * np.ones(intensity.size)
         _df = pd.DataFrame(_df)
         vh_dfs.append(_df)
