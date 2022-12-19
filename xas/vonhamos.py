@@ -12,6 +12,8 @@ from scipy import linalg
 from sklearn.covariance import MinCovDet
 
 
+DET2KEY = {'Pilatus 100k' : 'pil100k'}
+
 def percentile_threshold_filter(im2d, pmin=5, pmax=99.5):
     """ set values below percentile equal to 0 """
     filt_im = im2d.copy()
@@ -45,12 +47,14 @@ def get_roi(metadata, roi='roi1', detector='Pilatus 100k'):
     return roi_
 
 
-def get_image_array(data):
+def get_image_array(extended_data):
     try:
-        det_image = data['pil100k_image']
+        det_image = extended_data['pil100k_image']
         image_array = np.array(list(det_image)).squeeze()
+        if image_array.ndim == 2: # this is to handle "over-squeezing"
+            image_array = image_array[None, :, :]
     except:
-        det_image = data['data_vars']['pil100k_image']['data']
+        det_image = extended_data['data_vars']['pil100k_image']['data']
         image_array = np.array(det_image).squeeze()
     return image_array
 
@@ -180,65 +184,150 @@ def pixel2energy(x, y, p_xy, p_xe):
     return energy
 
 
-def get_cropped_image_stack(t, roi):
-    image_stack = get_image_array(t)
-    image_stack = crop_roi(image_stack, roi)
+def get_cropped_image_stack(data, roi_coords):
+    image_stack = get_image_array(data)
+    image_stack = crop_roi(image_stack, roi_coords)
     return image_stack
 
-def process_calibration_for_roi(df, md, roi='roi1', detector='Pilatus 100k', output_diagnostics=False):
-    roi_ = get_roi(md, roi=roi, detector=detector)
-    image_stack = get_cropped_image_stack(df, roi_)
+def process_calibration_for_roi(df, md, roi='roi1', roi_dict=None, detector='Pilatus 100k', output_diagnostics=False):
+    if roi_dict is None:
+        roi_dict = md['detectors'][detector]['config']['roi']
+    image_stack = get_cropped_image_stack(df, roi_dict[roi])
     energies = get_calib_energies(df)
     return run_calibration(image_stack, energies, output_diagnostics=output_diagnostics)
 
-def process_calibration_for_roi_uid(uid, db, **kwargs):
-    if (db is not None) and (uid):
-        hdr = db[uid]
-        md = hdr.start
-        df = hdr.table(fill=True)
-        return process_calibration_for_roi(df, md, **kwargs)
-    else:
-        p_xy, p_xe = [1, 0], [1, 0]
-        return p_xy, p_xe
+def trivial_calibration():
+    p_xy, p_xe = [1, 0], [1, 0]
+    return p_xy, p_xe
 
-def apply_calibration_for_roi(df, md, uid_calibration, db, roi='roi1', detector='Pilatus 100k'):
-    roi_ = get_roi(md, roi=roi, detector=detector)
-    image_stack = get_cropped_image_stack(df, roi_)
-    p_xy, p_xe = process_calibration_for_roi_uid(uid_calibration, db, roi=roi, detector=detector)
+def process_calibration_for_roi_uid(uid, db, **kwargs):
+    hdr = db[uid]
+    md = hdr.start
+    df = hdr.table(fill=True)
+    return process_calibration_for_roi(df, md, **kwargs)
+
+def scan_and_calibration_roi_match(md, uid_calibration, db, roi='roi1', detector='Pilatus 100k'):
+    md_calibration = db[uid_calibration].start
+    roi_scan = get_roi(md, roi=roi, detector=detector)
+    roi_calibration = get_roi(md_calibration, roi=roi, detector=detector)
+    return (roi_scan == roi_calibration)
+
+def apply_calibration_for_roi(df, extended_data, md, uid_calibration, db, roi='roi1', roi_dict=None, detector='Pilatus 100k', droi=5):
+
+
+    if roi_dict is None:
+        roi_dict = md['detectors'][detector]['config']['roi']
+        roi_dict_calibration = None
+        enforce_roi = False
+    else:
+        roi_dict_calibration = roi_dict
+        enforce_roi = True
+
+    do_trivial_calibration = False
+
+    reason = ''
+    if db is None:
+        do_trivial_calibration = True
+        reason += '- databroker is not defined in the von hamos processing pipeline\n'
+
+    if not uid_calibration:
+        do_trivial_calibration = True
+        reason += '- calibration uid is not defined\n'
+
+    if (not scan_and_calibration_roi_match(md, uid_calibration, db, roi=roi, detector=detector)) and (not enforce_roi):
+        do_trivial_calibration = True
+        reason += f'- ROI coordinates mismatch between the data scan and the calibration scan\n'
+
+    if do_trivial_calibration:
+        print(f'Could not apply energy calibration to {roi}. Reason(s):\n{reason}')
+        p_xy, p_xe = trivial_calibration()
+    else:
+        p_xy, p_xe = process_calibration_for_roi_uid(uid_calibration, db, roi=roi, roi_dict=roi_dict_calibration, detector=detector)
+
+    image_stack = get_cropped_image_stack(extended_data, roi_dict[roi])
+    # need to do something about the bkg intensity using droi
     intensity = []
     for image in image_stack:
         x_pix, _intensity = reduce_image_alt(image, p_xy)
         intensity.append(_intensity)
+
+    intensity = np.array(intensity)
     energy = np.polyval(p_xe, x_pix)
-    return energy, intensity
+
+    vh_roi_data = {f'energy' : energy, f'{DET2KEY[detector]}' : intensity}
+    return vh_roi_data, roi_dict
 
 
-def process_von_hamos_scan(df, extended_data, comments, hdr, path_to_file,
+def process_von_hamos_scan(df, extended_data, comments, hdr, path_to_file, db=None,
                            detector='Pilatus 100k', roi_keys=None, roi_dict=None,
-                           droi=5, save_dat=True,
-                           db=None):
+                           droi=5, save_dat=True):
+    comments += f'# Spectrometer.type: von Hamos\n' \
+                f'# Spectrometer.detector: {detector}'
 
     md = hdr.start
 
     if roi_keys is None:
         roi_keys = ['roi1']
 
-    if roi_dict is None:
-        for roi_key in roi_keys:
+    vh_data_dict = {}
 
-            if md['scan_for_calibration_purpose']:
-                pass
+    for roi_key in roi_keys:
+
+        if md['scan_for_calibration_purpose']:
+            uid_calibration = md['uid']
+        else:
+            uid_calibration = md['spectrometer_config']['energy_calibration_uid']
+        vh_data_dict[roi_key], roi_dict = apply_calibration_for_roi(df, extended_data, md, uid_calibration, db, roi=roi_key, roi_dict=roi_dict, detector=detector, droi=droi)
+
+    extended_data = {**extended_data, 'von_hamos_data' : vh_data_dict}
+
+    for k, roi in roi_dict.items():
+        for c, v in roi.items():
+            comments += f'# Spectrometer.detector.{k}.{c}: {v}\n'
+
+    if save_dat:
+        file_paths = save_vh_data_to_file(path_to_file, df, vh_data_dict, comments)
+        # if vh_scan.kind == 'xes':
+        #     file_paths = save_vh_scan_to_file(path_to_file, vh_scan, comments)
+        # else:
+        #     file_paths = []
+    else:
+        file_paths = []
+
+    return extended_data, comments, file_paths
+
+def make_vh_dfs(df, vh_data_dict):
+    try:
+        hhm_energy = df['energy'].values
+    except:
+        hhm_energy = None
+    i0 = df['i0'].values
+    vh_dfs = []
+    suffixes = []
+    for roi_key, roi_data in vh_data_dict.items():
+        _df = {}
+        for data_key, data_array in roi_data.items():
+            if data_key == 'energy':
+                _df['energy'] = data_array
             else:
-                uid_calibration = md['spectrometer_config']['energy_calibration_uid']
-                emission_energy, xes = apply_calibration_for_roi(df, md, uid_calibration, db, roi=roi_key, detector=detector)
+                for k, intensity in enumerate(data_array):
+                    if hhm_energy is not None:
+                        energy_key = f'_{hhm_energy[k]:.2f}'.replace('.', '_') # note the underscore
+                    else:
+                        energy_key = ''
+                    _df_key = f'{data_key}_{roi_key}{energy_key}'
+                    _df[_df_key] = intensity
+                    _df_key = f'i0{energy_key}'
+                    _df[_df_key] = i0[k] * np.ones(intensity.size)
+        _df = pd.DataFrame(_df)
+        vh_dfs.append(_df)
+        suffixes.append(f'vh_{roi_key}')
+    return vh_dfs, suffixes
 
 
-        roi_dict = hdr.start['detectors'][detector]['config']['roi']
 
-
-
-def save_vh_scan_to_file(path_to_file, vh_scan, comments):
-    dfs, suffixes = vh_scan.make_dfs()
+def save_vh_data_to_file(path_to_file, df, vh_data_dict, comments):
+    dfs, suffixes = make_vh_dfs(df, vh_data_dict)
     (path, extension) = os.path.splitext(path_to_file)
     paths = []
     for df, suffix in zip(dfs, suffixes):
@@ -247,6 +336,17 @@ def save_vh_scan_to_file(path_to_file, vh_scan, comments):
         write_df_to_file(path_frame, df, comments)
         paths.append(path_frame)
     return paths
+# legacy
+# def save_vh_scan_to_file(path_to_file, vh_scan, comments):
+#     dfs, suffixes = vh_scan.make_dfs()
+#     (path, extension) = os.path.splitext(path_to_file)
+#     paths = []
+#     for df, suffix in zip(dfs, suffixes):
+#         path_frame = f'{path} {suffix}{extension}'
+#         print(f'VON HAMOS PROCESSING: data will be saved in {path_frame}')
+#         write_df_to_file(path_frame, df, comments)
+#         paths.append(path_frame)
+#     return paths
 
 
 
