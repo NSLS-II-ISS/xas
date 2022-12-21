@@ -297,7 +297,7 @@ def plot_prenormed_scangroups(df_uid: pd.DataFrame):
                 ax2.plot(df["energy"], df["muf_prenorm"])
                 ax2.plot(df["energy"], df["mur_prenorm"])
         except Exception:
-            print("error")
+            print(f"error plotting prenorm for {sg}")
         plt.show()
 
 
@@ -311,9 +311,29 @@ def plot_scangroup_outliers(scan_group_df: pd.DataFrame, ax_og: plt.Axes, ax_pre
             if scan[col + "_outlier"] and not np.isnan(scan[col + "_outlier"]):
                 ax_og.plot(scan["data"]["energy"], scan["data"][col], c="r")
                 ax_pre.plot(scan["data"]["energy"], scan["data"][col + "_prenorm"], c="r")
+                outlier_devmean = scan[col + "_devmean"]
+                print(col + f"outlier devmean = {outlier_devmean}")
             else:
                 ax_og.plot(scan["data"]["energy"], scan["data"][col], c="k")
                 ax_pre.plot(scan["data"]["energy"], scan["data"][col + "_prenorm"], c="k")
+
+
+def plot_each_scangroups_outliers(df_uid: pd.DataFrame):
+    """
+    Plot each scan group that has any identified outliers individually.
+    """
+    for sg in df_uid["scan_group"].unique():
+        sg_df_uid = df_uid.loc[df_uid["scan_group"] == sg]
+        fig, (ax1, ax2) = plt.subplots(1, 2)
+        fig.suptitle(f"scan group #{sg}")
+        outlier_labels = sg_df_uid[["mut_outlier", "muf_outlier", "mur_outlier"]].values
+        if np.any(outlier_labels):
+            try:
+                plot_scangroup_outliers(sg_df_uid, ax1, ax2)
+                plt.show()
+            except ValueError as ve:
+                print(ve)
+        plt.close(fig)
 
 
 def plot_all_scangroups_outliers(df_uid: pd.DataFrame):
@@ -345,21 +365,6 @@ def test_df_uid(path):
     calculate_mus(df_uid["data"])
     redo_mu_good(df_uid)
     calc_outliers(df_uid)
-    # plot_prenormed_scangroups(df_uid)
-    # fig, (ax1, ax2) = plt.subplots(1, 2)
-    # for sg in df_uid["scan_group"].unique():
-    #     fig.suptitle(f"Scan group #{sg}")
-    #     sg_df_uid = df_uid.loc[df_uid["scan_group"] == sg]
-    #     outlier_labels = sg_df_uid[["mut_outlier", "muf_outlier", "mur_outlier"]].values
-    #     if np.any(outlier_labels):  # check for any outliers in scan group
-    #         try:
-    #             plot_scangroup_outliers(sg_df_uid, ax1, ax2)
-    #             plt.show()
-    #         except ValueError:
-    #             print(f"ValueError for scan group {sg}")
-    #     else:
-    #         print(f"no outliers for scan group {sg}")
-    # plt.cla()
     plot_all_scangroups_outliers(df_uid)
     return df_uid
 
