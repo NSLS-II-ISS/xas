@@ -1,15 +1,16 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
+from scipy import stats
 from dataclasses import dataclass
 import databroker
 from xas.file_io import load_binned_df_from_file
 from xas.analysis import average_scangroup, average_scangroup_from_files, check_scan_from_file
-from xas.analysis import prenormalize_data
+from xas.analysis import prenormalize_data, standardize_energy_grid
 
 import matplotlib
 from functools import reduce
-# matplotlib.use("TkAgg")
+matplotlib.use("TkAgg")
 
 
 
@@ -356,6 +357,39 @@ def plot_all_scangroups_outliers(df_uid: pd.DataFrame):
     plt.show()
 
 
+def trimmed_zscores(all_data: np.ndarray, trim_fraction=0.2):
+    trim_data = stats.trimboth(all_data, trim_fraction, axis=0)
+    trim_mean = np.mean(trim_data, axis=0)
+    trim_std = np.std(trim_data, ddof=1, axis=0)
+    trim_zscores = ((all_data - trim_mean) / trim_std) ** 2
+    return trim_zscores
+
+
+def zscore_outlier_rejection(sg_df_uid: pd.DataFrame, columns=["mut", "muf", "mur"], threshold=25):
+    good_scans_df = sg_df_uid[(sg_df_uid["mut_good"] == True) & (sg_df_uid["muf_good"] == True) & (sg_df_uid["mur_good"] == True)]
+    dfs = [df for df in good_scans_df["data"]]
+    if not dfs:  # empty list / no good data
+        print("no good data")
+        return
+    dfs = standardize_energy_grid(dfs)
+    if len(dfs) < 5:
+        print("too few scans")
+        return
+    for col in columns:
+        # put all scan data for col into array
+        col_data = np.array([df[col] for df in dfs])
+        col_data = prenormalize_data(col_data)
+        col_zscores = trimmed_zscores(col_data)
+        avg_zscores = np.mean(col_zscores, axis=1)
+
+        print(col, avg_zscores)
+        sg_df_uid.loc[good_scans_df.index, col + "_devmean"] = avg_zscores
+        sg_df_uid.loc[good_scans_df.index, col + "_outlier"] = avg_zscores > threshold
+
+    return sg_df_uid
+
+
+
 def test_df_uid(path):
     matplotlib.use("TkAgg")
     df_uid = pd.read_json(path)
@@ -364,8 +398,24 @@ def test_df_uid(path):
     drop_empty_dfs(df_uid)
     calculate_mus(df_uid["data"])
     redo_mu_good(df_uid)
-    calc_outliers(df_uid)
+
+    df_uid["mut_outlier"] = None
+    df_uid["muf_outlier"] = None
+    df_uid["mur_outlier"] = None
+    df_uid["mut_devmean"] = None
+    df_uid["muf_devmean"] = None
+    df_uid["mur_devmean"] = None
+    for sg in df_uid["scan_group"].unique():
+        sg_df_uid = df_uid.loc[df_uid["scan_group"] == sg]
+        # print(sg_df_uid["data"][0])
+        print(f"calculating outlier rejection for {sg}")
+        sg_df_uid = zscore_outlier_rejection(sg_df_uid)
+        print(sg_df_uid)
+        df_uid.loc[df_uid["scan_group"] == sg] = sg_df_uid
     plot_all_scangroups_outliers(df_uid)
+
+    # calc_outliers(df_uid)
+    # plot_all_scangroups_outliers(df_uid)
     return df_uid
 
 

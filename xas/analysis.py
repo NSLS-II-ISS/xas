@@ -148,9 +148,11 @@ def standardize_energy_grid(dfs: list[pd.DataFrame], energy_key="energy", master
     """
     energy_master = dfs[master_idx][energy_key]
     dfs_out = [dfs[master_idx]]
-    for df in dfs:
-        if df.equals(dfs[master_idx]):
-            continue
+    dfs_copy = dfs[:]
+    dfs_copy.pop(master_idx)
+    for df in dfs_copy:
+        # if df.equals(dfs[master_idx]):
+        #     continue
         _df = {energy_key: energy_master}
         for column in df.columns:
             if column != energy_key:
