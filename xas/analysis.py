@@ -10,22 +10,6 @@ from xas.file_io import load_binned_df_from_file, save_binned_df_as_file
 import os
 
 
-# def filenames_from_dir(path, base="", ext=""):
-#     filenames = []
-#     if type(base) == str:
-#         (_, _, all_filenames) = next(os.walk(path))
-#         for f in all_filenames:
-#             if f.startswith(base) and f.endswith(ext) and ("merge" not in f):
-#                 filenames.append(os.path.join(path, f))
-#     elif type(base) == list:
-#         for f in base:
-#             filenames.append(os.path.join(path, f))
-#     else:
-#         print("Invalid file type. Return None")
-#         return None
-#     return np.sort(filenames)
-
-
 GAIN_DICT = {
     "i0": ["ch1_amp_gain"],
     "it": ["ch2_amp_gain"],
@@ -164,8 +148,11 @@ def standardize_energy_grid(dfs: list[pd.DataFrame], energy_key="energy", master
     """
     energy_master = dfs[master_idx][energy_key]
     dfs_out = [dfs[master_idx]]
-    dfs.pop(master_idx)
-    for df in dfs:
+    dfs_copy = dfs[:]
+    dfs_copy.pop(master_idx)
+    for df in dfs_copy:
+        # if df.equals(dfs[master_idx]):
+        #     continue
         _df = {energy_key: energy_master}
         for column in df.columns:
             if column != energy_key:
@@ -185,9 +172,10 @@ def prenormalize_data(data: np.ndarray):
     n_curves, n_pts = data.shape
     data_out = np.zeros(data.shape)
     data_median = np.median(data, axis=0)
+
     for i in range(n_curves):
         basis = np.vstack((np.ones(n_pts), data[i, :])).T
-        c, _, _, _ = np.linalg.lstsq(basis, data_median)
+        c, _, _, _ = np.linalg.lstsq(basis, data_median, rcond=None)
         data_out[i, :] = basis @ c
     return data_out
 
@@ -219,17 +207,18 @@ def average_scangroup(
     for col in columns:
         all_data = np.array([df[col] for df in dfs])
         all_data_prenorm = prenormalize_data(all_data)
-        plt.plot(dfs[0][energy_key], all_data.T, "k-", alpha=0.25)
-        plt.plot(dfs[0][energy_key], all_data_prenorm.T, "k-", alpha=1)
+        # plt.plot(dfs[0][energy_key], all_data.T, "k-", alpha=0.25)
+        # plt.plot(dfs[0][energy_key], all_data_prenorm.T, "k-", alpha=1)
 
         n_scans = all_data.shape[0]
         if n_scans >= 5:  # only check for outliers on datasets with at least 5 scans
-            outliers, dev_from_mean = check_for_outliers(all_data)
+            outliers, dev_from_mean = check_for_outliers(all_data_prenorm)
             outliers_dict[col] = outliers
             dev_from_mean_dict[col] = dev_from_mean
         else: 
             # if less than 5 scans set outliers to all False 
             outliers = np.full(n_scans, False)
+            outliers_dict[col] = outliers
         avg_data[col] = np.mean(all_data[~outliers], axis=0)
 
     return pd.DataFrame(avg_data), outliers_dict, dev_from_mean_dict
@@ -275,6 +264,23 @@ def test():
 
 if __name__ == "__main__":
     test()
+
+
+
+# def filenames_from_dir(path, base="", ext=""):
+#     filenames = []
+#     if type(base) == str:
+#         (_, _, all_filenames) = next(os.walk(path))
+#         for f in all_filenames:
+#             if f.startswith(base) and f.endswith(ext) and ("merge" not in f):
+#                 filenames.append(os.path.join(path, f))
+#     elif type(base) == list:
+#         for f in base:
+#             filenames.append(os.path.join(path, f))
+#     else:
+#         print("Invalid file type. Return None")
+#         return None
+#     return np.sort(filenames)
 
 
 def average_scans(path, base, ext=""):
