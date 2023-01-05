@@ -78,7 +78,7 @@ def analyze_elastic_fly_scan(db, uid, plotting=True):
     df, _ = load_binned_df_from_file(fname_proc)
     energy = df['energy'].values
     if plotting: plt.figure()
-    for i in range(3):
+    for i in range(1):
         field = f'pil100k_roi{i+1}'
         intensity = df[field].values
         intensity = normalize_peak(intensity)

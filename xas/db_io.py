@@ -168,7 +168,7 @@ def load_pil100k_dataset_from_db_legacy(db, uid, apb_trig_timestamps, input_type
 
     return spectra
 
-def load_pil100k_dataset_from_db(db, uid, apb_trig_timestamps, load_images=True):
+def load_pil100k_dataset_from_db(db, uid, apb_trig_timestamps, load_images=False):
     hdr = db[uid]
     output = {}
     # t = hdr.table(stream_name='pil100k_stream', fill=True)
