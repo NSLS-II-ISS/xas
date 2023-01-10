@@ -160,24 +160,21 @@ for element in iss_foils:
 
 iss_foils_df = pd.DataFrame(_iss_foil_data)
 
-def find_correct_foil(element='Cu', edge='K'):
-
-    energy = xraydb.xray_edge(element, edge).energy
+def find_correct_foil(energy= None,  element='Cu', edge='K'):
+    if not energy:
+        energy = xraydb.xray_edge(element, edge).energy
 
     # Finding foils options for corresponding element and edge
     foils_options = iss_foils_df.loc[(iss_foils_df['energy'] > energy - 200) &
-                                     (iss_foils_df['energy'] < energy + 1000)]
+                                     (iss_foils_df['energy'] < energy + 600)]
 
     df2 = foils_options.to_string(index=False)
-    print(df2)
-
-
 
     # if no element is found going to empty holder
     if len(foils_options) == 0:
-
-        print("going to empty holder")
         foil = None
+        foil_edge = None
+        foil_energy = None
 
     # # Among the foils_options first select the foil with corresponding element and edge
     indx = foils_options.index[(foils_options['element'] == element) & (foils_options['edge'] == edge)]
@@ -196,19 +193,29 @@ def find_correct_foil(element='Cu', edge='K'):
 
     if len(indx) == 1:
         foil = str(foils_options['element'][indx[0]])
+        foil_edge = str(foils_options['edge'][indx[0]])
+        foil_energy = str(foils_options['energy'][indx[0]])
     elif len(indx_k) >= 1:
         foil = str(foils_options['element'][indx_k[0]])
+        foil_edge = str(foils_options['edge'][indx_k[0]])
+        foil_energy = str(foils_options['energy'][indx_k[0]])
     elif len(indx_l3) >= 1:
         foil = str(foils_options['element'][indx_l3[0]])
+        foil_edge = str(foils_options['edge'][indx_l3[0]])
+        foil_energy = str(foils_options['energy'][indx_l3[0]])
     elif len(indx_l2) >= 1:
         foil = str(foils_options['element'][indx_l2[0]])
+        foil_edge = str(foils_options['edge'][indx_l2[0]])
+        foil_energy = str(foils_options['energy'][indx_l2[0]])
     elif len(indx_l1) >= 1:
         foil = foils_options['element'][indx_l1[0]]
+        foil_edge = str(foils_options['edge'][indx_l1[0]])
+        foil_energy = str(foils_options['energy'][indx_l1[0]])
 
     if foil is not None:
-        print("Going to :", foil)
+        foil_energy = float(foil_energy)
 
-    return foil
+    return foil,foil_edge,foil_energy
 
 
 
