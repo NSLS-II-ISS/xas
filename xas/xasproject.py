@@ -11,7 +11,7 @@ import pickle
 class XASDataSet:
     _md = {}
     _filename = ''
-    _larch = Interpreter(with_plugins=False)
+    _larch = Interpreter()
 
     def __init__(self, name=None, md=None, energy = None, mu=None,
                  filename=None, datatype=None, process=True,
