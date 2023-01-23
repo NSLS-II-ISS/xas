@@ -6,12 +6,14 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-from scipy import stats
 mpl.use("TkAgg")
+from scipy import stats
 from sklearn.covariance import EllipticEnvelope
 from sklearn.neighbors import LocalOutlierFactor
 from sklearn.ensemble import IsolationForest
 from sklearn.svm import OneClassSVM
+
+from xas.analysis import standardize_energy_grid
 
 TEST_PATH = "/home/charles/Desktop/test_data/outlier_muf.pkl"
 
@@ -37,8 +39,8 @@ def prenormalize_data(data: np.ndarray, energy: np.ndarray):
     return data_out
 
 
-def outlier_plot(x_vals, data: np.ndarray, outlier_labels: np.ndarray, ax=None):
-    """Return pyplot axis with outliers plotted in red and inliers plotted in black"""
+def outlier_plot(x_vals, data: np.ndarray, outlier_labels: np.ndarray, ax: plt.Axes=None):
+    """Plot data with outliers labeled in red"""
     if ax is None:
         ax = plt.gca()
     line_colors = ["r" if ol < 0 else "k" for ol in outlier_labels]
@@ -104,23 +106,49 @@ def calc_mod_chisq(data: np.ndarray) -> np.ndarray:
     return mod_chisq
 
 
-def modified_chisq_rejection(data: np.ndarray, threshold=25) -> np.ndarray:
+def modified_chisq_rejection(data: np.ndarray, threshold=30) -> np.ndarray:
     mod_chisq = calc_mod_chisq(data)
     results = mod_chisq > threshold
     return np.array([-1 if res else 1 for res in results])
 
 
+def MCS_into_LOF(data: np.ndarray, threshold=30) -> np.ndarray:
+    """First use modified chi-sq (MCS) rejection to label potential outliers.
+    Then fit LocalOutlierFactor (LOF) to data with MCS outliers removed.
+    Finally predict outliers on original data with fitted LOF estimator.
+
+    Args:
+        data (np.ndarray): Data on which to check for outliers. 
+        Should be arranged in rows. 
+        threshold (int, optional): Threshold for MCS rejection. Defaults to 30.
+
+    Returns:
+        np.ndarray: Final results from LOF prediction. 
+        -1 for anomalies/outliers and +1 for inliers.
+    """
+    mod_chisq_results = modified_chisq_rejection(data, threshold=threshold)
+    reduced_data = data[mod_chisq_results > 0]
+    est = LocalOutlierFactor(novelty=True)
+    est.fit(reduced_data)
+    return est.predict(data)
+
+
 def compare_LOF_modchisq(df_path):
+    chisq_scores = []
     df_uid = pd.read_pickle(df_path)
     for sg in df_uid["scan_group"].unique():
         print(f"scan group {sg}")
-        sg_df_uid = df_uid[df_uid["scan_group"] == sg]
+        sg_df_uid = df_uid[(df_uid["scan_group"] == sg) & (df_uid["muf_good"])] 
         test_dfs = sg_df_uid["data"]
         test_dfs.reset_index(drop=True, inplace=True)
-        mu_data = np.array([scan["mut"] for scan in test_dfs])
-        energy = test_dfs[0]["energy"]
-        if mu_data.shape[0] <= 4:
+        
+        if len(test_dfs.tolist()) <= 4:
             continue
+
+        test_dfs = standardize_energy_grid(test_dfs.tolist())
+
+        mu_data = np.array([scan["muf"] for scan in test_dfs])
+        energy = test_dfs[0]["energy"]
         mu_prenorm = prenormalize_data(mu_data, energy)
         
         est = LocalOutlierFactor(novelty=True)
@@ -131,14 +159,23 @@ def compare_LOF_modchisq(df_path):
         modchisq_labels = modified_chisq_rejection(mu_prenorm)
         print(f"Modified chi-sq values: {calc_mod_chisq(mu_prenorm)}")
         print(f"Modified chi-sq labels: {modchisq_labels} \n")
+        chisq_scores.append(calc_mod_chisq(mu_prenorm))
 
-        if np.any(np.concatenate((LOF_labels, modchisq_labels)) < 0):
-            fig, (ax1, ax2) = plt.subplots(1, 2)
-            outlier_plot(energy, mu_prenorm, LOF_labels, ax=ax1)
-            outlier_plot(energy, mu_prenorm, modchisq_labels, ax=ax2)
-            ax1.set_title("trimmed LocalOutlierFactor")
-            ax2.set_title("Modified Chi-Sq")
-            plt.show()
+        try:
+            combined_labels = MCS_into_LOF(mu_prenorm)
+            print(f"Combined labels: {combined_labels}")
+        except Exception as e:
+            print(e)
+        # if np.any(np.concatenate((LOF_labels, modchisq_labels, combined_labels)) < 0):
+        #     fig, (ax1, ax2, ax3) = plt.subplots(1, 3)
+        #     outlier_plot(energy, mu_prenorm, LOF_labels, ax=ax1)
+        #     outlier_plot(energy, mu_prenorm, modchisq_labels, ax=ax2)
+        #     outlier_plot(energy, mu_prenorm, combined_labels, ax=ax3)
+        #     ax1.set_title("trimmed LocalOutlierFactor")
+        #     ax2.set_title("Modified Chi-Sq")
+        #     ax3.set_title("Combined (MCS -> LOF)")
+        #     plt.show()
+    return np.hstack(chisq_scores)
 
 
 def main(estimator, add_outlier=False):
@@ -189,8 +226,8 @@ if __name__ == "__main__":
 #         ax = outlier_plot(energy, muf_prenorm, outlier_labels)
 #         plt.show()
 
-# def plot_scangroup(sg_df, channels=("mut", "muf", "mur")):
-#     for i, scan in sg_df.iterrows():
-#         for ch in channels:
-#             plt.plot(scan["data"]["energy"], scan["data"][ch])
-#     plt.show()
+def plot_scangroup(sg_df, channels=("mut", "muf", "mur")):
+    for i, scan in sg_df.iterrows():
+        for ch in channels:
+            plt.plot(scan["data"]["energy"], scan["data"][ch])
+    plt.show()
