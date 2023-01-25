@@ -184,6 +184,7 @@ def average_scangroup(
     dfs: list[pd.DataFrame],
     columns=["mut", "muf", "mur"],
     energy_key="energy",
+    master_idx=0,
 ):
     """
     Takes in scangroup (list of DataFrames), standardizes energy grids,
@@ -200,8 +201,8 @@ def average_scangroup(
     If there are too few scans in group (< 5) outlier rejection is not performed
     so `outlier_dict` and `dev_from_mean_dict` are returned empty.
     """
-    dfs = standardize_energy_grid(dfs)
-    avg_data = {energy_key: dfs[0][energy_key]}
+    dfs = standardize_energy_grid(dfs, master_idx=master_idx)
+    avg_data = {energy_key: dfs[master_idx][energy_key]}
     outliers_dict = {}
     dev_from_mean_dict = {}
     for col in columns:
