@@ -335,6 +335,10 @@ def save_vh_data_to_file(path_to_file, df, vh_data_dict, comments):
         print(f'VON HAMOS PROCESSING: data will be saved in {path_frame}')
         write_df_to_file(path_frame, df, comments)
         paths.append(path_frame)
+
+        # for visualization and debugging
+        path_frame = f'{path} {suffix}.rixs'
+        write_df_to_file(path_frame, df, comments)
     return paths
 # legacy
 # def save_vh_scan_to_file(path_to_file, vh_scan, comments):

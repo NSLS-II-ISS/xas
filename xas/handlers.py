@@ -147,8 +147,8 @@ class ISSPilatusHDF5Handler(Xspress3HDF5Handler): # Denis: I used Xspress3HDF5Ha
 
         _data_columns = [self._file[self._key + f'/_{chanroi}Total'][()] for chanroi in self.hdfrois]
         self._roi_data = np.vstack(_data_columns).T
-        self._image_data = None
-        # self._image_data = self._file['entry/data/data'][()]
+        # self._image_data = None
+        self._image_data = self._file['entry/data/data'][()]
         # self._roi_data = pd.DataFrame(data_columns, columns=self.chanrois)
         # self._dataset = data_columns
 
