@@ -163,7 +163,7 @@ def outlier_rejection(
     master_idx=0,
     energy_key="energy",
     plot_diagnostics=False,
-) -> dict:
+) -> tuple[dict, dict]:
     """Perform outlier rejection using trimmed sklearn LocalOutlierFactor,
     modified chi-square (MCS), and a combined approach.
 
@@ -173,12 +173,14 @@ def outlier_rejection(
         channels (iterable): Channels to iterate over. Defaults to ("mut", "muf", "mur").
         master_idx (int, optional): Master index for energy grid alignment. Defaults to 0.
         energy_key (str, optional): Defaults to "energy".
-        plot_diagnostics (bool, optional): Plot results of outlier rejection separately for
+        plot_diagnostics (bool, optional): Plot results of outlier rejection for
         each channel. Defaults to False.
 
     Returns:
-        dict: Results of outlier rejection. Contains sub-dicts for each channel which
-        themselves contain sub-dicts with inlier/outlier results for each method.
+        average_mus: Dictionary with inlier averaged data for each channel and for each
+        method of outlier rejection.
+        results: Dictionary with scan uids separated into inliers and outliers for each
+        channel and each method of outlier rejection.
     """
     # type cast to np.ndarray for masking later
     uids = np.array(uids)
@@ -192,7 +194,13 @@ def outlier_rejection(
     average_mus = {ch: None for ch in channels}
     average_mus[energy_key] = energy
 
-    for ch in channels:
+    if plot_diagnostics:
+        fig, axs = plt.subplots(len(channels), 3)
+        axs[0][0].set_title("trimmed LocalOutlierFactor")
+        axs[0][1].set_title("Modified Chi-Sq")
+        axs[0][2].set_title("Combined (MCS -> LOF)")
+
+    for i, ch in enumerate(channels):
         outlier_dict = dict(
             trimmed_lof={"inliers": None, "outliers": None},
             mod_chisq={"inliers": None, "outliers": None},
@@ -224,15 +232,11 @@ def outlier_rejection(
         average_mus[ch] = average_dict
 
         if plot_diagnostics:
-            fig, (ax1, ax2, ax3) = plt.subplots(1, 3)
-            outlier_plot(energy, data_prenorm, lof_results, ax=ax1)
-            outlier_plot(energy, data_prenorm, mcs_results, ax=ax2)
-            outlier_plot(energy, data_prenorm, combined_results, ax=ax3)
-            fig.suptitle(ch)
-            ax1.set_title("trimmed LocalOutlierFactor")
-            ax2.set_title("Modified Chi-Sq")
-            ax3.set_title("Combined (MCS -> LOF)")
-            plt.show()
+            outlier_plot(energy, data_prenorm, lof_results, ax=axs[i][0])
+            outlier_plot(energy, data_prenorm, mcs_results, ax=axs[i][1])
+            outlier_plot(energy, data_prenorm, combined_results, ax=axs[i][2])
+
+    plt.show()
 
     return average_mus, results
 
