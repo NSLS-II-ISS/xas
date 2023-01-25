@@ -141,6 +141,36 @@ def standardize_energy_grid(dfs: list[pd.DataFrame], energy_key="energy", master
         dfs_out.append(pd.DataFrame(_df))
     return dfs_out
 
+
+def prenormalize_data(data: np.ndarray, energy: np.ndarray):
+    """
+    Prenormalize spectra to adjust for offset and scaling.
+    Uses least square regression on median data to determine
+    scale and offset for each spectrum.
+
+    Returns array of prenormalized data.
+    """
+    n_curves, n_pts = data.shape
+    data_out = np.zeros(data.shape)
+    data_median = np.median(data, axis=0)
+
+    energy_scaled = (energy - energy.min()) / (energy.max() - energy.min())
+
+    for i in range(n_curves):
+        basis = np.vstack(
+            (
+                np.ones(n_pts),
+                data[i, :],
+                energy_scaled,
+                energy_scaled**2,
+                energy_scaled**3,
+            )
+        ).T
+        c, _, _, _ = np.linalg.lstsq(basis, data_median, rcond=None)
+        data_out[i, :] = basis @ c
+    return data_out
+
+
 #
 # def check_for_outliers(all_data: np.ndarray, trim_fraction=0.2, threshold=25):
 #     """
@@ -158,28 +188,6 @@ def standardize_energy_grid(dfs: list[pd.DataFrame], energy_key="energy", master
 #         np.sum(((all_data - trim_mean) / trim_std) ** 2, axis=1) / n_pts
 #     )
 #     return deviation_from_mean > threshold, deviation_from_mean
-#
-#
-
-#
-#
-# def prenormalize_data(data: np.ndarray):
-#     """
-#     Prenormalize spectra to adjust for offset and scaling.
-#     Uses least square regression on median data to determine
-#     scale and offset for each spectrum.
-#
-#     Returns array of prenormalized data.
-#     """
-#     n_curves, n_pts = data.shape
-#     data_out = np.zeros(data.shape)
-#     data_median = np.median(data, axis=0)
-#
-#     for i in range(n_curves):
-#         basis = np.vstack((np.ones(n_pts), data[i, :])).T
-#         c, _, _, _ = np.linalg.lstsq(basis, data_median, rcond=None)
-#         data_out[i, :] = basis @ c
-#     return data_out
 #
 #
 # def average_scangroup(
