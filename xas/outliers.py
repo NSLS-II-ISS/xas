@@ -56,7 +56,7 @@ def outlier_plot(
     Args:
         x_vals (array_like): values for x-axis of plot (usually energy)
         data (np.ndarray): data to be plotted, arranged in rows
-        outlier_labels (array_like): -1 for outliers and +1 for inliers
+        outlier_labels (list_like): -1 for outliers and +1 for inliers
         ax (plt.Axes, optional): Axis to plot on. If `None` will use current plot axis.
 
     Returns:
@@ -162,6 +162,7 @@ def outlier_rejection(
     channels=("mut", "muf", "mur"),
     master_idx=0,
     energy_key="energy",
+    plot_diagnostics=False,
 ) -> dict:
     """Perform outlier rejection using trimmed sklearn LocalOutlierFactor,
     modified chi-square (MCS), and a combined approach.
@@ -172,6 +173,8 @@ def outlier_rejection(
         channels (iterable): Channels to iterate over. Defaults to ("mut", "muf", "mur").
         master_idx (int, optional): Master index for energy grid alignment. Defaults to 0.
         energy_key (str, optional): Defaults to "energy".
+        plot_diagnostics (bool, optional): Plot results of outlier rejection separately for
+        each channel. Defaults to False.
 
     Returns:
         dict: Results of outlier rejection. Contains sub-dicts for each channel which
@@ -188,6 +191,7 @@ def outlier_rejection(
     results = {ch: None for ch in channels}
     average_mus = {ch: None for ch in channels}
     average_mus[energy_key] = energy
+
     for ch in channels:
         outlier_dict = dict(
             trimmed_lof={"inliers": None, "outliers": None},
@@ -218,6 +222,17 @@ def outlier_rejection(
 
         results[ch] = outlier_dict
         average_mus[ch] = average_dict
+
+        if plot_diagnostics:
+            fig, (ax1, ax2, ax3) = plt.subplots(1, 3)
+            outlier_plot(energy, data_prenorm, lof_results, ax=ax1)
+            outlier_plot(energy, data_prenorm, mcs_results, ax=ax2)
+            outlier_plot(energy, data_prenorm, combined_results, ax=ax3)
+            fig.suptitle(ch)
+            ax1.set_title("trimmed LocalOutlierFactor")
+            ax2.set_title("Modified Chi-Sq")
+            ax3.set_title("Combined (MCS -> LOF)")
+            plt.show()
 
     return average_mus, results
 
