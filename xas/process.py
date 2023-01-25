@@ -65,7 +65,7 @@ def process_interpolate_bin_from_uid(uid, db, draw_func_interp = None, draw_func
     clear_db_cache(db)
 
 
-def get_processed_df_from_uid(uid, db, logger=None, draw_func_interp=None, draw_func_bin = None, print_func=None):
+def get_processed_df_from_uid(uid, db, logger=None, draw_func_interp=None, draw_func_bin = None, print_func=None, save_interpolated_file=True):
     if print_func is None:
         print_func = print
     if logger is None:
@@ -110,7 +110,8 @@ def get_processed_df_from_uid(uid, db, logger=None, draw_func_interp=None, draw_
         try:
             interpolated_df = interpolate(raw_dict)
             logger.info(f'({ttime.ctime()}) Interpolation successful for {path_to_file}')
-            save_interpolated_df_as_file(path_to_file, interpolated_df, comments)
+            if save_interpolated_file:
+                save_interpolated_df_as_file(path_to_file, interpolated_df, comments)
         except Exception as e:
             logger.info(f'({ttime.ctime()}) Interpolation failed for {path_to_file}')
             raise e

@@ -7,7 +7,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 
-mpl.use("TkAgg")
+# mpl.use("TkAgg")
 from scipy import stats
 from sklearn.covariance import EllipticEnvelope
 from sklearn.neighbors import LocalOutlierFactor
@@ -186,13 +186,15 @@ def outlier_rejection(
     energy = scangroup[master_idx][energy_key]
 
     results = {ch: None for ch in channels}
-
+    average_mus = {ch: None for ch in channels}
+    average_mus[energy_key] = energy
     for ch in channels:
         outlier_dict = dict(
             trimmed_lof={"inliers": None, "outliers": None},
             mod_chisq={"inliers": None, "outliers": None},
             combined={"inliers": None, "outliers": None},
         )
+        average_dict = {}
 
         data = np.array([scan[ch] for scan in scangroup])
         data_prenorm = prenormalize_data(data, energy)
@@ -202,18 +204,22 @@ def outlier_rejection(
         lof_results = est.predict(data_prenorm)
         outlier_dict["trimmed_lof"]["inliers"] = uids[lof_results > 0].tolist()
         outlier_dict["trimmed_lof"]["outliers"] = uids[lof_results < 0].tolist()
+        average_dict["trimmed_lof"] = np.mean(data[lof_results > 0], axis=0)
 
         mcs_results = modified_chisq_rejection(data_prenorm)
         outlier_dict["mod_chisq"]["inliers"] = uids[mcs_results > 0].tolist()
         outlier_dict["mod_chisq"]["outliers"] = uids[mcs_results < 0].tolist()
+        average_dict["mod_chisq"] = np.mean(data[mcs_results > 0], axis=0)
 
         combined_results = MCS_into_LOF(data_prenorm)
         outlier_dict["combined"]["inliers"] = uids[combined_results > 0].tolist()
         outlier_dict["combined"]["outliers"] = uids[combined_results < 0].tolist()
+        average_dict["combined"] = np.mean(data[combined_results > 0], axis=0)
 
         results[ch] = outlier_dict
+        average_mus[ch] = average_dict
 
-    return results
+    return average_mus, results
 
 
 def compare_LOF_modchisq(df_path):
