@@ -24,7 +24,7 @@ def compute_shift_between_spectra(energy, mu, energy_ref_roi, mu_ref_roi):
     def interpolated_spectrum(pars):
         e_shift = pars.valuesdict()['e_shift']
         x = np.interp(energy_ref_roi, energy - e_shift, mu)
-        basis = np.vstack((x, np.ones(x.shape))).T
+        basis = np.vstack((np.ones(x.shape), x, energy_ref_roi, energy_ref_roi**2, energy_ref_roi**3)).T
         c, _, _, _ = np.linalg.lstsq(basis, mu_ref_roi)
         return basis @ c
 
