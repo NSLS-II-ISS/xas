@@ -278,6 +278,8 @@ from xas.outliers import outlier_rejection
 def get_processed_df_from_uid_advanced(uid, db):
     hdr, df, _, _, _, _, _ = get_processed_df_from_uid(uid, db, save_interpolated_file=False)
     metadata = copy.deepcopy({**hdr.start})
+
+
     metadata['mu_good'] = check_scan(df, metadata)
     df['mut'] = -np.log(df["it"] / df["i0"])
     df['mur'] = -np.log(df["ir"] / df["it"])
@@ -297,16 +299,23 @@ for uid in uids:
     dfs.append(_df)
     metadatas.append(_metadata)
 
-df_mean, metadata_mean = outlier_rejection(dfs, uids)
+df_mean, metadata_mean = outlier_rejection(dfs, uids, plot_diagnostics=True)
 
-ch = 'mut'
-method = 'trimmed_lof'
-for df, uid in zip(dfs, uids):
-    if uid in metadata_mean[ch][method]['inliers']:
-        plt.plot(df['energy'], df[ch], 'k-')
-    else:
-        plt.plot(df['energy'], df[ch], 'b-')
-plt.plot(df_mean['energy'], df_mean[ch][method], 'r-', lw=3)
+# ch = 'mut'
+# method = 'trimmed_lof'
+# for df, uid in zip(dfs, uids):
+#     if uid in metadata_mean[ch][method]['inliers']:
+#         plt.plot(df['energy'], df[ch], 'k-')
+#     else:
+#         plt.plot(df['energy'], df[ch], 'b-')
+# plt.plot(df_mean['energy'], df_mean[ch][method], 'r-', lw=3)
 
 
+uid = 'ac830c3a-f227-44c9-ab30-5bf43978e054'
+e_nom, e_act, energy_ref_roi, mu_ref_roi, mu_fit = get_energy_offset(uid, db, db_proc, full_return=True)
 
+df, metadata = get_processed_df_from_uid_advanced(uid, db)
+plt.figure(2, clear=True)
+plt.plot(energy_ref_roi, mu_ref_roi)
+
+plt.plot(energy_ref_roi, mu_fit)
