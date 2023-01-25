@@ -216,17 +216,19 @@ def outlier_rejection(
         lof_results = est.predict(data_prenorm)
         outlier_dict["trimmed_lof"]["inliers"] = uids[lof_results > 0].tolist()
         outlier_dict["trimmed_lof"]["outliers"] = uids[lof_results < 0].tolist()
-        average_dict["trimmed_lof"] = np.mean(data[lof_results > 0], axis=0)
+        average_dict["trimmed_lof"] = lof_avg = np.mean(data[lof_results > 0], axis=0)
 
         mcs_results = modified_chisq_rejection(data_prenorm)
         outlier_dict["mod_chisq"]["inliers"] = uids[mcs_results > 0].tolist()
         outlier_dict["mod_chisq"]["outliers"] = uids[mcs_results < 0].tolist()
-        average_dict["mod_chisq"] = np.mean(data[mcs_results > 0], axis=0)
+        average_dict["mod_chisq"] = mcs_avg = np.mean(data[mcs_results > 0], axis=0)
 
         combined_results = MCS_into_LOF(data_prenorm)
         outlier_dict["combined"]["inliers"] = uids[combined_results > 0].tolist()
         outlier_dict["combined"]["outliers"] = uids[combined_results < 0].tolist()
-        average_dict["combined"] = np.mean(data[combined_results > 0], axis=0)
+        average_dict["combined"] = combined_avg = np.mean(
+            data[combined_results > 0], axis=0
+        )
 
         results[ch] = outlier_dict
         average_mus[ch] = average_dict
@@ -235,6 +237,9 @@ def outlier_rejection(
             outlier_plot(energy, data_prenorm, lof_results, ax=axs[i][0])
             outlier_plot(energy, data_prenorm, mcs_results, ax=axs[i][1])
             outlier_plot(energy, data_prenorm, combined_results, ax=axs[i][2])
+            axs[i][0].plot(energy, lof_avg, "b-")
+            axs[i][1].plot(energy, mcs_avg, "b-")
+            axs[i][2].plot(energy, combined_avg, "b-")
 
     plt.show()
 
