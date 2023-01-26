@@ -237,3 +237,20 @@ def generate_emission_energy_grid_from_dict(scan_parameters):
                                                            postline_dwelltime,
                                                            scan_parameters['revert'])
     return energy_grid, time_grid
+
+
+def find_best_line_for_edge(element, edge):
+    lines = xraydb.xray_lines(element, initial_level=edge)
+    line_key = []
+    line_energy = []
+    line_intensity = []
+    for key, line in lines.items():
+        line_key.append(key)
+        line_energy.append(line.energy)
+        line_intensity.append(line.intensity)
+
+    line_label = line_key[np.argmax(line_intensity)]
+    energy = line_energy[np.argmax(line_intensity)]
+    return energy, line_label
+
+# find_best_line_for_edge('Pt', 'L3')
