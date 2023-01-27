@@ -17,6 +17,43 @@ matplotlib.use("TkAgg")
 def find_all_scans_for_element(element, db):
     return db.search({'element' : element})
 
+def save_scans_into_dictionary(elements_to_search, number_of_scans=5000, scan_shift=10, outpath=''):
+    output = {}
+    db = databroker.catalog['iss-local']
+    for element in elements_to_search:
+        idx1 = number_of_scans + scan_shift
+        idx2 = scan_shift
+        print(idx1, idx2)
+        element_uids = list(find_all_scans_for_element(element, db))[::-1][-idx1 : -idx2]
+        n_uids = len(element_uids)
+        for i, uid in enumerate(element_uids):
+            if i % 100 == 0: print(f'Progress for {element}: {i} / {n_uids}')
+            # start = db[uid].start
+            start = db[uid].metadata['start']
+            stop = db[uid].metadata['stop']
+            if (stop is None) or (stop['exit_status'] == 'fail'):
+                continue
+            filename = start['interp_filename'][:-3] + 'dat'
+            filename.replace('/nsls2/xf08id/users', '/nsls2/data/iss/legacy/processed')
+            # print(filename)
+            try:
+                df, _ = load_binned_df_from_file(filename)
+                # df = pd.DataFrame({"test": np.random.rand(10)})
+                output[uid] = {'metadata' : {**start},
+                               'data' : df.to_dict()}
+            except Exception as e:
+                print(e)
+                pass
+            # if filename.startswith('/nsls2/xf08id/users')
+    with open(outpath, 'w') as f:
+        json.dump(output, f)
+
+    return output
+
+# save_scans_into_dictionary(['Fe', 'Co', 'Ni'], number_of_scans=2000,
+#                            outpath='/nsls2/data/iss/legacy/Sandbox/Charles/test_data_2023_01_27.json')
+
+
 def search_db_for_scans(db, df_uid, elements_to_search, number_of_scans):
     for element in elements_to_search:
         element_uids = list(find_all_scans_for_element(element, db))[::-1][:number_of_scans]
