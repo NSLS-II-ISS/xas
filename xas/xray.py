@@ -1,4 +1,5 @@
 import numpy as np
+import xraydb
 
 def k2e(k, E0):
     """
@@ -116,6 +117,19 @@ def e2bragg(energy, crystal, hkl):
     lambd = (12398.4 / energy)
     return np.rad2deg(np.arcsin(lambd/(2*dspace)))
 
+# shamelessly taken from the analyzer atlas paper:
+_B_RT = {'Si' : 0.4632, 'Ge' : 0.5661}
+def crystal_temp_factor(crystal, bragg_deg, energy_ev):
+    wavelength = 12398.4/energy_ev
+    bragg = np.deg2rad(bragg_deg)
+    ksi = np.sin(bragg) / wavelength
+    M = -_B_RT[crystal] * ksi ** 2
+    return np.exp(M)
+
+def crystal_reflectivity(crystal, hkl, bragg_deg, energy_ev):
+    TF = crystal_temp_factor(crystal, bragg_deg, energy_ev/1e3)
+    dw = xraydb.darwin_width(energy_ev / 1000, crystal, hkl)
+    return TF * np.trapz(dw.intensity, dw.dtheta*1e6)
 
 def generate_energy_grid(e0, preedge_start, xanes_start, xanes_end, exafs_end, preedge_spacing,
                          xanes_spacing, exafsk_spacing, dwell_time_preedge = 1, dwell_time_xanes = 1, dwell_time_exafs = 1, k_power = 0):
