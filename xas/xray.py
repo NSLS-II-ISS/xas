@@ -123,13 +123,25 @@ def crystal_temp_factor(crystal, bragg_deg, energy_ev):
     wavelength = 12398.4/energy_ev
     bragg = np.deg2rad(bragg_deg)
     ksi = np.sin(bragg) / wavelength
-    M = -_B_RT[crystal] * ksi ** 2
-    return np.exp(M)
+    M = _B_RT[crystal] * (ksi ** 2)
+    return np.exp(-M)
 
 def crystal_reflectivity(crystal, hkl, bragg_deg, energy_ev):
-    TF = crystal_temp_factor(crystal, bragg_deg, energy_ev/1e3)
-    dw = xraydb.darwin_width(energy_ev / 1000, crystal, hkl)
+    TF = crystal_temp_factor(crystal, bragg_deg, energy_ev)
+    dw = xraydb.darwin_width(energy_ev, crystal, hkl, polarization='u')
     return TF * np.trapz(dw.intensity, dw.dtheta*1e6)
+
+# vvv = []
+# args = ('Si', [6, 10, 12], 82.19, 19279); bla = crystal_reflectivity(*args); vvv.append(args + (bla, 0.6857 ))
+# args = ('Si', [2, 2, 4], 71.43, 5899); bla = crystal_reflectivity(*args); vvv.append(args + (bla, 46.67))
+# args = ('Si', [2, 4, 10], 81.05, 12658); bla = crystal_reflectivity(*args); vvv.append(args + (bla, 5.8233))
+#
+# args = ('Ge', [2, 2, 4], 82.46, 5415); bla = crystal_reflectivity(*args); vvv.append(args + (bla, 271.5288))
+# args = ('Ge', [8, 8, 0], 78.35, 12658); bla = crystal_reflectivity(*args); vvv.append(args + (bla, 3.6677))
+#
+# vvv = pd.DataFrame(vvv, columns=['crystal', 'hkl', 'bragg', 'energy', 'refl_calc', 'refl_atlas'])
+# vvv
+
 
 def generate_energy_grid(e0, preedge_start, xanes_start, xanes_end, exafs_end, preedge_spacing,
                          xanes_spacing, exafsk_spacing, dwell_time_preedge = 1, dwell_time_xanes = 1, dwell_time_exafs = 1, k_power = 0):
