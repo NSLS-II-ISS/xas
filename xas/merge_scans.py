@@ -1,6 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
+import xarray as xr
+import json
 from scipy import stats
 from dataclasses import dataclass
 import databroker
@@ -90,6 +92,17 @@ def get_relevant_scans_for_row(df_uid, row, time_window=600, ls_dist_thresh=4):
 
     relevant_scans = reduce(lambda x, y: x & y, filter_list)
     return relevant_scans
+
+
+def load_xarray_from_json(path) -> xr.Dataset:
+    with open(path) as f:
+        _data = json.load(f)
+    ds = xr.Dataset()
+    for uid in _data:
+        df = pd.DataFrame(_data[uid]["data"])
+        ds[uid] = xr.DataArray(df)
+        ds[uid].attrs = _data[uid]["metadata"]
+    return ds
 
 
 def group_scans(df_uid: pd.DataFrame, time_window=600):
