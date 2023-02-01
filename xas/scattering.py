@@ -131,14 +131,14 @@ for i in range(255114, 255313 + 1):
 
 from xas.file_io import load_binned_df_and_extended_data_from_file, save_extended_data_as_file
 folder = '/nsls2/data/iss/legacy/processed/2022/2/300011/'
-fname_base = 'Ir sample 2 scan AXS wide 600 um cont'
+fname_base = 'Ir sample 1 scan AXS wide 600 um data'
 
 
 
 dist=40
 center_ver=105
 center_hor=438
-for i in range(1, 26):
+for i in range(2, 201):
     f = f'{folder}{fname_base} {i:04d}-r0003.dat'
     df_i, ext_data_i, _ = load_binned_df_and_extended_data_from_file(f)
     q_i, sq_i = integrate_pil100k_image_stack(ext_data_i['pil100k_image'], df_i['energy'], dist=dist, center_ver=center_ver, center_hor=center_hor)

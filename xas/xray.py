@@ -1,4 +1,5 @@
 import numpy as np
+import xraydb
 
 def k2e(k, E0):
     """
@@ -115,6 +116,31 @@ def e2bragg(energy, crystal, hkl):
     dspace = lattice_constants[crystal] / np.sqrt(h_ * h_ + k_ * k_ + l_ * l_)
     lambd = (12398.4 / energy)
     return np.rad2deg(np.arcsin(lambd/(2*dspace)))
+
+# shamelessly taken from the analyzer atlas paper:
+_B_RT = {'Si' : 0.4632, 'Ge' : 0.5661}
+def crystal_temp_factor(crystal, bragg_deg, energy_ev):
+    wavelength = 12398.4/energy_ev
+    bragg = np.deg2rad(bragg_deg)
+    ksi = np.sin(bragg) / wavelength
+    M = _B_RT[crystal] * (ksi ** 2)
+    return np.exp(-M)
+
+def crystal_reflectivity(crystal, hkl, bragg_deg, energy_ev):
+    TF = crystal_temp_factor(crystal, bragg_deg, energy_ev)
+    dw = xraydb.darwin_width(energy_ev, crystal, hkl, polarization='u')
+    return TF * np.trapz(dw.intensity, dw.dtheta*1e6)
+
+# vvv = []
+# args = ('Si', [6, 10, 12], 82.19, 19279); bla = crystal_reflectivity(*args); vvv.append(args + (bla, 0.6857 ))
+# args = ('Si', [2, 2, 4], 71.43, 5899); bla = crystal_reflectivity(*args); vvv.append(args + (bla, 46.67))
+# args = ('Si', [2, 4, 10], 81.05, 12658); bla = crystal_reflectivity(*args); vvv.append(args + (bla, 5.8233))
+#
+# args = ('Ge', [2, 2, 4], 82.46, 5415); bla = crystal_reflectivity(*args); vvv.append(args + (bla, 271.5288))
+# args = ('Ge', [8, 8, 0], 78.35, 12658); bla = crystal_reflectivity(*args); vvv.append(args + (bla, 3.6677))
+#
+# vvv = pd.DataFrame(vvv, columns=['crystal', 'hkl', 'bragg', 'energy', 'refl_calc', 'refl_atlas'])
+# vvv
 
 
 def generate_energy_grid(e0, preedge_start, xanes_start, xanes_end, exafs_end, preedge_spacing,
@@ -237,3 +263,20 @@ def generate_emission_energy_grid_from_dict(scan_parameters):
                                                            postline_dwelltime,
                                                            scan_parameters['revert'])
     return energy_grid, time_grid
+
+
+def find_best_line_for_edge(element, edge):
+    lines = xraydb.xray_lines(element, initial_level=edge)
+    line_key = []
+    line_energy = []
+    line_intensity = []
+    for key, line in lines.items():
+        line_key.append(key)
+        line_energy.append(line.energy)
+        line_intensity.append(line.intensity)
+
+    line_label = line_key[np.argmax(line_intensity)]
+    energy = line_energy[np.argmax(line_intensity)]
+    return energy, line_label
+
+# find_best_line_for_edge('Pt', 'L3')
