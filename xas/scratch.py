@@ -319,3 +319,37 @@ plt.figure(2, clear=True)
 plt.plot(energy_ref_roi, mu_ref_roi)
 
 plt.plot(energy_ref_roi, mu_fit)
+
+###########
+from xas.file_io import load_binned_df_from_file
+from xas.energy_calibration import compute_energy_shift_and_broadening_between_spectra
+files = \
+[
+'/nsls2/data/iss/legacy/processed/2023/1/311817/Bender scan at Pd-K edge - -264 N - 155.61 um.dat',
+'/nsls2/data/iss/legacy/processed/2023/1/311817/Bender scan at Pd-K edge - -289 N - 150.52 um.dat',
+'/nsls2/data/iss/legacy/processed/2023/1/311817/Bender scan at Pd-K edge - -314 N - 145.58 um.dat',
+'/nsls2/data/iss/legacy/processed/2023/1/311817/Bender scan at Pd-K edge - -338 N - 140.62 um.dat',
+'/nsls2/data/iss/legacy/processed/2023/1/311817/Bender scan at Pd-K edge - -363 N - 135.6 um.dat',
+'/nsls2/data/iss/legacy/processed/2023/1/311817/Bender scan at Pd-K edge - -387 N - 130.6 um.dat',
+'/nsls2/data/iss/legacy/processed/2023/1/311817/Bender scan at Pd-K edge - -413 N - 125.67 um.dat'
+]
+
+energy_ref, mu_ref = db_proc.foil_spectrum('Pd', 'K')
+
+
+dfs = []
+for f in files:
+    _df, _ = load_binned_df_from_file(f)
+    _df['mur'] = -np.log(_df['ir'] / _df['it'])
+    dfs.append(_df)
+
+plt.figure(1, clear=True)
+for i, df in enumerate(dfs):
+    shift, sigma, energy_fit, mu_fit = compute_energy_shift_and_broadening_between_spectra(df['energy'].values, df['mur'].values,
+                                                                                           energy_ref, mu_ref, e0=24350, de=200)
+    print(i, shift, sigma)
+    plt.plot(df['energy'].values, df['mur'].values - i, 'k-')
+    plt.plot(energy_fit, mu_fit - i, 'r-')
+
+plt.plot(energy_ref, mu_ref * 1.5 + 1, 'k-', lw=1)
+
