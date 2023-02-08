@@ -3,12 +3,13 @@ from .file_io import load_binned_df_from_file
 # from isstools.xasproject.xasproject import XASDataSet
 from xas.xasproject import XASDataSet
 # from xas.trajectory import read_trajectory_limits
-from lmfit import Parameters, minimize
+from lmfit import Parameters, minimize, fit_report
 import time as ttime
 import xraydb
 from xas import xray
 from .db_io import get_fly_uids_for_proposal
 import pandas as pd
+from scipy.interpolate import CubicSpline
 
 def get_foil_spectrum(element, edge, db_proc):
     r = db_proc.search({'Sample_name' : f'{element} foil', 'Edge' : edge})
@@ -37,6 +38,61 @@ def compute_shift_between_spectra(energy, mu, energy_ref_roi, mu_ref_roi):
     e_shift = out.params['e_shift'].value
     mu_fit = interpolated_spectrum(out.params)
     return e_shift, mu_fit
+
+def gaussian_conv_matrix(t_in, t_out, sigma):
+    """Gaussian convolution matrix. Normalized by row sum."""
+    # sigma = fwhm / 2.355
+    ksi = (t_in[None, :] - t_out[:, None]) / sigma
+    bla = np.exp( -0.5 * ksi**2)
+    bla = bla / np.sum(bla, axis=1)[:, None] # normalize sum
+    return bla
+
+
+def conv_spectrum(energy_in, energy_out, mu_in, sigma):
+    conv_matrix = gaussian_conv_matrix(energy_in, energy_out, sigma=sigma)
+    return conv_matrix @ mu_in
+
+
+def roi_crop_spectrum(energy, mu, e0, de):
+    roi_mask = (energy > (e0 - de / 2)) & (energy < (e0 + de / 2))
+    energy_roi = energy[roi_mask]
+    mu_roi = mu[roi_mask]
+    return energy_roi, mu_roi
+
+
+def compute_energy_offset_and_broadening(energy_roi, mu_roi, energy_ref, mu_ref):
+    
+    cs = CubicSpline(energy_ref, mu_ref)
+    
+    energy_roi_norm = (energy_roi - energy_roi.min()) / (energy_roi.max() - energy_roi.min())
+    
+    def get_mu_fit(pars):
+        shift = pars.valuesdict()['shift']
+        sigma = pars.valuesdict()['sigma']
+        fine_grid_energy_ref = np.arange(energy_ref.min(), energy_ref.max(), sigma/10)
+        fine_grid_mu_ref = cs(fine_grid_energy_ref)
+        mu_ref_conv = conv_spectrum(
+            fine_grid_energy_ref - shift, energy_roi, fine_grid_mu_ref, sigma=sigma
+            )
+        
+        basis = np.vstack(
+            (mu_ref_conv, np.ones(energy_roi.shape), energy_roi_norm, energy_roi_norm**2)
+            ).T
+        c, _, _, _ = np.linalg.lstsq(basis, mu_roi, rcond=-1)
+        return basis @ c
+    
+    def residuals(pars):
+        return get_mu_fit(pars) - mu_roi
+    
+    shift_guess = compute_shift_between_spectra(energy_ref, mu_ref, energy, mu_roi)
+    pars = Parameters()
+    pars.add("sigma", value=0.01, min=0)
+    pars.add("shift", value=shift_guess)
+    out = minimize(residuals, pars)
+    sigma = out.params["sigma"].value
+    shift = out.params["shift"].value
+    # print(fit_report(out))
+    return shift, sigma, get_mu_fit(pars)
 
 
 def get_energy_offset(uid, db, db_proc, dE=25, plot_fun=None, attempts=5, sleep_time=1, full_return=False):
