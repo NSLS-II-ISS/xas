@@ -353,3 +353,58 @@ for i, df in enumerate(dfs):
 
 plt.plot(energy_ref, mu_ref * 1.5 + 1, 'k-', lw=1)
 
+
+##############
+
+# RUN THIS IN NON-TILED ENVIRONMENT
+from xas.process import get_processed_df_from_uid
+import json
+outpath = '/nsls2/data/iss/legacy/Sandbox/database/databroker_output'
+
+def save_xas_data_as_json(uid, db, db_tag='new'):
+    hdr = db[uid]
+    if 'experiment' in hdr.start.keys():
+
+        hdr, primary_df, _, _, _, _, _ = get_processed_df_from_uid(uid, db, save_interpolated_file=False)
+        true_uid = hdr.start.uid
+        _start = {**hdr.start}
+        _stop = {'time_stop' : hdr.stop.time,
+                 'exit_status' : hdr.stop.exit_status}
+        metadata ={**_start, **_stop, 'db_tag': db_tag}
+        output = {'metadata': metadata, 'data': primary_df.to_dict()}
+        print(true_uid)
+        fpath = os.path.join(outpath, true_uid)
+
+        with open(fpath, 'w') as f:
+            json.dump(output, f)
+
+n1 = 317987
+n2 = 321288
+for i in range(n1, n1 + 50):
+    save_xas_data_as_json(i, db, db_tag='new')
+
+
+##############
+# RUN THIS IN TILED ENVIRONMENT
+import pandas as pd
+import json
+import os
+from tiled.client import from_profile
+outpath = '/nsls2/data/iss/legacy/Sandbox/database/databroker_output'
+
+c_nsls2 = from_profile('nsls2', username='MYUSERNAME')
+c = c_nsls2['iss']['sandbox']
+
+def read_xas_data_from_json(fpath):
+    with open(fpath, 'r') as f:
+        data = json.loads(f.read())
+    return data['metadata'], pd.DataFrame(data['data'])
+
+files = [f for f in os.listdir(outpath)]
+for f in files:
+    md, df = read_xas_data_from_json(os.path.join(outpath, f))
+    md['tag'] = 'test'
+    md['tag_version'] = '0.0'
+    md['tag_comment'] = 'initial data upload testing'
+    x = c.write_dataframe(df, md)
+
