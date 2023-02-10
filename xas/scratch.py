@@ -323,23 +323,26 @@ plt.plot(energy_ref_roi, mu_fit)
 ###########
 from xas.file_io import load_binned_df_from_file
 from xas.energy_calibration import compute_energy_shift_and_broadening_between_spectra
+path = '/home/charles/Desktop/test_data/bender_scans'
 files = \
 [
-'/nsls2/data/iss/legacy/processed/2023/1/311817/Bender scan at Pd-K edge - -264 N - 155.61 um.dat',
-'/nsls2/data/iss/legacy/processed/2023/1/311817/Bender scan at Pd-K edge - -289 N - 150.52 um.dat',
-'/nsls2/data/iss/legacy/processed/2023/1/311817/Bender scan at Pd-K edge - -314 N - 145.58 um.dat',
-'/nsls2/data/iss/legacy/processed/2023/1/311817/Bender scan at Pd-K edge - -338 N - 140.62 um.dat',
-'/nsls2/data/iss/legacy/processed/2023/1/311817/Bender scan at Pd-K edge - -363 N - 135.6 um.dat',
-'/nsls2/data/iss/legacy/processed/2023/1/311817/Bender scan at Pd-K edge - -387 N - 130.6 um.dat',
-'/nsls2/data/iss/legacy/processed/2023/1/311817/Bender scan at Pd-K edge - -413 N - 125.67 um.dat'
+'Bender scan at Pd-K edge - -264 N - 155.61 um.dat',
+'Bender scan at Pd-K edge - -289 N - 150.52 um.dat',
+'Bender scan at Pd-K edge - -314 N - 145.58 um.dat',
+'Bender scan at Pd-K edge - -338 N - 140.62 um.dat',
+'Bender scan at Pd-K edge - -363 N - 135.6 um.dat',
+'Bender scan at Pd-K edge - -387 N - 130.6 um.dat',
+'Bender scan at Pd-K edge - -413 N - 125.67 um.dat'
 ]
 
-energy_ref, mu_ref = db_proc.foil_spectrum('Pd', 'K')
-
+# energy_ref, mu_ref = db_proc.foil_spectrum('Pd', 'K')
+df_ref, _ = load_binned_df_from_file(path + '/' + 'Pd K-edge foil energy calibration.dat')
+energy_ref = df_ref["energy"]
+mu_ref = -np.log(df_ref["ir"] / df_ref["it"])
 
 dfs = []
 for f in files:
-    _df, _ = load_binned_df_from_file(f)
+    _df, _ = load_binned_df_from_file(path + '/' + f)
     _df['mur'] = -np.log(_df['ir'] / _df['it'])
     dfs.append(_df)
 

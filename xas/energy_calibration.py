@@ -78,6 +78,12 @@ def conv_spectrum(energy_in, energy_out, mu_in, sigma):
     return conv_matrix @ mu_in
 
 
+def add_energy_points(energy_arr, sigma):
+    five_sigma = sigma * np.arange(-5, 6)
+    res_arr = (five_sigma[None, :] + energy_arr[:, None]).ravel()
+    return res_arr[5:-5]
+
+
 def compute_energy_shift_and_broadening_between_spectra(energy, mu, energy_ref, mu_ref, e0=8333, de=200):
     
     cs = CubicSpline(energy_ref, mu_ref)
@@ -95,7 +101,10 @@ def compute_energy_shift_and_broadening_between_spectra(energy, mu, energy_ref, 
     def get_mu_fit(pars):
         shift = pars.valuesdict()['shift']
         sigma = pars.valuesdict()['sigma']
-        fine_grid_energy_ref = np.arange(energy_ref.min(), energy_ref.max(), sigma/10)
+        if sigma > 0.02:
+            fine_grid_energy_ref = np.arange(energy_ref.min(), energy_ref.max(), sigma/10)
+        else:
+            fine_grid_energy_ref = add_energy_points(energy_ref, sigma)
         fine_grid_mu_ref = cs(fine_grid_energy_ref)
         mu_ref_conv = conv_spectrum(
             fine_grid_energy_ref - shift, energy_roi, fine_grid_mu_ref, sigma=sigma
