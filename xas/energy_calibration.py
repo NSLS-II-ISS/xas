@@ -79,9 +79,10 @@ def conv_spectrum(energy_in, energy_out, mu_in, sigma):
 
 
 def add_energy_points(energy_arr, sigma):
-    five_sigma = sigma * np.arange(-5, 6)
+    step = 0.1
+    five_sigma = sigma * np.arange(-5, 5+step, step=step)
     res_arr = (five_sigma[None, :] + energy_arr[:, None]).ravel()
-    return res_arr[5:-5]
+    return res_arr
 
 
 def compute_energy_shift_and_broadening_between_spectra(energy, mu, energy_ref, mu_ref, e0=8333, de=200):
