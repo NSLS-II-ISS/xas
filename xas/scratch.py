@@ -321,8 +321,13 @@ plt.plot(energy_ref_roi, mu_ref_roi)
 plt.plot(energy_ref_roi, mu_fit)
 
 ###########
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib as mpl
+mpl.use("TkAgg")
+from scipy.interpolate import CubicSpline
 from xas.file_io import load_binned_df_from_file
-from xas.energy_calibration import compute_energy_shift_and_broadening_between_spectra
+from xas.energy_calibration import compute_energy_shift_and_broadening_between_spectra, fine_convolution_grid
 path = '/home/charles/Desktop/test_data/bender_scans'
 files = \
 [
@@ -346,10 +351,24 @@ for f in files:
     _df['mur'] = -np.log(_df['ir'] / _df['it'])
     dfs.append(_df)
 
+# df = dfs[0]
+# energy, mu = df["energy"], df["mur"]
+# e0 = 24350
+# de = 200
+
+# cs = CubicSpline(energy_ref, mu_ref)
+
+# roi_mask = (energy > (e0 - de / 2)) & (energy < (e0 + de / 2))
+# energy_roi = energy[roi_mask]
+# mu_roi = mu[roi_mask]
+
+# fine_grid_energy_ref = fine_convolution_grid(energy_ref, sigma=0.01)
+# fine_grid_mu_ref = cs(fine_grid_energy_ref)
+
 plt.figure(1, clear=True)
 for i, df in enumerate(dfs):
     shift, sigma, energy_fit, mu_fit = compute_energy_shift_and_broadening_between_spectra(df['energy'].values, df['mur'].values,
-                                                                                           energy_ref, mu_ref, e0=24350, de=200)
+                                                                                           energy_ref - 14.85, mu_ref, e0=24350, de=200)
     print(i, shift, sigma)
     plt.plot(df['energy'].values, df['mur'].values - i, 'k-')
     plt.plot(energy_fit, mu_fit - i, 'r-')
