@@ -4,10 +4,18 @@ import pandas as pd
 import os
 import numpy as np
 import time as ttime
+from xas.file_io import _shift_root
 
-class APBBinFileHandler(HandlerBase):
+
+class ISSHandlerBaseShiftRoot(HandlerBase):
+    def shift_root(self, fpath):
+        return _shift_root(fpath)
+
+
+class APBBinFileHandler(ISSHandlerBaseShiftRoot):
     "Read electrometer *.bin files"
     def __init__(self, fpath):
+        fpath = self.shift_root(fpath)
         # It's a text config file, which we don't store in the resources yet, parsing for now
         fpath_txt = f'{os.path.splitext(fpath)[0]}.txt'
 
@@ -42,9 +50,10 @@ class APBBinFileHandler(HandlerBase):
 
 
 
-class PizzaBoxEncHandlerTxtPD(HandlerBase):
+class PizzaBoxEncHandlerTxtPD(ISSHandlerBaseShiftRoot):
     "Read PizzaBox text files using info from filestore."
     def __init__(self, fpath):
+        fpath = self.shift_root(fpath)
         # self.df = pd.read_table(fpath, names=['ts_s', 'ts_ns', 'encoder', 'index', 'state'], sep=' ')
         self.data = np.genfromtxt(fpath)
 
@@ -54,9 +63,10 @@ class PizzaBoxEncHandlerTxtPD(HandlerBase):
 
 
 
-class APBTriggerFileHandler(HandlerBase):
+class APBTriggerFileHandler(ISSHandlerBaseShiftRoot):
     "Read APB trigger *.bin files"
     def __init__(self, fpath):
+        fpath = self.shift_root(fpath)
         raw_data = np.fromfile(fpath, dtype=np.int32)
         raw_data = raw_data.reshape((raw_data.size // 3, 3))
         columns = ['timestamp', 'transition']
@@ -71,10 +81,11 @@ class APBTriggerFileHandler(HandlerBase):
         return self.df
 
 
-class ISSXspress3HDF5Handler(Xspress3HDF5Handler):
+class ISSXspress3HDF5Handler(Xspress3HDF5Handler, ISSHandlerBaseShiftRoot):
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, filename, **kwargs):
+        filename = self.shift_root(filename)
+        super().__init__(filename, **kwargs)
         self._roi_data = None
         # self._num_channels = None
 
@@ -125,12 +136,13 @@ class ISSXspress3HDF5Handler(Xspress3HDF5Handler):
 
 
 PIL100k_HDF_DATA_KEY = 'entry/instrument/NDAttributes'
-class ISSPilatusHDF5Handler(Xspress3HDF5Handler): # Denis: I used Xspress3HDF5Handler as basis since it has all the basic functionality and I more or less understand how it works
+class ISSPilatusHDF5Handler(Xspress3HDF5Handler, ISSHandlerBaseShiftRoot): # Denis: I used Xspress3HDF5Handler as basis since it has all the basic functionality and I more or less understand how it works
     specs = {'PIL100k_HDF5'} | HandlerBase.specs
     HANDLER_NAME = 'PIL100k_HDF5'
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, key=PIL100k_HDF_DATA_KEY, **kwargs)
+    def __init__(self, filename, **kwargs):
+        filename = self.shift_root(filename)
+        super().__init__(filename, key=PIL100k_HDF_DATA_KEY, **kwargs)
         self._roi_data = None
         self.hdfrois = [f'ROI{i + 1}' for i in range(4)]
         self.chanrois = [f'pil100k_ROI{i + 1}' for i in range(4)]
@@ -167,6 +179,40 @@ class ISSPilatusHDF5Handler(Xspress3HDF5Handler): # Denis: I used Xspress3HDF5Ha
             raise KeyError(f'data_type={data_type} not supported')
 
 
+class ISSPilatusHDF5HandlerLegacy(Xspress3HDF5Handler, ISSHandlerBaseShiftRoot): # Denis: I used Xspress3HDF5Handler as basis since it has all the basic functionality and I more or less understand how it works
+    specs = {'PIL100k_HDF5'} | HandlerBase.specs
+    HANDLER_NAME = 'PIL100k_HDF5'
+
+    def __init__(self, filename, **kwargs):
+        filename = self.shift_root(filename)
+        super().__init__(filename, key=PIL100k_HDF_DATA_KEY, **kwargs)
+        self._roi_data = None
+        self.hdfrois = [f'ROI{i + 1}' for i in range(4)]
+        self.chanrois = [f'pil100k_ROI{i + 1}' for i in range(4)]
+
+    def close(self):
+        # print('Closing pilatus h5 file')
+        super().close()
+        self._image_data = None
+        self._roi_data = None
+
+    def _get_dataset(self):
+        if self._dataset is not None:
+            return
+
+        _data_columns = [self._file[self._key + f'/_{chanroi}Total'][()] for chanroi in self.hdfrois]
+        data_columns = np.vstack(_data_columns).T
+        self._roi_data = pd.DataFrame(data_columns, columns=self.chanrois)
+        self._image_data = self._file['entry/data/data'][()]
+        self._dataset = 'bla'
+        # self._dataset = data_columns
+
+    def __call__(self, *args, frame=None,  **kwargs):
+        self._get_dataset()
+        return_dict = {chanroi: self._roi_data[chanroi][frame] for chanroi in self.chanrois}
+        return_dict['image'] = self._image_data[frame, :, :].squeeze()
+        return return_dict
+
 
 def register_all_handlers(db):
     db.reg.register_handler('PIZZABOX_ENC_FILE_TXT_PD',
@@ -177,6 +223,18 @@ def register_all_handlers(db):
                             APBTriggerFileHandler, overwrite=True)
     db.reg.register_handler('PIL100k_HDF5',
                             ISSPilatusHDF5Handler, overwrite=True)
+    db.reg.register_handler(ISSXspress3HDF5Handler.HANDLER_NAME,
+                            ISSXspress3HDF5Handler, overwrite=True)
+
+def register_all_handlers_legacy(db):
+    db.reg.register_handler('PIZZABOX_ENC_FILE_TXT_PD',
+                            PizzaBoxEncHandlerTxtPD, overwrite=True)
+    db.reg.register_handler('APB',
+                            APBBinFileHandler, overwrite=True)
+    db.reg.register_handler('APB_TRIGGER',
+                            APBTriggerFileHandler, overwrite=True)
+    db.reg.register_handler('PIL100k_HDF5',
+                            ISSPilatusHDF5HandlerLegacy, overwrite=True)
     db.reg.register_handler(ISSXspress3HDF5Handler.HANDLER_NAME,
                             ISSXspress3HDF5Handler, overwrite=True)
 

@@ -8,7 +8,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from scipy.signal import savgol_filter
 import os
-
+import time as ttime
 
 
 from scipy.spatial.transform import Rotation
@@ -73,21 +73,29 @@ def normalize_peak(y_orig):
     return y
 
 
-def analyze_elastic_fly_scan(db, uid, plotting=True):
-    fname_proc = db[uid].start['interp_filename'][:-3] + 'dat'
-    df, _ = load_binned_df_from_file(fname_proc)
+_pilatus_roi_colors = {1: 'tab:blue',
+                       2: 'tab:orange',
+                       3: 'tab:green'}
+
+def analyze_elastic_fly_scan(db, uid, rois=None, plot_func=None):
+    fname_bin = db[uid].start['interp_filename'][:-3] + 'dat'
+    df, _ = load_binned_df_from_file(fname_bin)
     energy = df['energy'].values
-    if plotting: plt.figure()
-    for i in range(1):
-        field = f'pil100k_roi{i+1}'
+
+    if rois is None: rois = [1]
+
+    for i in rois:
+        field = f'pil100k_roi{i}'
         intensity = df[field].values
         intensity = normalize_peak(intensity)
         Ecen0, fwhm0 = estimate_center_and_width_of_peak(energy, intensity)
         Ecen, fwhm, intensity_cor, intensity_fit, intensity_fit_raw = fit_gaussian(energy, intensity, Ecen0, fwhm0)
-        if plotting:
-            plt.plot(energy, intensity_cor - i * 0.5, 'k.-')
-            plt.plot(energy, intensity_fit - i * 0.5, 'r-')
-        print(Ecen, fwhm)
+        print(f'{field}: {Ecen=}, {fwhm=}')
+        if plot_func is not None:
+            roi_color = _pilatus_roi_colors[i]
+            roi_label = f'roi{i}'
+            plot_func(energy, intensity_cor, intensity_fit, Ecen, fwhm, roi_label=roi_label, roi_color=roi_color, )
+
 
 
 # analyze_elastic_fly_scan(db, -1)

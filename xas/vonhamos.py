@@ -230,11 +230,11 @@ def apply_calibration_for_roi(df, extended_data, md, uid_calibration, db, roi='r
         do_trivial_calibration = True
         reason += '- databroker is not defined in the von hamos processing pipeline\n'
 
-    if not uid_calibration:
+    if (not do_trivial_calibration) and (not uid_calibration):
         do_trivial_calibration = True
         reason += '- calibration uid is not defined\n'
 
-    if (not scan_and_calibration_roi_match(md, uid_calibration, db, roi=roi, detector=detector)) and (not enforce_roi):
+    if (not do_trivial_calibration) and (not scan_and_calibration_roi_match(md, uid_calibration, db, roi=roi, detector=detector)) and (not enforce_roi):
         do_trivial_calibration = True
         reason += f'- ROI coordinates mismatch between the data scan and the calibration scan\n'
 

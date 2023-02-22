@@ -134,7 +134,13 @@ def load_xs3_dataset_from_db(db, uid, apb_trig_timestamps):
 
 
 
-def load_pil100k_dataset_from_db_legacy(db, uid, apb_trig_timestamps, input_type='hdf5'):
+pil100k_legacy_keys_match = {   'pil100k_ROI1': 'pil100k_roi1',
+                                'pil100k_ROI2': 'pil100k_roi2',
+                                'pil100k_ROI3': 'pil100k_roi3',
+                                'pil100k_ROI4': 'pil100k_roi4',
+                                'image' : 'pil100k_image'}
+
+def _load_pil100k_dataset_from_db_legacy(db, uid, apb_trig_timestamps, input_type='hdf5'):
     hdr = db[uid]
     spectra = {}
     if input_type == 'tiff':
@@ -157,18 +163,17 @@ def load_pil100k_dataset_from_db_legacy(db, uid, apb_trig_timestamps, input_type
         # n_images = t.shape[0]
         n_images = min(t.size, apb_trig_timestamps.size)
         pil100k_timestamps = apb_trig_timestamps[:n_images]
-        keys = t[1].keys()
+        keys = t[1].tolist().keys()
         # keys = [k for k in t[1].keys() if ('roi' in k.lower())] # do only those with roi in the name
-        _spectra = np.zeros((n_images, len(keys)))
-        for i in range(0, n_images):
-            for j, key in enumerate(keys):
-                _spectra[i, j] = t[i+1][key]
-        for j, key in enumerate(keys):
-            spectra[key] =  pd.DataFrame(np.vstack((pil100k_timestamps, _spectra[:, j])).T, columns=['timestamp', f'pil100k_ROI{j+1}'])
+        output = {}
+        for key in keys:
+            arr = [t[i+1].tolist()[key] for i in range(n_images)]
+            upd_key = pil100k_legacy_keys_match[key]
+            output[upd_key] = pd.DataFrame({'timestamp': pil100k_timestamps, upd_key: arr})
+        return output
 
-    return spectra
 
-def load_pil100k_dataset_from_db(db, uid, apb_trig_timestamps, load_images=True):
+def _load_pil100k_dataset_from_db(db, uid, apb_trig_timestamps, load_images=False):
     hdr = db[uid]
     output = {}
     # t = hdr.table(stream_name='pil100k_stream', fill=True)
@@ -193,6 +198,37 @@ def load_pil100k_dataset_from_db(db, uid, apb_trig_timestamps, load_images=True)
     #     spectra[key] =  pd.DataFrame(np.vstack((pil100k_timestamps, _spectra[:, j])).T, columns=['timestamp', f'pil100k_ROI{j+1}'])
     #
     # return spectra
+
+def load_pil100k_dataset_from_db(db, uid, apb_trig_timestamps, load_images=False):
+    try:
+        return _load_pil100k_dataset_from_db(db, uid, apb_trig_timestamps, load_images=load_images)
+    except Exception as e:
+        print(f'Failed to read pilatus data. Reason: {e}')
+        print('Attempting to use legacy loader')
+        return _load_pil100k_dataset_from_db_legacy(db, uid, apb_trig_timestamps, input_type='hdf5')
+
+
+class MockHeader:
+    def __init__(self, start: dict, stop: dict, stream_names: list):
+        self.start = start
+        self.stop = stop
+        self.stream_names = stream_names
+
+    @classmethod
+    def from_header(cls, hdr):
+        start = dict(hdr.start)
+        stop = dict(hdr.stop)
+        stream_names = hdr.stream_names
+        return cls(start, stop, stream_names)
+
+    def update_start(self, update_dict):
+        for k, v in update_dict.items():
+            self.start[k] = v
+
+def update_header_start(hdr, update_start_dict):
+    new_hdr = MockHeader.from_header(hdr)
+    new_hdr.update_start(update_start_dict)
+    return new_hdr
 
 def get_all_uids_for_proposal(db, year, cycle, proposal, keys=['experiment']):
     year = str(year)

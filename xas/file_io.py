@@ -9,6 +9,12 @@ import h5py
 from xas.metadata import generate_file_header_from_hdr
 
 
+def _shift_root(fpath):
+    print('changing root "/nsls2/xf08id" to "/nsls2/data/iss/legacy/backup"')
+    if not fpath.startswith('/'):
+        fpath = '/' + fpath
+    return fpath.replace('/nsls2/xf08id', '/nsls2/data/iss/legacy/backup')
+
 def load_dataset_from_files(db, uid):
     def load_adc_trace(filename=''):
         df=pd.DataFrame()
@@ -126,8 +132,8 @@ def create_file_header(hdr):
 
 def find_e0(hdr):
     e0 = -1
-    if 'e0' in hdr['start']:
-        e0 = float(hdr['start']['e0'])
+    if 'e0' in hdr.start:
+        e0 = float(hdr.start['e0'])
     return e0
 
 

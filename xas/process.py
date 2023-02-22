@@ -7,6 +7,8 @@ from .file_io import (load_dataset_from_files, create_file_header, validate_file
 from .db_io import load_apb_dataset_from_db, translate_apb_dataset, load_apb_trig_dataset_from_db, load_xs3_dataset_from_db, load_pil100k_dataset_from_db
 from .interpolate import interpolate
 
+from xas.file_io import _shift_root
+from xas.db_io import update_header_start
 from .xas_logger import get_logger
 # import matplotlib.pyplot as plt
 # import numpy as np
@@ -18,21 +20,23 @@ import os
 from .vonhamos import process_von_hamos_scan #, save_vh_scan_to_file
 import gc
 
-def process_interpolate_bin(doc, db, draw_func_interp = None, draw_func_bin = None, cloud_dispatcher = None, print_func=None, dump_to_tiff=True):
+def process_interpolate_bin(doc, db, draw_func_interp = None, draw_func_bin = None, cloud_dispatcher = None, print_func=None, dump_to_tiff=False):
     # logger = get_logger()
     if 'experiment' in db[doc['run_start']].start.keys():
         uid = doc['run_start']
         process_interpolate_bin_from_uid(uid, db, draw_func_interp=draw_func_interp, draw_func_bin=draw_func_bin, cloud_dispatcher=cloud_dispatcher, print_func=print_func, dump_to_tiff=dump_to_tiff)
 
 
-def process_interpolate_bin_from_uid(uid, db, draw_func_interp = None, draw_func_bin = None, cloud_dispatcher = None, print_func=None, dump_to_tiff=False):
+def process_interpolate_bin_from_uid(uid, db, draw_func_interp = None, draw_func_bin = None, cloud_dispatcher = None, print_func=None, dump_to_tiff=False, save_interpolated_file=True, update_start=None):
 
     logger = get_logger()
     hdr, primary_df, extended_data, comments, path_to_file, file_list, data_kind = get_processed_df_from_uid(uid, db,
                                                                           logger=logger,
                                                                           draw_func_interp=draw_func_interp,
                                                                           draw_func_bin=draw_func_bin,
-                                                                          print_func=print_func)
+                                                                          print_func=print_func,
+                                                                          save_interpolated_file=save_interpolated_file,
+                                                                          update_start=update_start)
 
     save_primary_df_as_file(path_to_file, primary_df, comments)
 
@@ -65,7 +69,12 @@ def process_interpolate_bin_from_uid(uid, db, draw_func_interp = None, draw_func
     clear_db_cache(db)
 
 
-def get_processed_df_from_uid(uid, db, logger=None, draw_func_interp=None, draw_func_bin = None, print_func=None, save_interpolated_file=True):
+
+_legacy_experiment_reg = {'fly_energy_scan_pil100k' : 'fly_scan'}
+
+def get_processed_df_from_uid(uid, db, logger=None, draw_func_interp=None, draw_func_bin = None,
+                              print_func=None, save_interpolated_file=True,
+                              update_start=None):
     if print_func is None:
         print_func = print
     if logger is None:
@@ -73,9 +82,13 @@ def get_processed_df_from_uid(uid, db, logger=None, draw_func_interp=None, draw_
 
         # logger = get_logger(print_func=print_func)
     hdr = db[uid]
+    if update_start is not None:
+        hdr = update_header_start(hdr, update_start)
     experiment = hdr.start['experiment']
+    if experiment in _legacy_experiment_reg.keys(): experiment = _legacy_experiment_reg[experiment]
     comments = create_file_header(hdr)
     path_to_file = hdr.start['interp_filename']
+    path_to_file = _shift_root(path_to_file)
     validate_path_exists(path_to_file)
     path_to_file = validate_file_exists(path_to_file, file_type='interp')
     e0 = find_e0(hdr)
