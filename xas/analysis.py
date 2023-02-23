@@ -1,6 +1,6 @@
 import matplotlib
 
-# matplotlib.use("TkAgg")
+matplotlib.use("TkAgg")
 
 import numpy as np
 import pandas as pd
