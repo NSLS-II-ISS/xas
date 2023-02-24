@@ -42,14 +42,32 @@ def build_sample_accordion(sample_node):
     return dbc.Accordion(sample_accordion_items, start_collapsed=True)
 
 
-def build_proposal_accordion(proposal_node):
-    sample_nodes, sample_names = sort_node_by_metadata_key(proposal_node, "sample_name", return_values=True)
+def build_scan_accordion(scan_node):
+    sample_nodes, sample_labels = sort_node_by_metadata_key(scan_node, "sample_name", return_values=True)
+    scan_accordion_items = [
+        dbc.AccordionItem(
+            build_scangroup_interactable(smp_node),
+            title=smp_label
+        )
+        for smp_node, smp_label in zip(sample_nodes, sample_labels)
+    ]
+    return dbc.Accordion(scan_accordion_items, start_collapsed=True)
+
+
+def build_proposal_accordion(proposal_node, sort_key):
+    sub_nodes, sub_labels = sort_node_by_metadata_key(proposal_node, sort_key, return_values=True)
+    if sort_key == "sample_name":
+        build_sub_accordion = build_sample_accordion
+    elif sort_key == "monochromator_scan_uid":
+        build_sub_accordion = build_scan_accordion
+    else:
+        raise ValueError("Unsupported sorting key")
     proposal_accordion_items = [
         dbc.AccordionItem(
-            build_sample_accordion(smp_node),
-            title=smp_name
+            build_sub_accordion(sub_node),
+            title=sub_name
         )
-        for smp_node, smp_name in zip(sample_nodes, sample_names)
+        for sub_node, sub_name in zip(sub_nodes, sub_labels)
     ]
     return dbc.Accordion(proposal_accordion_items)
 
@@ -67,10 +85,16 @@ app.layout = dbc.Container([
                 dbc.Col(dbc.Input(id="year_input", placeholder="year")),
                 dbc.Col(dbc.Input(id="cycle_input", placeholder="cycle")),
                 dbc.Col(dbc.Input(id="proposal_input", placeholder="proposal")),
-                dbc.Col(dbc.Button("search", id="search_btn"))
-            ]),
-            html.Br(),
-            dbc.Row(dbc.Col(dbc.Button("check scans", color="success", id="check_btn"))),
+                dbc.Col(dbc.Button("search", id="search_btn", n_clicks=0))
+            ], style={"padding-bottom": "10px"}),
+            dbc.Row([
+                    dbc.Col(dcc.Dropdown([
+                        {"label": "sample", "value": "sample_name"},
+                        {"label": "scan plan", "value": "monochromator_scan_uid"},
+                    ], placeholder="Sort by...", id="sort_dropdown"
+                    )),
+                    dbc.Col(dbc.Button("sort", id="sort_btn")),
+            ], style={"padding-bottom": "10px"}),
             dbc.Row(dbc.Col(id="accordion_loc")),
         ], width=3),
         dbc.Col([
@@ -86,12 +110,18 @@ app.layout = dbc.Container([
 @app.callback(
     Output("accordion_loc", "children"),
     Input("search_btn", "n_clicks"),
+    Input("sort_btn", "n_clicks"),
+    State("sort_dropdown", "value"),
     State("year_input", "value"),
     State("cycle_input", "value"),
     State("proposal_input", "value"),
 )
-def search_click(click, year, cycle, proposal):
-    return build_proposal_accordion(filter_node_for_proposal(ISS_SANDBOX, year, cycle, proposal))
+def show_proposal_accordion(n_search_clicks, n_sort_clicks, dropdown_choice, year, cycle, proposal):
+    if n_search_clicks == 0:
+        return
+    if dropdown_choice is None:
+        dropdown_choice = "sample_name" 
+    return build_proposal_accordion(filter_node_for_proposal(ISS_SANDBOX, year, cycle, proposal), sort_key=dropdown_choice)
 
 
 @app.callback(
@@ -101,7 +131,7 @@ def search_click(click, year, cycle, proposal):
     State({"type": "scan_checklist", "uid": ALL}, "id"),
 )
 def plot_selected_spectra(click, checklist_values, checklist_id_dicts):
-    fig = go.Figure()
+    fig = go.Figure(layout={"height": 800})
     for cv, cd in zip(checklist_values, checklist_id_dicts):
         if cv is None:
             continue
@@ -113,20 +143,6 @@ def plot_selected_spectra(click, checklist_values, checklist_id_dicts):
         for val in cv:
             fig.add_scatter(x=df["energy"], y=df[val])
     return fig
-
-# not working
-@app.callback(
-    Output({"type": "scan_checklist", "uid": ALL}, "children"),
-    Input("check_btn", "n_clicks"),
-    State({"type": "scan_checklist", "uid": ALL}, "id")
-)
-def run_check_scans(click, checklist_id_dicts):
-    print("pp")
-    return [[
-        {"label": html.Div(",", style={"color": "red"}), "value": "mut"},
-        {"label": html.Div("muf", style={"color": "red"}), "value": "muf"},
-        {"label": html.Div("mur", style={"color": "red"}), "value": "mur"},
-    ]] * len(checklist_id_dicts)
 
 
 if __name__ == "__main__":
