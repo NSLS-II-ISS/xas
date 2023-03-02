@@ -12,7 +12,7 @@ def build_scangroup_interactable(scangroup_node):
                      style={"display": "inline-block", "padding": "5px"},), 
             html.Button("+",
                         id={"type": "plus_btn",
-                            "scan_id": f"{v.metadata['scan_id']}",
+                            # "scan_id": f"{v.metadata['scan_id']}",
                             "uid": k}, 
                         style={"background-color": "white"}),
             html.Br(),
@@ -67,10 +67,11 @@ def build_proposal_accordion(proposal_node, sort_key):
 visualization_tab = dbc.Tab(
     [
     dbc.Row(
-        html.Table([
-            html.Thead(html.Tr([html.Th("Scan"), html.Th("mut"), html.Th("muf"), html.Th("mur")])),
-        ], style={"width": "50%"}, id="scan_table"),
-    justify="center"
+        dbc.Col(
+            html.Table([
+                html.Thead(html.Tr([html.Th("Scan"), html.Th("mut"), html.Th("muf"), html.Th("mur")])),
+            ], style={"width": "50%"}, id="scan_table"),
+        ), 
     ),
     dbc.Row(dcc.Graph(figure=go.Figure(layout={"height": 800}), id="spectrum_plot")),
     ],
