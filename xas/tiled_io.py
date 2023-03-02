@@ -1,7 +1,14 @@
 from tiled.client import from_uri
 from tiled.queries import Key
-TILED_CATALOG = from_uri("https://localhost:8008", verify=False, username=input("BNL Username: \n"))
-ISS_SANDBOX = TILED_CATALOG["iss"]["sandbox"]
+# TILED_CATALOG = from_uri("https://localhost:8008", verify=False, username=input("BNL Username: \n"))
+# ISS_SANDBOX = TILED_CATALOG["iss"]["sandbox"]
+
+
+def get_iss_sandbox():
+    username=input("BNL Username: ")
+    tiled_catalog = from_uri("https://localhost:8008", verify=False, username=username)
+    iss_sandbox_node = tiled_catalog["iss"]["sandbox"]
+    return iss_sandbox_node
 
 
 def filter_node_for_proposal(node, year, cycle, proposal):
