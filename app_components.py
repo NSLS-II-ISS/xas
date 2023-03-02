@@ -2,14 +2,17 @@ import dash
 from dash import html, dcc
 import dash_bootstrap_components as dbc
 
+import plotly.graph_objects as go
+
 from xas.tiled_io import sort_node_by_metadata_key
 
 def build_scangroup_interactable(scangroup_node):
     scan_labels = [html.Div([
             html.Div(f"{v.metadata['scan_id']}",
-                     style={"display": "inline-block", "padding": "5px"}), 
+                     style={"display": "inline-block", "padding": "5px"},), 
             html.Button("+",
                         id={"type": "plus_btn",
+                            "scan_id": f"{v.metadata['scan_id']}",
                             "uid": k}, 
                         style={"background-color": "white"}),
             html.Br(),
@@ -60,3 +63,16 @@ def build_proposal_accordion(proposal_node, sort_key):
     ]
     return dbc.Accordion(proposal_accordion_items, start_collapsed=True, always_open=True)
 
+
+visualization_tab = dbc.Tab(
+    [
+    dbc.Row(
+        html.Table([
+            html.Thead(html.Tr([html.Th("Scan"), html.Th("mut"), html.Th("muf"), html.Th("mur")])),
+        ], style={"width": "50%"}, id="scan_table"),
+    justify="center"
+    ),
+    dbc.Row(dcc.Graph(figure=go.Figure(layout={"height": 800}), id="spectrum_plot")),
+    ],
+    label="Visualization",
+)

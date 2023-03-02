@@ -1,27 +1,21 @@
 import dash
-from dash import html, dcc, Input, Output, State, ALL
+from dash import html, dcc, Input, Output, State, ALL, MATCH
 import dash_bootstrap_components as dbc
 
 import numpy as np
-import plotly.express as px
 import plotly.graph_objects as go
 
 from tiled.queries import Key
 from xas.tiled_io import get_iss_sandbox, filter_node_for_proposal
 from xas.analysis import check_scan
 
-from app_components import build_proposal_accordion
+from app_components import build_proposal_accordion, visualization_tab
 
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 app.title = "new ISS app"
 
 
 app.layout = dbc.Container([
-    dcc.Store(id="bnl_username"),
-    dbc.Modal(
-        dbc.ModalHeader(""),
-        dbc.ModalBody(dbc.Input(id="username_input")),
-    ),  
     html.H1("XDash",
             style={
                 "textAlign": "center",
@@ -49,10 +43,13 @@ app.layout = dbc.Container([
             ),
         ], width=3),
         dbc.Col([
-            dbc.Row(dcc.Graph(figure=go.Figure(layout={"height": 800}), id="spectrum_plot")),
-            dbc.Row(dbc.Col(
-                dbc.Button("plot selected spectra", id="plot_btn", class_name="d-grid gap-2 col-3 mx-auto"),
-            )),
+            dbc.Tabs([
+                visualization_tab,
+            ]),
+            # dbc.Row(dcc.Graph(figure=go.Figure(layout={"height": 800}), id="spectrum_plot")),
+            # dbc.Row(dbc.Col(
+            #     dbc.Button("plot selected spectra", id="plot_btn", class_name="d-grid gap-2 col-3 mx-auto"),
+            # )),
         ], width=9),
     ]),
 ], fluid=True)
@@ -75,47 +72,46 @@ def show_proposal_accordion(n_search_clicks, n_sort_clicks, dropdown_choice, yea
     return build_proposal_accordion(filter_node_for_proposal(ISS_SANDBOX, year, cycle, proposal), sort_key=dropdown_choice)
 
 
-
 @app.callback(
-    Output("spectrum_plot", "figure"),
-    Input({"type": "plus_btn", "uid": ALL}, "n_clicks"),
-    State("spectrum_plot", "figure"),
+    Output("scan_table", "children"),
+    Input({"type": "plus_btn", "scan_id": ALL, "uid": ALL}, "n_clicks"),
+    State("scan_table", "children"),
+    State({"type": "table_row", "uid": ALL}, "id"),
     prevent_initial_call=True,
 )
-def add_spectrum_to_plot(click, current_fig):
+def add_scan_to_table(click, table_rows, row_id_dicts):
+    # print(dash.ctx.triggered_id)
     uid = dash.ctx.triggered_id["uid"]
-    print(dash.ctx.triggered_id)
-    fig = go.Figure(current_fig)
-
-    df = ISS_SANDBOX[uid].read()
-    df["mut"] = -np.log(df["it"] / df["i0"])
-    df["mur"] = -np.log(df["ir"] / df["it"])
-    df["muf"] = df["iff"] / df["i0"]
-    
-    for mu in ("mut", "muf", "mur"):
-        fig.add_scatter(x=df["energy"], y=df[mu])
-    
-    return fig
+    scan_id = dash.ctx.triggered_id["scan_id"]
+    new_row = html.Tr([html.Td(scan_id),
+                     html.Td(html.Div(dbc.Checkbox(value=True, id={"type": "mut_check", "uid": uid}))),
+                     html.Td(html.Div(dbc.Checkbox(value=True, id={"type": "muf_check", "uid": uid}))),
+                     html.Td(html.Div(dbc.Checkbox(value=True, id={"type": "mur_check", "uid": uid}))),
+                     ], id={"type": "table_row", "uid": uid})
+    if uid not in [d["uid"] for d in row_id_dicts]:
+        table_rows.append(new_row)
+    return table_rows
 
 
 # @app.callback(
 #     Output("spectrum_plot", "figure"),
-#     Input("plot_btn", "n_clicks"),
-#     State({"type": "scan_checklist", "uid": ALL}, "value"),
-#     State({"type": "scan_checklist", "uid": ALL}, "id"),
+#     Input({"type": "plus_btn", "uid": ALL}, "n_clicks"),
+#     State("spectrum_plot", "figure"),
+#     prevent_initial_call=True,
 # )
-# def plot_selected_spectra(click, checklist_values, checklist_id_dicts):
-#     fig = go.Figure(layout={"height": 800})
-#     for cv, cd in zip(checklist_values, checklist_id_dicts):
-#         if cv is None:
-#             continue
-#         uid = cd["uid"]
-        # df = ISS_SANDBOX[uid].read()
-        # df["mut"] = -np.log(df["it"] / df["i0"])
-        # df["mur"] = -np.log(df["ir"] / df["it"])
-        # df["muf"] = df["iff"] / df["i0"]
-#         for val in cv:
-#             fig.add_scatter(x=df["energy"], y=df[val])
+# def add_spectrum_to_plot(click, current_fig):
+#     uid = dash.ctx.triggered_id["uid"]
+#     print(dash.ctx.triggered_id)
+#     fig = go.Figure(current_fig)
+
+#     df = ISS_SANDBOX[uid].read()
+#     df["mut"] = -np.log(df["it"] / df["i0"])
+#     df["mur"] = -np.log(df["ir"] / df["it"])
+#     df["muf"] = df["iff"] / df["i0"]
+    
+#     for mu in ("mut", "muf", "mur"):
+#         fig.add_scatter(x=df["energy"], y=df[mu])
+    
 #     return fig
 
 
