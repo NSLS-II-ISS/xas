@@ -70,80 +70,90 @@ def show_proposal_accordion(n_search_clicks, n_sort_clicks, dropdown_choice, yea
 
 @app.callback(
     Output("scan_table", "children"),
-    Input({"type": "plus_btn", "scan_id": ALL, "uid": ALL}, "n_clicks"),
+    Input({"type": "plus_btn", "uid": ALL}, "n_clicks"),
     State("scan_table", "children"),
     State({"type": "table_row", "uid": ALL}, "id"),
     prevent_initial_call=True,
 )
 def add_scan_to_table(click, table_rows, row_id_dicts):
     uid = dash.ctx.triggered_id["uid"]
-    scan_id = dash.ctx.triggered_id["scan_id"]
+    scan_id = ISS_SANDBOX[uid].metadata["scan_id"]
     new_row = html.Tr([html.Td(scan_id),
-                     html.Td(html.Div(dbc.Checkbox(value=False, id={"type": "mut_check", "scan_id": scan_id, "uid": uid}))),
-                     html.Td(html.Div(dbc.Checkbox(value=False, id={"type": "muf_check", "scan_id": scan_id, "uid": uid}))),
-                     html.Td(html.Div(dbc.Checkbox(value=False, id={"type": "mur_check", "scan_id": scan_id, "uid": uid}))),
+                     html.Td(html.Div(dbc.Checkbox(value=False, id={"type": "mut_check", "uid": uid}))),
+                     html.Td(html.Div(dbc.Checkbox(value=False, id={"type": "muf_check", "uid": uid}))),
+                     html.Td(html.Div(dbc.Checkbox(value=False, id={"type": "mur_check", "uid": uid}))),
                      ], id={"type": "table_row", "uid": uid})
     if uid not in [d["uid"] for d in row_id_dicts]:
         table_rows.append(new_row)
     return table_rows
 
 
-# @app.callback(
-#     Output("spectrum_plot", "figure"),
-#     Input({"type": "mut_check", "scan_id": ALL, "uid": ALL}, "value"),
-#     Input({"type": "muf_check", "scan_id": ALL, "uid": ALL}, "value"),
-#     Input({"type": "mur_check", "scan_id": ALL, "uid": ALL}, "value"),
-#     State("spectrum_plot", "figure"),
-#     prevent_initial_call=True,   
-# )
-# def add_spectrum_to_plot(mut_chk, muf_chk, mur_chk,
-#                          current_fig):
-    
-#     fig = go.Figure(current_fig)
-#     # print(dash.ctx.triggered)
-#     if (dash.ctx.triggered_id["type"] == "mut_check") and dash.ctx.triggered[0]["value"]:
-#         uid = dash.ctx.triggered_id["uid"]
-#         scan_id = dash.ctx.triggered_id["scan_id"]
-#         df = ISS_SANDBOX[uid].read()
-#         df["mut"] = -np.log(df["it"] / df["i0"])
-#         fig.add_scatter(x=df["energy"], y=df["mut"], name=f"{scan_id} mut")
+def remove_trace_from_fig(name_to_remove, fig: go.Figure):
+    current_traces = fig.data
+    fig.data = tuple(trace for trace in current_traces if trace.name != name_to_remove)
 
-#     if (dash.ctx.triggered_id["type"] == "muf_check") and dash.ctx.triggered[0]["value"]:
-#         uid = dash.ctx.triggered_id["uid"]
-#         scan_id = dash.ctx.triggered_id["scan_id"]
-#         df = ISS_SANDBOX[uid].read()
-#         df["muf"] = df["iff"] / df["i0"]
-#         fig.add_scatter(x=df["energy"], y=df["muf"], name=f"{scan_id} muf")
-
-#     if (dash.ctx.triggered_id["type"] == "mur_check") and dash.ctx.triggered[0]["value"]:
-#         uid = dash.ctx.triggered_id["uid"]
-#         scan_id = dash.ctx.triggered_id["scan_id"]
-#         df = ISS_SANDBOX[uid].read()
-#         df["mur"] = -np.log(df["ir"] / df["it"])
-#         fig.add_scatter(x=df["energy"], y=df["mur"], name=f"{scan_id} mur")
-
-#     return fig
 
 @app.callback(
     Output("spectrum_plot", "figure"),
-    Input({"type": "plus_btn", "uid": ALL}, "n_clicks"),
+    Input({"type": "mut_check", "uid": ALL}, "value"),
+    Input({"type": "muf_check", "uid": ALL}, "value"),
+    Input({"type": "mur_check", "uid": ALL}, "value"),
     State("spectrum_plot", "figure"),
-    prevent_initial_call=True,
+    prevent_initial_call=True,   
 )
-def add_spectrum_to_plot(click, current_fig):
+def add_spectrum_to_plot(mut_chk, muf_chk, mur_chk,
+                         current_fig):
+    print(dash.ctx.triggered_id)
     uid = dash.ctx.triggered_id["uid"]
-    fig = go.Figure(current_fig)
-
     scan_id = ISS_SANDBOX[uid].metadata["scan_id"]
-    df = ISS_SANDBOX[uid].read()
-    df["mut"] = -np.log(df["it"] / df["i0"])
-    df["mur"] = -np.log(df["ir"] / df["it"])
-    df["muf"] = df["iff"] / df["i0"]
+    fig = go.Figure(current_fig)
     
-    for mu in ("mut", "muf", "mur"):
-        fig.add_scatter(x=df["energy"], y=df[mu], name=f"{scan_id} {mu}")
+    if (dash.ctx.triggered_id["type"] == "mut_check"):
+        if dash.ctx.triggered[0]["value"] is True:
+            df = ISS_SANDBOX[uid].read()
+            df["mut"] = -np.log(df["it"] / df["i0"])
+            fig.add_scatter(x=df["energy"], y=df["mut"], name=f"{scan_id} mut")
+        if dash.ctx.triggered[0]["value"] is False:
+            remove_trace_from_fig(f"{scan_id} mut", fig)
+
+    if (dash.ctx.triggered_id["type"] == "muf_check"):
+        if  dash.ctx.triggered[0]["value"] is True:
+            df = ISS_SANDBOX[uid].read()
+            df["muf"] = df["iff"] / df["i0"]
+            fig.add_scatter(x=df["energy"], y=df["muf"], name=f"{scan_id} muf")
+        if dash.ctx.triggered[0]["value"] is False:
+            remove_trace_from_fig(f"{scan_id} muf", fig)
+
+    if (dash.ctx.triggered_id["type"] == "mur_check"):
+        if  dash.ctx.triggered[0]["value"] is True:
+            df = ISS_SANDBOX[uid].read()
+            df["mur"] = -np.log(df["ir"] / df["it"])
+            fig.add_scatter(x=df["energy"], y=df["mur"], name=f"{scan_id} mur")
+        if dash.ctx.triggered[0]["value"] is False:
+            remove_trace_from_fig(f"{scan_id} mur", fig)
     
     return fig
+
+# @app.callback(
+#     Output("spectrum_plot", "figure"),
+#     Input({"type": "plus_btn", "uid": ALL}, "n_clicks"),
+#     State("spectrum_plot", "figure"),
+#     prevent_initial_call=True,
+# )
+# def add_spectrum_to_plot(click, current_fig):
+#     uid = dash.ctx.triggered_id["uid"]
+#     fig = go.Figure(current_fig)
+
+#     scan_id = ISS_SANDBOX[uid].metadata["scan_id"]
+#     df = ISS_SANDBOX[uid].read()
+#     df["mut"] = -np.log(df["it"] / df["i0"])
+#     df["mur"] = -np.log(df["ir"] / df["it"])
+#     df["muf"] = df["iff"] / df["i0"]
+    
+#     for mu in ("mut", "muf", "mur"):
+#         fig.add_scatter(x=df["energy"], y=df[mu], name=f"{scan_id} {mu}")
+    
+#     return fig
 
 
 if __name__ == "__main__":
