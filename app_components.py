@@ -6,27 +6,25 @@ import plotly.graph_objects as go
 
 from xas.tiled_io import sort_node_by_metadata_key
 
-def build_scangroup_interactable(scangroup_node):
+def build_scangroup_interactable(scangroup_node, group_label):
+    select_all = html.Div(dbc.Button("select all", color="secondary", id={"type": "select_all_btn", "group": group_label}),
+                          style={"padding-bottom": "10px"})
     scan_labels = [html.Div([
             html.Div(f"{v.metadata['scan_id']}",
-                     style={"display": "inline-block", "padding": "5px"},), 
-            dbc.Button("+",
-                        id={"type": "plus_btn", "uid": k},
-                        color="success", 
-                        size="sm"),
-                        # style={"background-color": "white"}),
+                     style={"display": "inline-block", "padding": "3px"},), 
+            dbc.Checkbox(id={"type": "scan_check", "uid": k, "group": group_label}, style={"display": "inline-block"}),
             html.Br(),
         ]) 
         for k, v in scangroup_node.items_indexer
     ]
-    return scan_labels
+    return [select_all] + scan_labels
 
 
 def build_sample_accordion(sample_node):
     scangroup_nodes = sort_node_by_metadata_key(sample_node, "monochromator_scan_uid")
     sample_accordion_items = [
         dbc.AccordionItem(
-            build_scangroup_interactable(sg_node),
+            build_scangroup_interactable(sg_node, group_label=f"scan group {i+1}"),
             title=f"scan group {i+1}"
         )
         for i, sg_node in enumerate(scangroup_nodes)
@@ -38,7 +36,7 @@ def build_scan_accordion(scan_node):
     sample_nodes, sample_labels = sort_node_by_metadata_key(scan_node, "sample_name", return_values=True)
     scan_accordion_items = [
         dbc.AccordionItem(
-            build_scangroup_interactable(smp_node),
+            build_scangroup_interactable(smp_node, group_label=smp_label),
             title=smp_label
         )
         for smp_node, smp_label in zip(sample_nodes, sample_labels)
@@ -66,13 +64,13 @@ def build_proposal_accordion(proposal_node, sort_key):
 
 visualization_tab = dbc.Tab(
     [
-    dbc.Row(
-        dbc.Col(
-            html.Table([
-                html.Thead(html.Tr([html.Th(" "), html.Th("Scan"), html.Th("mut"), html.Th("muf"), html.Th("mur")])),
-            ], style={"width": "50%"}, id="scan_table"),
-        ), 
-    ),
+    # dbc.Row(
+    #     dbc.Col(
+    #         html.Table([
+    #             html.Thead(html.Tr([html.Th(" "), html.Th("Scan"), html.Th("mut"), html.Th("muf"), html.Th("mur")])),
+    #         ], style={"width": "50%"}, id="scan_table"),
+    #     ), 
+    # ),
     dbc.Row(dcc.Graph(figure=go.Figure(layout={"height": 800}), id="spectrum_plot")),
     ],
     label="Visualization",

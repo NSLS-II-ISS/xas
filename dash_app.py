@@ -37,9 +37,25 @@ app.layout = dbc.Container([
                 )),
                 dbc.Col(dbc.Button("sort", id="sort_btn")),
             ], style={"padding-bottom": "10px"}),
-            dbc.Row(
-                dbc.Col(dbc.Spinner(html.Div(id="accordion_loc"), color="primary"))
-            ),
+            dbc.Row([
+                dbc.Col(dbc.Spinner(html.Div(id="accordion_loc"), color="primary")),
+                dbc.Col([
+                    dbc.Row(
+                        dbc.Card(
+                            dbc.Checklist(
+                                options=[
+                                    {"label": "mut", "value": "mut_chk"},
+                                    {"label": "muf", "value": "muf_chk"},
+                                    {"label": "mur", "value": "mur_chk"},
+                                ]
+                            ),
+                            body=True
+                        ),
+                    style={"padding-bottom": "10px"}),
+                    dbc.Row(dbc.Button("plot", id="plot_btn")),
+                    dbc.Row(html.Div("test", id="test_text")),
+                ]),
+            ]),
         ], width=3),
         dbc.Col([
             dbc.Tabs([
@@ -68,92 +84,15 @@ def show_proposal_accordion(n_search_clicks, n_sort_clicks, dropdown_choice, yea
 
 
 @app.callback(
-    Output("scan_table", "children"),
-    Input({"type": "plus_btn", "uid": ALL}, "n_clicks"),
-    Input({"type": "minus_btn", "uid": ALL}, "n_clicks"),
-    State("scan_table", "children"),
-    State({"type": "table_row", "uid": ALL}, "id"),
+    Output("test_text", "children"),
+    Input({"type": "select_all_btn", "group": ALL}, "n_clicks"),
     prevent_initial_call=True,
 )
-def edit_scan_table(plus_click, minus_click, table_rows, row_id_dicts):
-    uid = dash.ctx.triggered_id["uid"]
-    scan_id = ISS_SANDBOX[uid].metadata["scan_id"]
+def select_all_scans_in_group(select_all_click):
+    return str(select_all_click)
+    # print(len(range(dash.ctx.outputs_list)))
+    # return tuple(True for _ in len(range(dash.ctx.outputs_list)))
 
-    # add row to table
-    if dash.ctx.triggered_id["type"] == "plus_btn":
-        new_row = html.Tr([
-                        html.Td(dbc.Button("-", id={"type": "minus_btn", "uid": uid}, color="danger", size="sm")),
-                        html.Td(scan_id),
-                        html.Td(html.Div(dbc.Checkbox(value=False, id={"type": "mut_check", "uid": uid}))),
-                        html.Td(html.Div(dbc.Checkbox(value=False, id={"type": "muf_check", "uid": uid}))),
-                        html.Td(html.Div(dbc.Checkbox(value=False, id={"type": "mur_check", "uid": uid}))),
-                        ]
-                        , id={"type": "table_row", "uid": uid})
-        if uid not in [d["uid"] for d in row_id_dicts]:
-            table_rows.append(new_row)
-    
-    # remove row from table
-    if dash.ctx.triggered_id["type"] == "minus_btn":
-        table_rows = [r[0] for r in zip(table_rows, row_id_dicts) if r[1]["uid"] != uid]
-    
-    return table_rows
-
-
-def remove_trace_from_fig(name_to_remove, fig: go.Figure):
-    current_traces = fig.data
-    fig.data = tuple(trace for trace in current_traces if trace.name != name_to_remove)
-
-
-@app.callback(
-    Output("spectrum_plot", "figure"),
-    Input({"type": "mut_check", "uid": ALL}, "value"),
-    Input({"type": "muf_check", "uid": ALL}, "value"),
-    Input({"type": "mur_check", "uid": ALL}, "value"),
-    Input({"type": "minus_btn", "uid": ALL}, "n_clicks"),
-    State("spectrum_plot", "figure"),
-    prevent_initial_call=True,   
-)
-def add_spectrum_to_plot(mut_chk, muf_chk, mur_chk, minus_click,
-                         current_fig):
-    
-    print(dash.ctx.triggered_id)
-    fig = go.Figure(current_fig)
-    if dash.ctx.triggered_id is None:
-        return fig
-    
-    uid = dash.ctx.triggered_id["uid"]
-    scan_id = ISS_SANDBOX[uid].metadata["scan_id"]
-    
-    if (dash.ctx.triggered_id["type"] == "mut_check"):
-        if dash.ctx.triggered[0]["value"] is True:
-            df = ISS_SANDBOX[uid].read()
-            df["mut"] = -np.log(df["it"] / df["i0"])
-            fig.add_scatter(x=df["energy"], y=df["mut"], name=f"{scan_id} mut")
-        if dash.ctx.triggered[0]["value"] is False:
-            remove_trace_from_fig(f"{scan_id} mut", fig)
-
-    if (dash.ctx.triggered_id["type"] == "muf_check"):
-        if dash.ctx.triggered[0]["value"] is True:
-            df = ISS_SANDBOX[uid].read()
-            df["muf"] = df["iff"] / df["i0"]
-            fig.add_scatter(x=df["energy"], y=df["muf"], name=f"{scan_id} muf")
-        if dash.ctx.triggered[0]["value"] is False:
-            remove_trace_from_fig(f"{scan_id} muf", fig)
-
-    if (dash.ctx.triggered_id["type"] == "mur_check"):
-        if dash.ctx.triggered[0]["value"] is True:
-            df = ISS_SANDBOX[uid].read()
-            df["mur"] = -np.log(df["ir"] / df["it"])
-            fig.add_scatter(x=df["energy"], y=df["mur"], name=f"{scan_id} mur")
-        if dash.ctx.triggered[0]["value"] is False:
-            remove_trace_from_fig(f"{scan_id} mur", fig)
-
-    if dash.ctx.triggered_id["type"] == "minus_btn":
-        remove_trace_from_fig(f"{scan_id} mut", fig)
-        remove_trace_from_fig(f"{scan_id} muf", fig)
-        remove_trace_from_fig(f"{scan_id} mur", fig)
-    
-    return fig
 
 # @app.callback(
 #     Output("spectrum_plot", "figure"),
