@@ -5,7 +5,6 @@ import dash_bootstrap_components as dbc
 import numpy as np
 import plotly.graph_objects as go
 
-from tiled.queries import Key
 from xas.tiled_io import get_iss_sandbox, filter_node_for_proposal
 from xas.analysis import check_scan
 
@@ -71,20 +70,32 @@ def show_proposal_accordion(n_search_clicks, n_sort_clicks, dropdown_choice, yea
 @app.callback(
     Output("scan_table", "children"),
     Input({"type": "plus_btn", "uid": ALL}, "n_clicks"),
+    Input({"type": "minus_btn", "uid": ALL}, "n_clicks"),
     State("scan_table", "children"),
     State({"type": "table_row", "uid": ALL}, "id"),
     prevent_initial_call=True,
 )
-def add_scan_to_table(click, table_rows, row_id_dicts):
+def edit_scan_table(plus_click, minus_click, table_rows, row_id_dicts):
     uid = dash.ctx.triggered_id["uid"]
     scan_id = ISS_SANDBOX[uid].metadata["scan_id"]
-    new_row = html.Tr([html.Td(scan_id),
-                     html.Td(html.Div(dbc.Checkbox(value=False, id={"type": "mut_check", "uid": uid}))),
-                     html.Td(html.Div(dbc.Checkbox(value=False, id={"type": "muf_check", "uid": uid}))),
-                     html.Td(html.Div(dbc.Checkbox(value=False, id={"type": "mur_check", "uid": uid}))),
-                     ], id={"type": "table_row", "uid": uid})
-    if uid not in [d["uid"] for d in row_id_dicts]:
-        table_rows.append(new_row)
+
+    # add row to table
+    if dash.ctx.triggered_id["type"] == "plus_btn":
+        new_row = html.Tr([
+                        html.Td(dbc.Button("-", id={"type": "minus_btn", "uid": uid}, color="danger", size="sm")),
+                        html.Td(scan_id),
+                        html.Td(html.Div(dbc.Checkbox(value=False, id={"type": "mut_check", "uid": uid}))),
+                        html.Td(html.Div(dbc.Checkbox(value=False, id={"type": "muf_check", "uid": uid}))),
+                        html.Td(html.Div(dbc.Checkbox(value=False, id={"type": "mur_check", "uid": uid}))),
+                        ]
+                        , id={"type": "table_row", "uid": uid})
+        if uid not in [d["uid"] for d in row_id_dicts]:
+            table_rows.append(new_row)
+    
+    # remove row from table
+    if dash.ctx.triggered_id["type"] == "minus_btn":
+        table_rows = [r[0] for r in zip(table_rows, row_id_dicts) if r[1]["uid"] != uid]
+    
     return table_rows
 
 
@@ -98,15 +109,20 @@ def remove_trace_from_fig(name_to_remove, fig: go.Figure):
     Input({"type": "mut_check", "uid": ALL}, "value"),
     Input({"type": "muf_check", "uid": ALL}, "value"),
     Input({"type": "mur_check", "uid": ALL}, "value"),
+    Input({"type": "minus_btn", "uid": ALL}, "n_clicks"),
     State("spectrum_plot", "figure"),
     prevent_initial_call=True,   
 )
-def add_spectrum_to_plot(mut_chk, muf_chk, mur_chk,
+def add_spectrum_to_plot(mut_chk, muf_chk, mur_chk, minus_click,
                          current_fig):
+    
     print(dash.ctx.triggered_id)
+    fig = go.Figure(current_fig)
+    if dash.ctx.triggered_id is None:
+        return fig
+    
     uid = dash.ctx.triggered_id["uid"]
     scan_id = ISS_SANDBOX[uid].metadata["scan_id"]
-    fig = go.Figure(current_fig)
     
     if (dash.ctx.triggered_id["type"] == "mut_check"):
         if dash.ctx.triggered[0]["value"] is True:
@@ -117,7 +133,7 @@ def add_spectrum_to_plot(mut_chk, muf_chk, mur_chk,
             remove_trace_from_fig(f"{scan_id} mut", fig)
 
     if (dash.ctx.triggered_id["type"] == "muf_check"):
-        if  dash.ctx.triggered[0]["value"] is True:
+        if dash.ctx.triggered[0]["value"] is True:
             df = ISS_SANDBOX[uid].read()
             df["muf"] = df["iff"] / df["i0"]
             fig.add_scatter(x=df["energy"], y=df["muf"], name=f"{scan_id} muf")
@@ -125,12 +141,17 @@ def add_spectrum_to_plot(mut_chk, muf_chk, mur_chk,
             remove_trace_from_fig(f"{scan_id} muf", fig)
 
     if (dash.ctx.triggered_id["type"] == "mur_check"):
-        if  dash.ctx.triggered[0]["value"] is True:
+        if dash.ctx.triggered[0]["value"] is True:
             df = ISS_SANDBOX[uid].read()
             df["mur"] = -np.log(df["ir"] / df["it"])
             fig.add_scatter(x=df["energy"], y=df["mur"], name=f"{scan_id} mur")
         if dash.ctx.triggered[0]["value"] is False:
             remove_trace_from_fig(f"{scan_id} mur", fig)
+
+    if dash.ctx.triggered_id["type"] == "minus_btn":
+        remove_trace_from_fig(f"{scan_id} mut", fig)
+        remove_trace_from_fig(f"{scan_id} muf", fig)
+        remove_trace_from_fig(f"{scan_id} mur", fig)
     
     return fig
 

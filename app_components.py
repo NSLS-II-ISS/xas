@@ -10,11 +10,11 @@ def build_scangroup_interactable(scangroup_node):
     scan_labels = [html.Div([
             html.Div(f"{v.metadata['scan_id']}",
                      style={"display": "inline-block", "padding": "5px"},), 
-            html.Button("+",
-                        id={"type": "plus_btn",
-                            # "scan_id": f"{v.metadata['scan_id']}",
-                            "uid": k}, 
-                        style={"background-color": "white"}),
+            dbc.Button("+",
+                        id={"type": "plus_btn", "uid": k},
+                        color="success", 
+                        size="sm"),
+                        # style={"background-color": "white"}),
             html.Br(),
         ]) 
         for k, v in scangroup_node.items_indexer
@@ -69,7 +69,7 @@ visualization_tab = dbc.Tab(
     dbc.Row(
         dbc.Col(
             html.Table([
-                html.Thead(html.Tr([html.Th("Scan"), html.Th("mut"), html.Th("muf"), html.Th("mur")])),
+                html.Thead(html.Tr([html.Th(" "), html.Th("Scan"), html.Th("mut"), html.Th("muf"), html.Th("mur")])),
             ], style={"width": "50%"}, id="scan_table"),
         ), 
     ),
