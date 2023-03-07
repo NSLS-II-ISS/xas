@@ -79,7 +79,27 @@ metadata_dict = OrderedDict({
 'sample_heater_PID_KP' :        {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{FbPid:01}PID.KP',                      'human_readable_key': 'SampleHeater.PID.P'},
 'sample_heater_PID_KI' :        {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{FbPid:01}PID.KI',                      'human_readable_key': 'SampleHeater.PID.I'},
 'sample_heater_PID_KD' :        {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{FbPid:01}PID.KD',                      'human_readable_key': 'SampleHeater.PID.D'},
+'gc_mfc_methane_sp'  :          {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{GC:1-MFC:1}Gas:Flow-SP',               'human_readable_key': 'SampleGasCart.methane.setpoint'},
+'gc_mfc_methane_rb'  :          {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{GC:1-MFC:1}Gas:Flow-I',                'human_readable_key': 'SampleGasCart.methane.readback'},
+'gc_mfc_carbon_monoxide_sp':    {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{GC:1-MFC:2}Gas:Flow-SP',               'human_readable_key': 'SampleGasCart.carbon_monoxide.setpoint'},
+'gc_mfc_carbon_monoxide_rb':    {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{GC:1-MFC:2}Gas:Flow-I',                'human_readable_key': 'SampleGasCart.carbon_monoxide.readback'},
+'gc_mfc_hydrogen_sp':           {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{GC:1-MFC:3}Gas:Flow-SP',               'human_readable_key': 'SampleGasCart.hydrogen.setpoint'},
+'gc_mfc_hydrogen_rb':           {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{GC:1-MFC:3}Gas:Flow-I',                'human_readable_key': 'SampleGasCart.hydrogen.readback'},
 })
+
+_ghs_selected_gas_dict = OrderedDict()
+for letter in ['a', 'b', 'c', 'd', 'e']:
+    _ghs_selected_gas_dict[f'ghs_selected_gas_{letter}'] = {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-UT{Gas:1}Group:' + f'{letter.upper()}' + '-Sel',                    'human_readable_key': f'SampleGasHandlingSystem.gas_{letter}.name'}
+
+_ghs_mfc_dict = OrderedDict()
+for i in range(1, 17):
+    _ghs_mfc_dict[f'ghs_mfc_{i}_sp'] = {'kind': 'epics_pv', 'pv_str': 'XF:08IDB-UT{Gas:1-MFC:' + f'{i:02d}' + '}F:Target-SP',                'human_readable_key': f'SampleGasHandlingSystm.MFC{i}.setpoint'}
+    _ghs_mfc_dict[f'ghs_mfc_{i}_rb'] = {'kind': 'epics_pv', 'pv_str': 'XF:08IDB-UT{Gas:1-MFC:' + f'{i:02d}' + '}F-I',                        'human_readable_key': f'SampleGasHandlingSystm.MFC{i}.readback'}
+
+
+metadata_dict = {**metadata_dict, **_ghs_selected_gas_dict, **_ghs_mfc_dict}
+
+ghs_selected_gas_key_match = {'ghs_selected_gas_e': {0: 'None', 1: 'Ar', 2: 'CO2', 3: 'N2', 4: 'He'}}
 
 key_match = {k : v['human_readable_key'] for k, v in metadata_dict.items()}
 

@@ -1076,3 +1076,53 @@ for uid in uids:
                                                    'spectrometer_config': {'energy_calibration_uid': None},
                                                    'detectors': {'Pilatus 100k': {'config': {'roi':{'roi1':{'x':165, 'dx':285, 'y':30,'dy': 45}}}}}})
 
+##############
+
+df['name_'] = [os.path.split(str(i))[1] for i in  df['name'].tolist()]
+
+
+uid_df = []
+uids = db.v2.search({'year' : '2023','cycle' : '1', 'PROPOSAL': '311969'})
+for uid in uids:
+# for uid in ['5a4ba893-7336-4f9f-b1c6-cf35f3ae9854']:
+    hdr = db[uid]
+    md = hdr.start
+    if 'sample_name' in md.keys():
+        print(md['name'], datetime.fromtimestamp(md['time']))
+        _data = {'uid': uid, 'sample_name': md['sample_name'], 'name': md['name'], 'time': md['time']}
+        uid_df.append(_data)
+
+        # if 'CuBTC_TCNQ_dcm_180' in md['name']:
+        #     print(uid, '\t', md['scan_id'], '\t', md['sample_name'], '\t', md['name'])
+
+
+
+plt.figure(1, clear=True)
+
+dw = xraydb.darwin_width(21780, 'Si', (11, 11, 11), m=1)
+plt.plot(dw.denergy, dw.intensity, label=f'Si(11, 11, 11), th={float(np.rad2deg(dw.theta)):0.2f}, DW={dw.energy_width:0.4f}')
+# plt.plot(dw.dtheta*1e6, dw.intensity, label=f'Si(11, 11, 11) th={float(np.rad2deg(dw.theta)):0.2f}')
+# print(np.trapz(dw.intensity, dw.denergy[::-1]))
+
+
+dw = xraydb.darwin_width(21780, 'Si', (6, 6, 0))
+plt.plot(dw.denergy, dw.intensity, label=f'Si(6, 6, 0), th={float(np.rad2deg(dw.theta)):0.2f}, DW={dw.energy_width:0.4f}')
+# plt.plot(dw.dtheta*1e6, dw.intensity, label=f'Si(6, 6, 0) th={float(np.rad2deg(dw.theta)):0.2f}')
+# print(np.trapz(dw.intensity, dw.denergy[::-1]))
+
+# dw = xraydb.darwin_width(21780, 'Ge', (11, 11, 11))
+# plt.plot(dw.denergy, dw.intensity, label=f'Ge(11, 11, 11), th={float(np.rad2deg(dw.theta)):0.2f}, DW={dw.energy_width:0.4f}')
+# # plt.plot(dw.dtheta*1e6, dw.intensity, label=f'Si(11, 11, 11) th={float(np.rad2deg(dw.theta)):0.2f}')
+# # print(np.trapz(dw.intensity, dw.denergy[::-1]))
+#
+#
+# dw = xraydb.darwin_width(21780, 'Ge', (6, 6, 0))
+# plt.plot(dw.denergy, dw.intensity, label=f'Ge(6, 6, 0), th={float(np.rad2deg(dw.theta)):0.2f}, DW={dw.energy_width:0.4f}')
+
+
+plt.legend()
+
+
+
+
+
