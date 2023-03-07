@@ -10,9 +10,9 @@ def build_scangroup_interactable(scangroup_node, group_label):
     select_all = html.Div(dbc.Button("select all", color="secondary", id={"type": "select_all_btn", "group": group_label}),
                           style={"padding-bottom": "10px"})
     scan_labels = [html.Div([
-            html.Div(f"{v.metadata['scan_id']}",
+            html.Div(v.metadata["scan_id"],
                      style={"display": "inline-block", "padding": "3px"},), 
-            dbc.Checkbox(id={"type": "scan_check", "uid": k, "group": group_label}, style={"display": "inline-block"}),
+            dbc.Checkbox(id={"type": "scan_check", "group": group_label}, style={"display": "inline-block"}),
             html.Br(),
         ]) 
         for k, v in scangroup_node.items_indexer

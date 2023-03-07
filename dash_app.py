@@ -53,7 +53,6 @@ app.layout = dbc.Container([
                         ),
                     style={"padding-bottom": "10px"}),
                     dbc.Row(dbc.Button("plot", id="plot_btn")),
-                    dbc.Row(html.Div("test", id="test_text")),
                 ]),
             ]),
         ], width=3),
@@ -84,14 +83,14 @@ def show_proposal_accordion(n_search_clicks, n_sort_clicks, dropdown_choice, yea
 
 
 @app.callback(
-    Output("test_text", "children"),
-    Input({"type": "select_all_btn", "group": ALL}, "n_clicks"),
+    # Output({"type": "test_text", "group": MATCH}, "children"),
+    Output({"type": "scan_check", "group": MATCH}, "value"),
+    Input({"type": "select_all_btn", "group": MATCH}, "n_clicks"),
     prevent_initial_call=True,
 )
 def select_all_scans_in_group(select_all_click):
-    return str(select_all_click)
-    # print(len(range(dash.ctx.outputs_list)))
-    # return tuple(True for _ in len(range(dash.ctx.outputs_list)))
+    print(len(dash.ctx.outputs_list))
+    return tuple(True for _ in range(len(dash.ctx.outputs_list)))
 
 
 # @app.callback(
