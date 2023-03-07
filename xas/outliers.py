@@ -14,7 +14,8 @@ from sklearn.neighbors import LocalOutlierFactor
 from sklearn.ensemble import IsolationForest
 from sklearn.svm import OneClassSVM
 
-from xas.analysis import standardize_energy_grid, prenormalize_data
+from xas.analysis import standardize_energy_grid, prenormalize_data, check_scan
+from xas.energy_calibration import compute_shift_between_spectra
 
 TEST_PATH = "/home/charles/Desktop/test_data/outlier_muf.pkl"
 
@@ -316,3 +317,32 @@ def plot_scangroup(sg_df, channels=("mut", "muf", "mur")):
         for ch in channels:
             plt.plot(scan["data"]["energy"], scan["data"][ch])
     plt.show()
+
+
+def check_refs(sg_df_uid: pd.DataFrame) -> None:
+    sg_df_uid["mur_source"] = None
+    if all(sg_df_uid["mur_good"]):
+        return
+    if all(sg_df_uid["mur_good"]==False):
+        print("Failed. No good refs in scan group.")
+        return
+    #bad_ref_inds = sg_df_uid.index[sg_df_uid["mur_good"]==False]
+    bad_ref_df = sg_df_uid[sg_df_uid["mur_good"]==False]
+    good_ref_df = sg_df_uid[sg_df_uid["mur_good"]==True]
+
+    for i, scan_time in bad_ref_df["time"].items():
+        closest_time_idx = np.abs(scan_time - good_ref_df["time"]).idxmin()
+        source_mur = good_ref_df.loc[closest_time_idx, "data"]["mur"]
+        sg_df_uid.loc[i, "data"]["mur"] = source_mur
+        sg_df_uid.loc[i, "mur_source"] = good_ref_df.loc[closest_time_idx, "uid"]
+
+
+def big_test(df_uid):
+    outlier_results = []
+    sg_dfs_out = []
+    for sg in df_uid.scan_group.unique()[1:2]:
+        sg_df_uid = df_uid[df_uid.scan_group == sg]
+        outlier_results.append(outlier_rejection(sg_df_uid.data.tolist(), sg_df_uid.uid.tolist()))
+        check_refs(sg_df_uid)
+        sg_dfs_out.append(sg_df_uid)
+    return outlier_results, sg_dfs_out

@@ -321,8 +321,13 @@ plt.plot(energy_ref_roi, mu_ref_roi)
 plt.plot(energy_ref_roi, mu_fit)
 
 ###########
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib as mpl
+mpl.use("TkAgg")
+from scipy.interpolate import CubicSpline
 from xas.file_io import load_binned_df_from_file
-from xas.energy_calibration import compute_energy_shift_and_broadening_between_spectra
+from xas.energy_calibration import compute_energy_shift_and_broadening_between_spectra, fine_convolution_grid
 path = '/home/charles/Desktop/test_data/bender_scans'
 files = \
 [
@@ -346,10 +351,24 @@ for f in files:
     _df['mur'] = -np.log(_df['ir'] / _df['it'])
     dfs.append(_df)
 
+# df = dfs[0]
+# energy, mu = df["energy"], df["mur"]
+# e0 = 24350
+# de = 200
+
+# cs = CubicSpline(energy_ref, mu_ref)
+
+# roi_mask = (energy > (e0 - de / 2)) & (energy < (e0 + de / 2))
+# energy_roi = energy[roi_mask]
+# mu_roi = mu[roi_mask]
+
+# fine_grid_energy_ref = fine_convolution_grid(energy_ref, sigma=0.01)
+# fine_grid_mu_ref = cs(fine_grid_energy_ref)
+
 plt.figure(1, clear=True)
 for i, df in enumerate(dfs):
     shift, sigma, energy_fit, mu_fit = compute_energy_shift_and_broadening_between_spectra(df['energy'].values, df['mur'].values,
-                                                                                           energy_ref, mu_ref, e0=24350, de=200)
+                                                                                           energy_ref - 14.85, mu_ref, e0=24350, de=200)
     print(i, shift, sigma)
     plt.plot(df['energy'].values, df['mur'].values - i, 'k-')
     plt.plot(energy_fit, mu_fit - i, 'r-')
@@ -903,71 +922,6 @@ files = [
 ]
 
 
-# Co metal
-files = [
-'/nsls2/data/iss/legacy/backup/users/2021/3/300010/Co3O4 pos   1 Co K 0005 0010-r0003 vh_roi1.dat',
-'/nsls2/data/iss/legacy/backup/users/2021/3/300010/Co3O4 pos   1 Co K 0005 0009-r0003 vh_roi1.dat',
-'/nsls2/data/iss/legacy/backup/users/2021/3/300010/Co3O4 pos   1 Co K 0005 0008-r0003 vh_roi1.dat',
-'/nsls2/data/iss/legacy/backup/users/2021/3/300010/Co3O4 pos   1 Co K 0005 0007-r0003 vh_roi1.dat',
-'/nsls2/data/iss/legacy/backup/users/2021/3/300010/Co3O4 pos   1 Co K 0005 0006-r0003 vh_roi1.dat',
-'/nsls2/data/iss/legacy/backup/users/2021/3/300010/Co3O4 pos   1 Co K 0005 0005-r0003 vh_roi1.dat',
-'/nsls2/data/iss/legacy/backup/users/2021/3/300010/Co3O4 pos   1 Co K 0005 0004-r0003 vh_roi1.dat',
-'/nsls2/data/iss/legacy/backup/users/2021/3/300010/Co3O4 pos   1 Co K 0005 0003-r0003 vh_roi1.dat',
-'/nsls2/data/iss/legacy/backup/users/2021/3/300010/Co3O4 pos   1 Co K 0005 0002-r0003 vh_roi1.dat',
-'/nsls2/data/iss/legacy/backup/users/2021/3/300010/Co3O4 pos   1 Co K 0005 0001-r0003 vh_roi1.dat',
-'/nsls2/data/iss/legacy/backup/users/2021/3/300010/Co3O4 pos   1 Co K 0004 0010-r0003 vh_roi1.dat',
-'/nsls2/data/iss/legacy/backup/users/2021/3/300010/Co3O4 pos   1 Co K 0004 0009-r0003 vh_roi1.dat',
-'/nsls2/data/iss/legacy/backup/users/2021/3/300010/Co3O4 pos   1 Co K 0004 0008-r0003 vh_roi1.dat',
-'/nsls2/data/iss/legacy/backup/users/2021/3/300010/Co3O4 pos   1 Co K 0004 0007-r0003 vh_roi1.dat',
-'/nsls2/data/iss/legacy/backup/users/2021/3/300010/Co3O4 pos   1 Co K 0004 0006-r0003 vh_roi1.dat',
-'/nsls2/data/iss/legacy/backup/users/2021/3/300010/Co3O4 pos   1 Co K 0004 0005-r0003 vh_roi1.dat',
-'/nsls2/data/iss/legacy/backup/users/2021/3/300010/Co3O4 pos   1 Co K 0004 0004-r0003 vh_roi1.dat',
-'/nsls2/data/iss/legacy/backup/users/2021/3/300010/Co3O4 pos   1 Co K 0004 0003-r0003 vh_roi1.dat',
-'/nsls2/data/iss/legacy/backup/users/2021/3/300010/Co3O4 pos   1 Co K 0004 0002-r0003 vh_roi1.dat',
-'/nsls2/data/iss/legacy/backup/users/2021/3/300010/Co3O4 pos   1 Co K 0004 0001-r0003 vh_roi1.dat',
-'/nsls2/data/iss/legacy/backup/users/2021/3/300010/Co3O4 pos   1 Co K 0003 0010-r0003 vh_roi1.dat',
-'/nsls2/data/iss/legacy/backup/users/2021/3/300010/Co3O4 pos   1 Co K 0003 0009-r0003 vh_roi1.dat',
-'/nsls2/data/iss/legacy/backup/users/2021/3/300010/Co3O4 pos   1 Co K 0003 0008-r0003 vh_roi1.dat',
-'/nsls2/data/iss/legacy/backup/users/2021/3/300010/Co3O4 pos   1 Co K 0003 0007-r0003 vh_roi1.dat',
-'/nsls2/data/iss/legacy/backup/users/2021/3/300010/Co3O4 pos   1 Co K 0003 0006-r0003 vh_roi1.dat',
-'/nsls2/data/iss/legacy/backup/users/2021/3/300010/Co3O4 pos   1 Co K 0003 0005-r0003 vh_roi1.dat',
-'/nsls2/data/iss/legacy/backup/users/2021/3/300010/Co3O4 pos   1 Co K 0003 0004-r0003 vh_roi1.dat',
-'/nsls2/data/iss/legacy/backup/users/2021/3/300010/Co3O4 pos   1 Co K 0003 0003-r0003 vh_roi1.dat',
-'/nsls2/data/iss/legacy/backup/users/2021/3/300010/Co3O4 pos   1 Co K 0003 0002-r0003 vh_roi1.dat',
-'/nsls2/data/iss/legacy/backup/users/2021/3/300010/Co3O4 pos   1 Co K 0003 0001-r0003 vh_roi1.dat',
-'/nsls2/data/iss/legacy/backup/users/2021/3/300010/Co3O4 pos   1 Co K 0002 0010-r0003 vh_roi1.dat',
-'/nsls2/data/iss/legacy/backup/users/2021/3/300010/Co3O4 pos   1 Co K 0002 0009-r0003 vh_roi1.dat',
-'/nsls2/data/iss/legacy/backup/users/2021/3/300010/Co3O4 pos   1 Co K 0002 0008-r0003 vh_roi1.dat',
-'/nsls2/data/iss/legacy/backup/users/2021/3/300010/Co3O4 pos   1 Co K 0002 0007-r0003 vh_roi1.dat',
-'/nsls2/data/iss/legacy/backup/users/2021/3/300010/Co3O4 pos   1 Co K 0002 0006-r0003 vh_roi1.dat',
-'/nsls2/data/iss/legacy/backup/users/2021/3/300010/Co3O4 pos   1 Co K 0002 0005-r0003 vh_roi1.dat',
-'/nsls2/data/iss/legacy/backup/users/2021/3/300010/Co3O4 pos   1 Co K 0002 0004-r0003 vh_roi1.dat',
-'/nsls2/data/iss/legacy/backup/users/2021/3/300010/Co3O4 pos   1 Co K 0002 0003-r0003 vh_roi1.dat',
-'/nsls2/data/iss/legacy/backup/users/2021/3/300010/Co3O4 pos   1 Co K 0002 0002-r0003 vh_roi1.dat',
-'/nsls2/data/iss/legacy/backup/users/2021/3/300010/Co3O4 pos   1 Co K 0002 0001-r0003 vh_roi1.dat',
-'/nsls2/data/iss/legacy/backup/users/2021/3/300010/Co3O4 pos   1 Co K 0001 0010-r0003 vh_roi1.dat',
-'/nsls2/data/iss/legacy/backup/users/2021/3/300010/Co3O4 pos   1 Co K 0001 0009-r0003 vh_roi1.dat',
-'/nsls2/data/iss/legacy/backup/users/2021/3/300010/Co3O4 pos   1 Co K 0001 0008-r0003 vh_roi1.dat',
-'/nsls2/data/iss/legacy/backup/users/2021/3/300010/Co3O4 pos   1 Co K 0001 0007-r0003 vh_roi1.dat',
-'/nsls2/data/iss/legacy/backup/users/2021/3/300010/Co3O4 pos   1 Co K 0001 0006-r0003 vh_roi1.dat',
-'/nsls2/data/iss/legacy/backup/users/2021/3/300010/Co3O4 pos   1 Co K 0001 0005-r0003 vh_roi1.dat',
-'/nsls2/data/iss/legacy/backup/users/2021/3/300010/Co3O4 pos   1 Co K 0001 0004-r0003 vh_roi1.dat',
-'/nsls2/data/iss/legacy/backup/users/2021/3/300010/Co3O4 pos   1 Co K 0001 0003-r0003 vh_roi1.dat',
-'/nsls2/data/iss/legacy/backup/users/2021/3/300010/Co3O4 pos   1 Co K 0001 0002-r0003 vh_roi1.dat',
-]
-
-files = files_metal
-# Co3O4
-#files_metal = copy.deepcopy(files)
-
-files = [('/nsls2/data/iss/legacy/backup/users/2021/3/300010/' + i) for i in xview_gui.widget_data.file_list if (('Co3O4' in i) and ('vh_roi1' in i) and (not ('calibration' in i)))]
-files = [f for f in files if f not in files_metal]
-
-# CoCl2
-
-files = [('/nsls2/data/iss/legacy/backup/users/2021/3/300010/' + i) for i in xview_gui.widget_data.file_list if (('CoCl2' in i) and ('vh_roi1' in i) and (not ('calibration' in i)))]
-
-
 rixs = []
 for f in files:
     print(f)
@@ -975,67 +929,47 @@ for f in files:
     # print(energy_in.size)
     bla = df.columns.tolist()
     _rixs = -df[bla[1::2]].values / df[bla[2::2]].values
-    if _rixs.shape[1] == 509:
+    if _rixs.shape[1] == 504:
         rixs.append(_rixs)
 
 energy_out = df['energy'].values
 energy_in = np.array([float('.'.join(i.split('_')[2:4])) for i in bla[1::2]])
 rixs = np.array(rixs) / 1e6
 
-rixs = rixs / np.sum(rixs[:,25:140, 300:], axis=(1,2))[:, None, None]
-
 rixs_av = np.mean(rixs, axis=0)
-rixs_std = np.std(rixs, axis=0) / np.sqrt(rixs.shape[0])
 
 plt.figure(1, clear=True)
 plt.contourf(energy_out, energy_in, rixs_av.T, 50)
 
-n_out = [62, 75]
+n_out = [230, 245]
 plt.vlines(energy_out[n_out], energy_in.min(), energy_in.max(), colors='r')
 
 
 herfds = rixs_av[n_out, :].T
-herfds -= np.mean(herfds[30:40, :], axis=0)[None, :]
-herfds /= np.mean(herfds[250:, :], axis=0)[None, :]
+herfds -= np.mean(herfds[20:60, :], axis=0)[None, :]
+herfds /= np.mean(herfds[400:, :], axis=0)[None, :]
 
 plt.figure(2, clear=True)
 plt.plot(energy_in, herfds)
 
 
-# e_in_min = 6570
-# e_out_min = 6472.5
-# e_out_max = 6494.5
+e_in_min = 6570
+e_out_min = 6472.5
+e_out_max = 6494.5
 
-e_in_min = 7780
-e_out_min = 25
-e_out_max = 140
-
-e_out_glitch_mask = (energy_out <= 75) | (energy_out >= 78)
+e_out_glitch_mask = (energy_out <= 6477.25) | (energy_out >= 6477.75)
 
 e_in_mask = energy_in >= e_in_min
 e_out_mask = (energy_out >= e_out_min) & (energy_out <= e_out_max) & e_out_glitch_mask
 
 rixs_av_roi = rixs_av[np.ix_(e_out_mask, e_in_mask)]
-# rixs_av_roi_w = rixs_av_roi.copy()
-
-# rixs_av_roi_w = rixs_av_roi / np.sum(rixs_av_roi, axis=0)[None, :]
-
-rixs_std_roi = rixs_std[np.ix_(e_out_mask, e_in_mask)]
-_std_amp_in = np.sum(rixs_std_roi, axis=0)
-_std_amp_out = np.sum(rixs_std_roi, axis=1)
-_std_amp_in /= _std_amp_in.max()
-_std_amp_out /=_std_amp_out.max()
-rixs_av_roi_w = rixs_av_roi / _std_amp_in[None, :] / _std_amp_out[:, None]
-
-
-
-uu, ss, vvT = np.linalg.svd(rixs_av_roi_w)
+uu, ss, vvT = np.linalg.svd(rixs_av_roi)
 vv = vvT.T
 
 
 plt.figure(3, clear=True)
 plt.subplot(221)
-plt.contourf(energy_out[e_out_mask], energy_in[e_in_mask], rixs_av_roi.T, 50, vmin=rixs_av_roi.min(), vmax=rixs_av_roi.max()*1.0)
+plt.contourf(energy_out[e_out_mask], energy_in[e_in_mask], rixs_av_roi.T, 50, vmin=rixs_av_roi.min(), vmax=rixs_av_roi.max()*0.5)
 
 i_cmp = [0, 1, 2]
 
@@ -1043,86 +977,9 @@ plt.subplot(222)
 plt.semilogy(ss, 'ks-')
 
 plt.subplot(223)
-plt.plot(energy_out[e_out_mask], uu[:, i_cmp] * _std_amp_out[:, None])
-# plt.plot(energy_out[e_out_mask], uu[:, i_cmp])
+plt.plot(energy_out[e_out_mask], uu[:, i_cmp])
 
 plt.subplot(224)
-plt.plot(energy_in[e_in_mask], vv[:, i_cmp] * _std_amp_in[:, None])
-# plt.plot(energy_in[e_in_mask], vv[:, i_cmp])
-
-from sklearn.decomposition import NMF
-model = NMF(n_components=3)
-model.fit(rixs_av_roi)
-W = model.transform(rixs_av_roi)
-H = model.components_
-plt.figure(); plt.plot(W)
-plt.figure(); plt.plot(H.T)
-
-
-#########
-from xas.handlers import register_all_handlers_legacy
-from xas.process import get_processed_df_from_uid, process_interpolate_bin_from_uid
-
-db_old = databroker.Broker.named('iss')
-register_all_handlers_legacy(db_old)
-
-
-# uids = list(range(185288, 185297 + 1))
-uids = list(range(184929, 185299 + 1))
-for uid in uids:
-    process_interpolate_bin_from_uid(uid, db_old, save_interpolated_file=False,
-                                     update_start={'spectrometer' : 'von_hamos',
-                                                   'scan_for_calibration_purpose': False,
-                                                   'spectrometer_config': {'energy_calibration_uid': None},
-                                                   'detectors': {'Pilatus 100k': {'config': {'roi':{'roi1':{'x':165, 'dx':285, 'y':30,'dy': 45}}}}}})
-
-##############
-
-df['name_'] = [os.path.split(str(i))[1] for i in  df['name'].tolist()]
-
-
-uid_df = []
-uids = db.v2.search({'year' : '2023','cycle' : '1', 'PROPOSAL': '311969'})
-for uid in uids:
-# for uid in ['5a4ba893-7336-4f9f-b1c6-cf35f3ae9854']:
-    hdr = db[uid]
-    md = hdr.start
-    if 'sample_name' in md.keys():
-        print(md['name'], datetime.fromtimestamp(md['time']))
-        _data = {'uid': uid, 'sample_name': md['sample_name'], 'name': md['name'], 'time': md['time']}
-        uid_df.append(_data)
-
-        # if 'CuBTC_TCNQ_dcm_180' in md['name']:
-        #     print(uid, '\t', md['scan_id'], '\t', md['sample_name'], '\t', md['name'])
-
-
-
-plt.figure(1, clear=True)
-
-dw = xraydb.darwin_width(21780, 'Si', (11, 11, 11), m=1)
-plt.plot(dw.denergy, dw.intensity, label=f'Si(11, 11, 11), th={float(np.rad2deg(dw.theta)):0.2f}, DW={dw.energy_width:0.4f}')
-# plt.plot(dw.dtheta*1e6, dw.intensity, label=f'Si(11, 11, 11) th={float(np.rad2deg(dw.theta)):0.2f}')
-# print(np.trapz(dw.intensity, dw.denergy[::-1]))
-
-
-dw = xraydb.darwin_width(21780, 'Si', (6, 6, 0))
-plt.plot(dw.denergy, dw.intensity, label=f'Si(6, 6, 0), th={float(np.rad2deg(dw.theta)):0.2f}, DW={dw.energy_width:0.4f}')
-# plt.plot(dw.dtheta*1e6, dw.intensity, label=f'Si(6, 6, 0) th={float(np.rad2deg(dw.theta)):0.2f}')
-# print(np.trapz(dw.intensity, dw.denergy[::-1]))
-
-# dw = xraydb.darwin_width(21780, 'Ge', (11, 11, 11))
-# plt.plot(dw.denergy, dw.intensity, label=f'Ge(11, 11, 11), th={float(np.rad2deg(dw.theta)):0.2f}, DW={dw.energy_width:0.4f}')
-# # plt.plot(dw.dtheta*1e6, dw.intensity, label=f'Si(11, 11, 11) th={float(np.rad2deg(dw.theta)):0.2f}')
-# # print(np.trapz(dw.intensity, dw.denergy[::-1]))
-#
-#
-# dw = xraydb.darwin_width(21780, 'Ge', (6, 6, 0))
-# plt.plot(dw.denergy, dw.intensity, label=f'Ge(6, 6, 0), th={float(np.rad2deg(dw.theta)):0.2f}, DW={dw.energy_width:0.4f}')
-
-
-plt.legend()
-
-
-
+plt.plot(energy_in[e_in_mask], vv[:, i_cmp])
 
 
