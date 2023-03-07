@@ -402,7 +402,7 @@ def save_xas_data_as_json(uid, db, db_tag='new'):
 
 n1 = 317987
 n2 = 321288
-for i in range(n1, n1 + 50):
+for i in range(n1+100, n1 + 300):
     save_xas_data_as_json(i, db, db_tag='new')
 
 
@@ -423,12 +423,19 @@ def read_xas_data_from_json(fpath):
     return data['metadata'], pd.DataFrame(data['data'])
 
 files = [f for f in os.listdir(outpath)]
+## _to_do: add muf/mut/mur to the df calculation; also check if mut mur muf are actually good names for the columns
 for f in files:
+
     md, df = read_xas_data_from_json(os.path.join(outpath, f))
+    md['mu_quality'] = check_scan(df, md)
+    print(f, md['mu_quality'])
+
     md['tag'] = 'test'
     md['tag_version'] = '0.0'
-    md['tag_comment'] = 'initial data upload testing'
+    md['tag_comment'] = 'test quality check'
     x = c.write_dataframe(df, md)
+
+
 
 
 #####################

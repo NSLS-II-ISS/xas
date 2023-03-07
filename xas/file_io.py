@@ -10,10 +10,13 @@ from xas.metadata import generate_file_header_from_hdr
 
 
 def _shift_root(fpath):
-    print('changing root "/nsls2/xf08id" to "/nsls2/data/iss/legacy/backup"')
     if not fpath.startswith('/'):
         fpath = '/' + fpath
-    return fpath.replace('/nsls2/xf08id', '/nsls2/data/iss/legacy/backup')
+    if fpath.startswith('/nsls2/xf08id'):
+        print('changing root "/nsls2/xf08id" to "/nsls2/data/iss/legacy/backup"')
+        fpath = fpath.replace('/nsls2/xf08id', '/nsls2/data/iss/legacy/backup')
+    return fpath
+
 
 def load_dataset_from_files(db, uid):
     def load_adc_trace(filename=''):

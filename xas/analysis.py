@@ -67,7 +67,7 @@ def check_amplitude(df: pd.DataFrame, keys=["i0", "it", "ir", "iff"], threshold=
     return low_amp_dict
 
 
-def check_mu_values(df: pd.DataFrame):
+def check_mu_values(df: pd.DataFrame, good_amp_currents: dict):
     """
     Calculate mu values for each channel (transmission, reference, fluorescence) and
     check all mu values are valid (no `NaN`, `inf`, etc.).
@@ -76,14 +76,17 @@ def check_mu_values(df: pd.DataFrame):
     `True` corresponds to all valid values. `False` indicates at least one value is invalid
     for that channel.
     """
-    mut = -np.log(df["it"] / df["i0"])
-    mur = -np.log(df["ir"] / df["it"])
-    muf = df["iff"] / df["i0"]
-    valid_values = {
-        "mut": np.all(np.isfinite(mut)),
-        "mur": np.all(np.isfinite(mur)),
-        "muf": np.all(np.isfinite(muf)),
-    }
+
+    valid_values = {"mut": False, "mur": False, "muf": False}
+    if good_amp_currents['i0'] and good_amp_currents['it']:
+        mut = -np.log(df["it"] / df["i0"])
+        valid_values['mut'] = np.all(np.isfinite(mut))
+    if good_amp_currents['it'] and good_amp_currents['ir']:
+        mur = -np.log(df["ir"] / df["it"])
+        valid_values['mur'] = np.all(np.isfinite(mur))
+    if good_amp_currents['i0'] and good_amp_currents['iff']:
+        muf = df["iff"] / df["i0"]
+        valid_values['muf'] = np.all(np.isfinite(muf))
     return valid_values
 
 
@@ -99,19 +102,32 @@ def check_scan(df: pd.DataFrame, md: dict):
     df_mV = degain(df, md)
     unsaturated_currents = check_saturation(df_mV)
     good_amp_currents = check_amplitude(df_mV)
-    valid_mu = check_mu_values(df_mV)
-    mu_good = {mu: False for mu in ["mut", "muf", "mur"]}  # default all False
+    valid_mu = check_mu_values(df_mV, good_amp_currents)
+    mu_good = {mu: 'good' for mu in ["mut", "muf", "mur"]}  # default all False
     if good_amp_currents["i0"] and unsaturated_currents["i0"]:
         if unsaturated_currents["it"]:
-            mu_good["mut"] = valid_mu["mut"]
+            mu_good["mut"] = 'good' if valid_mu["mut"] else 'invalid_values'
+        else:
+            mu_good["mut"] = 'saturated'
         if unsaturated_currents["iff"]:
-            mu_good["muf"] = valid_mu["muf"]
+            mu_good["muf"] = 'good' if valid_mu["muf"] else 'invalid_values'
+        else:
+            mu_good["muf"] = 'saturated'
+    else:
+        mu_good["mut"] = 'low_amplitude' if not good_amp_currents["i0"] else 'saturated'
+        mu_good["muf"] = 'low_amplitude' if not good_amp_currents["i0"] else 'saturated'
+
     if (
         good_amp_currents["it"]
         and unsaturated_currents["it"]
         and unsaturated_currents["ir"]
     ):
-        mu_good["mur"] = valid_mu["mur"]
+        mu_good["mur"] = 'good' if valid_mu["mur"] else 'invalid_values'
+    else:
+        if not good_amp_currents["it"]:
+            mu_good["mur"] = 'low_amplitude'
+        if (not unsaturated_currents["it"]) or (not unsaturated_currents["ir"]):
+            mu_good["mur"] = 'saturated'
     return mu_good
 
 
