@@ -79,12 +79,14 @@ metadata_dict = OrderedDict({
 'sample_heater_PID_KP' :        {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{FbPid:01}PID.KP',                      'human_readable_key': 'SampleHeater.PID.P'},
 'sample_heater_PID_KI' :        {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{FbPid:01}PID.KI',                      'human_readable_key': 'SampleHeater.PID.I'},
 'sample_heater_PID_KD' :        {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{FbPid:01}PID.KD',                      'human_readable_key': 'SampleHeater.PID.D'},
-'gc_mfc_methane_sp'  :          {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{GC:1-MFC:1}Gas:Flow-SP',               'human_readable_key': 'SampleGasCart.methane.setpoint'},
-'gc_mfc_methane_rb'  :          {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{GC:1-MFC:1}Gas:Flow-I',                'human_readable_key': 'SampleGasCart.methane.readback'},
-'gc_mfc_carbon_monoxide_sp':    {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{GC:1-MFC:2}Gas:Flow-SP',               'human_readable_key': 'SampleGasCart.carbon_monoxide.setpoint'},
-'gc_mfc_carbon_monoxide_rb':    {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{GC:1-MFC:2}Gas:Flow-I',                'human_readable_key': 'SampleGasCart.carbon_monoxide.readback'},
-'gc_mfc_hydrogen_sp':           {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{GC:1-MFC:3}Gas:Flow-SP',               'human_readable_key': 'SampleGasCart.hydrogen.setpoint'},
-'gc_mfc_hydrogen_rb':           {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{GC:1-MFC:3}Gas:Flow-I',                'human_readable_key': 'SampleGasCart.hydrogen.readback'},
+'gc_mfc_ch4_sp'  :              {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{GC:1-MFC:1}Gas:Flow-SP',               'human_readable_key': 'SampleGasCart.MFC.CH4.setpoint'},
+'gc_mfc_ch4_rb'  :              {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{GC:1-MFC:1}Gas:Flow-I',                'human_readable_key': 'SampleGasCart.MFC.CH4.readback'},
+'gc_mfc_co_sp':                 {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{GC:1-MFC:2}Gas:Flow-SP',               'human_readable_key': 'SampleGasCart.MFC.CO.setpoint'},
+'gc_mfc_co_rb':                 {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{GC:1-MFC:2}Gas:Flow-I',                'human_readable_key': 'SampleGasCart.MFC.CO.readback'},
+'gc_mfc_h2_sp':                 {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{GC:1-MFC:3}Gas:Flow-SP',               'human_readable_key': 'SampleGasCart.MFC.H2.setpoint'},
+'gc_mfc_h2_rb':                 {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{GC:1-MFC:3}Gas:Flow-I',                'human_readable_key': 'SampleGasCart.MFC.H2.readback'},
+'gc_mfc_exhaust_sp':            {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{GC:1-MFC:4}Gas:Flow-SP',               'human_readable_key': 'SampleGasCart.MFC.exhaust.setpoint'},
+'gc_mfc_exhaust_rb':            {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{GC:1-MFC:4}Gas:Flow-I',                'human_readable_key': 'SampleGasCart.MFC.exhaust.readback'},
 })
 
 _ghs_selected_gas_dict = OrderedDict()
