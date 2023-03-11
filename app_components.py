@@ -6,8 +6,8 @@ import plotly.graph_objects as go
 
 from xas.tiled_io import sort_node_by_metadata_key
 
-def build_scangroup_interactable(scangroup_node, _group_label):
-    select_all = html.Div(dbc.Button("select all", color="secondary", id={"type": "select_all_btn", "group": _group_label}),
+def build_scangroup_interactable(scangroup_node):
+    select_all = html.Div(dbc.Button("select all", color="secondary", id={"type": "select_all_btn"}),
                           style={"padding-bottom": "10px"})
     scan_labels = [html.Div([
             html.Div(v.metadata["scan_id"],
@@ -22,46 +22,36 @@ def build_scangroup_interactable(scangroup_node, _group_label):
     # return scan_labels
 
 
-def build_sample_accordion(sample_node):
-    scangroup_nodes, scangroup_labels = sort_node_by_metadata_key(sample_node, "monochromator_scan_uid", return_values=True)
-    sample_accordion_items = [
-        dbc.AccordionItem(
-            build_scangroup_interactable(sg_node, group_label=sg_label),
-            title=sg_label
-        )
-        for sg_node, sg_label in zip(scangroup_nodes, scangroup_labels)
-    ]
-    return dbc.Accordion(sample_accordion_items, start_collapsed=True, always_open=True)
+def build_nested_accordions(base_node, *sort_keys):
+    current_key = sort_keys[0]
+    next_nodes, next_labels = sort_node_by_metadata_key(base_node, current_key, return_values=True)
+    next_level_keys = sort_keys[1:]
+    if len(next_level_keys) == 0:
+        accordion_items = [
+            dbc.AccordionItem(
+                build_scangroup_interactable(sg_node),
+                title=sg_label
+            )
+            for sg_node, sg_label in zip(next_nodes, next_labels)
+        ]
+    else:
+        accordion_items = [
+            dbc.AccordionItem(
+                build_nested_accordions(sub_node, *next_level_keys),
+                title=sub_label
+            )
+            for sub_node, sub_label in zip(next_nodes, next_labels)
+        ]
+    return dbc.Accordion(accordion_items, start_collapsed=True, always_open=True)
 
-
-def build_scan_accordion(scan_node):
-    sample_nodes, sample_labels = sort_node_by_metadata_key(scan_node, "sample_name", return_values=True)
-    scan_accordion_items = [
-        dbc.AccordionItem(
-            build_scangroup_interactable(smp_node, group_label=smp_label),
-            title=smp_label
-        )
-        for smp_node, smp_label in zip(sample_nodes, sample_labels)
-    ]
-    return dbc.Accordion(scan_accordion_items, start_collapsed=True, always_open=True)
 
 
 def build_proposal_accordion(proposal_node, sort_key):
-    sub_nodes, sub_labels = sort_node_by_metadata_key(proposal_node, sort_key, return_values=True)
     if sort_key == "sample_name":
-        build_sub_accordion = build_sample_accordion
+        proposal_accordion = build_nested_accordions(proposal_node, "sample_name", "monochromator_scan_uid")
     elif sort_key == "monochromator_scan_uid":
-        build_sub_accordion = build_scan_accordion
-    else:
-        raise ValueError("Unsupported sorting key")
-    proposal_accordion_items = [
-        dbc.AccordionItem(
-            build_sub_accordion(sub_node),
-            title=sub_name
-        )
-        for sub_node, sub_name in zip(sub_nodes, sub_labels)
-    ]
-    return dbc.Accordion(proposal_accordion_items, start_collapsed=True, always_open=True)
+        proposal_accordion = build_nested_accordions(proposal_node, "monochromator_scan_uid", "sample_name")
+    return proposal_accordion
 
 
 visualization_tab = dbc.Tab(
