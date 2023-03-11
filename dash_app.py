@@ -44,15 +44,17 @@ app.layout = dbc.Container([
                         dbc.Card(
                             dbc.Checklist(
                                 options=[
-                                    {"label": "mut", "value": "mut_chk"},
-                                    {"label": "muf", "value": "muf_chk"},
-                                    {"label": "mur", "value": "mur_chk"},
-                                ]
+                                    {"label": "mut", "value": "mut"},
+                                    {"label": "muf", "value": "muf"},
+                                    {"label": "mur", "value": "mur"},
+                                ],
+                                id="channel_checklist",
                             ),
                             body=True
                         ),
                     style={"padding-bottom": "10px"}),
-                    dbc.Row(dbc.Button("plot", id="plot_btn")),
+                    dbc.Row(dbc.Button("plot", id="plot_btn"), style={"padding-bottom": "10px"}),
+                    dbc.Row(dbc.Button("clear figure", id="clear_btn"))
                 ]),
             ]),
         ], width=3),
@@ -82,6 +84,46 @@ def show_proposal_accordion(n_search_clicks, n_sort_clicks, dropdown_choice, yea
     return build_proposal_accordion(filter_node_for_proposal(ISS_SANDBOX, year, cycle, proposal), sort_key=dropdown_choice)
 
 
+def calc_mus(df):
+    df["mut"] = -np.log(df["it"] / df["i0"])
+    df["mur"] = -np.log(df["ir"] / df["it"])
+    df["muf"] = df["iff"] / df["i0"]
+
+
+@app.callback(
+    Output("spectrum_plot", "figure"),
+    Input("plot_btn", "n_clicks"),
+    Input("clear_btn", "n_clicks"),
+    State({"type": "scan_check", "uid": ALL}, "value"),
+    State({"type": "scan_check", "uid": ALL}, "id"),
+    State("spectrum_plot", "figure"),
+    State("channel_checklist", "value"),
+    prevent_initial_call=True,
+)
+def update_plot(plot_click, clear_click, selected_scans, selected_scan_id_dicts, current_fig, selected_channels):
+    fig = go.Figure(current_fig)
+    
+    if dash.ctx.triggered_id == "clear_btn":
+        fig.data = ()
+
+    if dash.ctx.triggered_id == "plot_btn":
+        for scan_selected, id_dict in zip(selected_scans, selected_scan_id_dicts):
+            if scan_selected is True:
+                uid = id_dict["uid"]
+                scan_id = ISS_SANDBOX[uid].metadata["scan_id"]
+                df = ISS_SANDBOX[uid].read()
+                calc_mus(df)
+                for ch in selected_channels:
+
+                    # check spectrum isn't already plotted
+                    if f"{scan_id} {ch}" not in [trace.name for trace in fig.data]:
+                        fig.add_scatter(x=df["energy"], y=df[ch], name=f"{scan_id} {ch}")
+    return fig
+        
+
+
+
+
 @app.callback(
     # Output({"type": "test_text", "group": MATCH}, "children"),
     Output({"type": "scan_check", "group": MATCH}, "value"),
@@ -105,9 +147,9 @@ def select_all_scans_in_group(select_all_click):
 
 #     scan_id = ISS_SANDBOX[uid].metadata["scan_id"]
 #     df = ISS_SANDBOX[uid].read()
-#     df["mut"] = -np.log(df["it"] / df["i0"])
-#     df["mur"] = -np.log(df["ir"] / df["it"])
-#     df["muf"] = df["iff"] / df["i0"]
+    # df["mut"] = -np.log(df["it"] / df["i0"])
+    # df["mur"] = -np.log(df["ir"] / df["it"])
+    # df["muf"] = df["iff"] / df["i0"]
     
 #     for mu in ("mut", "muf", "mur"):
 #         fig.add_scatter(x=df["energy"], y=df[mu], name=f"{scan_id} {mu}")

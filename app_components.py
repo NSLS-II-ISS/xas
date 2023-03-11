@@ -6,28 +6,30 @@ import plotly.graph_objects as go
 
 from xas.tiled_io import sort_node_by_metadata_key
 
-def build_scangroup_interactable(scangroup_node, group_label):
-    select_all = html.Div(dbc.Button("select all", color="secondary", id={"type": "select_all_btn", "group": group_label}),
+def build_scangroup_interactable(scangroup_node, _group_label):
+    select_all = html.Div(dbc.Button("select all", color="secondary", id={"type": "select_all_btn", "group": _group_label}),
                           style={"padding-bottom": "10px"})
     scan_labels = [html.Div([
             html.Div(v.metadata["scan_id"],
                      style={"display": "inline-block", "padding": "3px"},), 
-            dbc.Checkbox(id={"type": "scan_check", "group": group_label}, style={"display": "inline-block"}),
+            # dbc.Checkbox(id={"type": "scan_check", "group": group_label}, style={"display": "inline-block"}),
+            dbc.Checkbox(id={"type": "scan_check", "uid": k}, style={"display": "inline-block"}),
             html.Br(),
         ]) 
         for k, v in scangroup_node.items_indexer
     ]
     return [select_all] + scan_labels
+    # return scan_labels
 
 
 def build_sample_accordion(sample_node):
-    scangroup_nodes = sort_node_by_metadata_key(sample_node, "monochromator_scan_uid")
+    scangroup_nodes, scangroup_labels = sort_node_by_metadata_key(sample_node, "monochromator_scan_uid", return_values=True)
     sample_accordion_items = [
         dbc.AccordionItem(
-            build_scangroup_interactable(sg_node, group_label=f"scan group {i+1}"),
-            title=f"scan group {i+1}"
+            build_scangroup_interactable(sg_node, group_label=sg_label),
+            title=sg_label
         )
-        for i, sg_node in enumerate(scangroup_nodes)
+        for sg_node, sg_label in zip(scangroup_nodes, scangroup_labels)
     ]
     return dbc.Accordion(sample_accordion_items, start_collapsed=True, always_open=True)
 
