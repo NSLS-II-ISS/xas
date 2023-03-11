@@ -435,8 +435,16 @@ for f in files:
     md['tag_comment'] = 'test quality check'
     x = c.write_dataframe(df, md)
 
-
-
+###############
+import xarray as xr
+from tiled.client import from_profile
+c_nsls2 = from_profile('nsls2', username='username')
+c = c_nsls2['iss']['raw']
+run = c[-1]
+t = run['apb_stream']['data']['apb_stream'].read().squeeze()
+data = np.array([list(i) for i in t])
+channels = ['i0', 'itrans', 'iref', 'ifluo', 'aux1', 'aux2', 'aux3', 'aux4']
+arr = xr.DataArray(data[:, 1:], coords=[data[:, 0], channels], dims=['time', 'channel'])
 
 #####################
 from xas.file_io import load_binned_df_from_file
