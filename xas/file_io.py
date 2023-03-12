@@ -10,43 +10,69 @@ from xas.metadata import generate_file_header_from_hdr
 
 
 def _shift_root(fpath):
-    if not fpath.startswith('/'):
-        fpath = '/' + fpath
-    if fpath.startswith('/nsls2/xf08id'):
+    if not fpath.startswith("/"):
+        fpath = "/" + fpath
+    if fpath.startswith("/nsls2/xf08id"):
         print('changing root "/nsls2/xf08id" to "/nsls2/data/iss/legacy/backup"')
-        fpath = fpath.replace('/nsls2/xf08id', '/nsls2/data/iss/legacy/backup')
+        fpath = fpath.replace("/nsls2/xf08id", "/nsls2/data/iss/legacy/backup")
     return fpath
 
 
 def load_dataset_from_files(db, uid):
-    def load_adc_trace(filename=''):
-        df=pd.DataFrame()
-        keys = ['times', 'timens', 'counter', 'adc']
-        if os.path.isfile(filename):
-            df_raw = pd.read_table(filename, delim_whitespace=True, comment='#', names=keys, index_col=False)
-            df['timestamp'] = df_raw['times'] + 1e-9 * df_raw['timens']
-            df['adc'] = df_raw['adc'].apply(lambda x: (int(x, 16) >> 8) - 0x40000 if (int(x, 16) >> 8) > 0x1FFFF else int(x, 16) >> 8) * 7.62939453125e-05
-            return df
-        else:
-            return -1
-
-    def load_enc_trace(filename=''):
+    def load_adc_trace(filename=""):
         df = pd.DataFrame()
-        keys = ['times', 'timens', 'encoder', 'counter', 'di']
+        keys = ["times", "timens", "counter", "adc"]
         if os.path.isfile(filename):
-            df_raw = pd.read_table(filename, delim_whitespace=True, comment='#', names=keys, index_col=False)
-            df['timestamp'] = df_raw['times'] + 1e-9 * df_raw['timens']
-            df['encoder'] = df_raw['encoder'].apply(lambda x: int(x) if int(x) <= 0 else -(int(x) ^ 0xffffff - 1))
+            df_raw = pd.read_table(
+                filename,
+                delim_whitespace=True,
+                comment="#",
+                names=keys,
+                index_col=False,
+            )
+            df["timestamp"] = df_raw["times"] + 1e-9 * df_raw["timens"]
+            df["adc"] = (
+                df_raw["adc"].apply(
+                    lambda x: (int(x, 16) >> 8) - 0x40000
+                    if (int(x, 16) >> 8) > 0x1FFFF
+                    else int(x, 16) >> 8
+                )
+                * 7.62939453125e-05
+            )
             return df
         else:
             return -1
 
-    def load_trig_trace(filename=''):
-        keys = ['times', 'timens', 'encoder', 'counter', 'di']
+    def load_enc_trace(filename=""):
+        df = pd.DataFrame()
+        keys = ["times", "timens", "encoder", "counter", "di"]
         if os.path.isfile(filename):
-            df = pd.read_table(filename, delim_whitespace=True, comment='#', names=keys,
-                               index_col=False)
-            df['timestamp'] = df['times'] + 1e-9 * df['timens']
+            df_raw = pd.read_table(
+                filename,
+                delim_whitespace=True,
+                comment="#",
+                names=keys,
+                index_col=False,
+            )
+            df["timestamp"] = df_raw["times"] + 1e-9 * df_raw["timens"]
+            df["encoder"] = df_raw["encoder"].apply(
+                lambda x: int(x) if int(x) <= 0 else -(int(x) ^ 0xFFFFFF - 1)
+            )
+            return df
+        else:
+            return -1
+
+    def load_trig_trace(filename=""):
+        keys = ["times", "timens", "encoder", "counter", "di"]
+        if os.path.isfile(filename):
+            df = pd.read_table(
+                filename,
+                delim_whitespace=True,
+                comment="#",
+                names=keys,
+                index_col=False,
+            )
+            df["timestamp"] = df["times"] + 1e-9 * df["timens"]
             df = df.iloc[::2]
             return df.iloc[:, [5, 3]]
         else:
@@ -54,89 +80,92 @@ def load_dataset_from_files(db, uid):
 
     arrays = {}
     record = db[uid]
-    for stream in record['descriptors']:
+    for stream in record["descriptors"]:
         data = pd.DataFrame()
-        stream_device = stream['name']
-        stream_name = stream['data_keys'][stream['name']]['devname']
-        stream_source = stream['data_keys'][stream['name']]['source']
-        stream_file = stream['data_keys'][stream['name']]['filename']
-        #print(stream_file)
+        stream_device = stream["name"]
+        stream_name = stream["data_keys"][stream["name"]]["devname"]
+        stream_source = stream["data_keys"][stream["name"]]["source"]
+        stream_file = stream["data_keys"][stream["name"]]["filename"]
+        # print(stream_file)
 
-        if stream_source == 'pizzabox-di-file':
+        if stream_source == "pizzabox-di-file":
             data = load_trig_trace(stream_file)
-        if stream_source == 'pizzabox-adc-file':
-            #print(stream_device)
+        if stream_source == "pizzabox-adc-file":
+            # print(stream_device)
             data = load_adc_trace(stream_file)
-            stream_offset = f'{stream_device} offset'
-            if stream_offset in db[uid]['start']:
-                #print("subtracting offset")
-                data.iloc[:, 1] = data.iloc[:, 1] - record['start'][stream_offset]
-            stream_gain =  f'{stream_device} gain'
-            if stream_gain in db[uid]['start']:
-                #print("correcting for gain")
-                data.iloc[:, 1] = data.iloc[:, 1]/(10**record['start'][stream_gain])
+            stream_offset = f"{stream_device} offset"
+            if stream_offset in db[uid]["start"]:
+                # print("subtracting offset")
+                data.iloc[:, 1] = data.iloc[:, 1] - record["start"][stream_offset]
+            stream_gain = f"{stream_device} gain"
+            if stream_gain in db[uid]["start"]:
+                # print("correcting for gain")
+                data.iloc[:, 1] = data.iloc[:, 1] / (10 ** record["start"][stream_gain])
 
-
-        if stream_source == 'pizzabox-enc-file':
+        if stream_source == "pizzabox-enc-file":
             data = load_enc_trace(stream_file)
-            #print(stream_name)
-            if stream_name =='hhm_theta':
-                data.iloc[:,1] = xray.encoder2energy(data['encoder'], 360000,
-                                                       -float(record['start']['angle_offset']))
-                stream_name = 'energy'
-                #print(stream_name)
+            # print(stream_name)
+            if stream_name == "hhm_theta":
+                data.iloc[:, 1] = xray.encoder2energy(
+                    data["encoder"], 360000, -float(record["start"]["angle_offset"])
+                )
+                stream_name = "energy"
+                # print(stream_name)
 
         arrays[stream_name] = data
 
     return arrays
 
-def validate_file_exists(path_to_file,file_type = 'interp'):
-    """The function checks if the file exists or not. If exists, it adds an index to the file name.
-    """
-    if file_type == 'interp':
-        prefix = 'r'
-    elif file_type == 'bin':
-        prefix = 'b'
+
+def validate_file_exists(path_to_file, file_type="interp"):
+    """The function checks if the file exists or not. If exists, it adds an index to the file name."""
+    if file_type == "interp":
+        prefix = "r"
+    elif file_type == "bin":
+        prefix = "b"
     if os.path.isfile(path_to_file):
         (path, extension) = os.path.splitext(path_to_file)
         iterator = 2
 
         while True:
-
-            new_filename = '{}-{}{:04d}{}'.format(path, prefix, iterator,extension)
+            new_filename = "{}-{}{:04d}{}".format(path, prefix, iterator, extension)
             if not os.path.isfile(new_filename):
                 return new_filename
             iterator += 1
     else:
         return path_to_file
 
+
 def make_user_dir(path):
     folder_exists = os.path.isdir(path)
     if not folder_exists:
         os.mkdir(path)
-        call(['chmod', '777', path])
+        call(["chmod", "777", path])
     return folder_exists
+
 
 def validate_path_exists(path_to_file):
     (path, filename) = os.path.split(path_to_file)
     if not os.path.isdir(path):
         os.mkdir(path)
-        call(['chmod', '777', path])
+        call(["chmod", "777", path])
 
 
 def _get_value_from_hdr_start(hdr, key):
-    if key in hdr['start']:
-        return hdr['start'][key]
+    if key in hdr["start"]:
+        return hdr["start"][key]
     else:
-        return ''
+        return ""
+
 
 def create_file_header(hdr):
     return generate_file_header_from_hdr(hdr)
 
+
 def find_e0(hdr):
     e0 = -1
-    if 'e0' in hdr.start:
-        e0 = float(hdr.start['e0'])
+    if "e0" in hdr.start:
+        e0 = float(hdr.start["e0"])
     return e0
 
 
@@ -157,25 +186,26 @@ def split_df_data_into_primary_and_extended(df_orig):
     return df, df_sec
 
 
-
 def save_interpolated_df_as_file(path_to_file, df_orig, comments):
     df, df_sec = split_df_data_into_primary_and_extended(df_orig)
     # TODO: save the interpolated data in df_sec somewhere
 
     cols = df.columns.tolist()
-    fmt = '%17.6f ' + '%12.6e ' + (' '.join(['%12.6e' for i in range(len(cols)-2)]))
-    header = '# ' + ' '.join(cols)
+    fmt = "%17.6f " + "%12.6e " + (" ".join(["%12.6e" for i in range(len(cols) - 2)]))
+    header = "# " + " ".join(cols)
 
     df = df[cols]
-    np.savetxt(path_to_file,
-               df.values,
-               fmt=fmt,
-               delimiter=" ",
-               header=header,
-               comments=comments)
+    np.savetxt(
+        path_to_file,
+        df.values,
+        fmt=fmt,
+        delimiter=" ",
+        header=header,
+        comments=comments,
+    )
 
-    #print("changing permissions to 774")
-    call(['chmod', '774', path_to_file])
+    # print("changing permissions to 774")
+    call(["chmod", "774", path_to_file])
 
 
 # def dump_uid_bundle(base_name, uids, db):
@@ -183,197 +213,191 @@ def save_interpolated_df_as_file(path_to_file, df_orig, comments):
 #     (path, extension) = os.path.splitext(path_to_interp_file)
 
 
-
-
-
 def save_binned_df_as_file(path_to_file, df_orig, comments):
     df, df_sec = split_df_data_into_primary_and_extended(df_orig)
     (path, extension) = os.path.splitext(path_to_file)
-    path_to_file = path + '.dat'
-    path_to_file = validate_file_exists(path_to_file, file_type = 'bin')
+    path_to_file = path + ".dat"
+    path_to_file = validate_file_exists(path_to_file, file_type="bin")
 
-
-    #cols = df.columns.tolist()[::-1]
+    # cols = df.columns.tolist()[::-1]
     cols = df.columns.tolist()
     cols = cols[-1:] + cols[:-1]
-    fmt = '%12.6f ' + (' '.join(['%12.6e' for i in range(len(cols) - 1)]))
-    header = '  '.join(cols)
+    fmt = "%12.6f " + (" ".join(["%12.6e" for i in range(len(cols) - 1)]))
+    header = "  ".join(cols)
 
     df = df[cols]
-    np.savetxt(path_to_file,
-               df.values,
-               fmt=fmt,
-               delimiter=" ",
-               header=f'# {header}',
-               comments=comments)
+    np.savetxt(
+        path_to_file,
+        df.values,
+        fmt=fmt,
+        delimiter=" ",
+        header=f"# {header}",
+        comments=comments,
+    )
 
-    #print("changing permissions to 774")
-    call(['chmod', '774', path_to_file])
+    # print("changing permissions to 774")
+    call(["chmod", "774", path_to_file])
 
     if df_sec is not None:
         folder, file = os.path.split(path_to_file)
-        folder = os.path.join(folder, 'extended_data')
+        folder = os.path.join(folder, "extended_data")
         filename, _ = os.path.splitext(file)
-        path_to_json = os.path.join(folder, filename + '.json')
+        path_to_json = os.path.join(folder, filename + ".json")
 
         try:
             os.mkdir(folder)
         except FileExistsError:
             pass
 
-        df_sec.to_json(path_to_json, orient='records')
-
-
-
-
+        df_sec.to_json(path_to_json, orient="records")
 
 
 def load_interpolated_df_from_file(filename):
-    ''' Load interp file and return'''
+    """Load interp file and return"""
 
     if not os.path.exists(filename):
-        raise IOError(f'The file {filename} does not exist.')
+        raise IOError(f"The file {filename} does not exist.")
     header = read_header(filename)
-    keys = header[header.rfind('#'):][1:-1].split()
-    df = pd.read_csv(filename, delim_whitespace=True, comment='#', names=keys, index_col=False)
-    if 'energy' in [i.lower() for i in df.columns]: # i am sorry /// Denis
-        df = df.sort_values('energy'.lower())
+    keys = header[header.rfind("#") :][1:-1].split()
+    df = pd.read_csv(
+        filename, delim_whitespace=True, comment="#", names=keys, index_col=False
+    )
+    if "energy" in [i.lower() for i in df.columns]:  # i am sorry /// Denis
+        df = df.sort_values("energy".lower())
     return df, header
 
-def convert_path_to_file_to_path_to_ext_file(path_to_file, ext_data_path='extended_data'):
+
+def convert_path_to_file_to_path_to_ext_file(
+    path_to_file, ext_data_path="extended_data"
+):
     folder, file = os.path.split(path_to_file)
     folder = os.path.join(folder, ext_data_path)
     filename, _ = os.path.splitext(file)
-    filename += '.h5'
+    filename += ".h5"
     return os.path.join(folder, filename)
 
 
-def load_binned_df_and_extended_data_from_file(path_to_file, ext_data_path='extended_data'):
+def load_binned_df_and_extended_data_from_file(
+    path_to_file, ext_data_path="extended_data"
+):
     df, header = load_binned_df_from_file(path_to_file)
-    path_to_ext_file = convert_path_to_file_to_path_to_ext_file(path_to_file, ext_data_path=ext_data_path)
+    path_to_ext_file = convert_path_to_file_to_path_to_ext_file(
+        path_to_file, ext_data_path=ext_data_path
+    )
     ext_data = load_extended_data_from_file(path_to_ext_file)
     return df, ext_data, header
 
 
 def load_binned_df_from_file(filename):
-    ''' Load interp file and return'''
+    """Load interp file and return"""
 
     if not os.path.exists(filename):
-        raise IOError(f'The file {filename} does not exist.')
+        raise IOError(f"The file {filename} does not exist.")
     header = read_header(filename)
-    keys = header[header.rfind('#'):][1:-1].split()
-    df = pd.read_csv(filename, delim_whitespace=True, comment='#', names=keys, index_col=False)
+    keys = header[header.rfind("#") :][1:-1].split()
+    df = pd.read_csv(
+        filename, delim_whitespace=True, comment="#", names=keys, index_col=False
+    )
 
     energy_key = None
     for col in df.columns:
-        if ('energy' in col.lower()) or ('e' in col.lower()):
+        if ("energy" in col.lower()) or ("e" in col.lower()):
             energy_key = col
             break
 
     if energy_key:
-        df = df.rename(columns={energy_key: 'energy'})
+        df = df.rename(columns={energy_key: "energy"})
 
-    if 'energy' not in df.columns:
-        df['energy'] = np.arange(len(df.index))
+    if "energy" not in df.columns:
+        df["energy"] = np.arange(len(df.index))
 
-    df = df.sort_values('energy')
+    df = df.sort_values("energy")
     return df, header
 
+
 def read_header(filename):
-    header = ''
-    line = '#'
+    header = ""
+    line = "#"
     with open(filename) as myfile:
-        while line[0] == '#':
+        while line[0] == "#":
             line = next(myfile)
             header += line
-    return header[:-len(line)]
+    return header[: -len(line)]
+
 
 def convert_header_to_dict(header):
-    lines = header.split('\n')
+    lines = header.split("\n")
     lines = [line for line in lines if len(line) > 0]
-    lines = [line.replace('# ', '') for line in lines]
-
-
-
+    lines = [line.replace("# ", "") for line in lines]
 
 
 stepscan_channel_dict = {
-    'hhm_energy': 'energy',
-    'motor_emission_energy' : 'energy',
-    'johann_emission_energy' : 'energy',
-    'apb_ave_ch1_mean': 'i0',
-    'apb_ave_ch2_mean': 'it',
-    'apb_ave_ch3_mean': 'ir',
-    'apb_ave_ch4_mean': 'iff',
-    'apb_ave_ch5_mean': 'aux1',
-    'apb_ave_ch6_mean': 'aux2',
-    'apb_ave_ch7_mean': 'aux3',
-    'apb_ave_ch8_mean': 'aux4',
+    "hhm_energy": "energy",
+    "motor_emission_energy": "energy",
+    "johann_emission_energy": "energy",
+    "apb_ave_ch1_mean": "i0",
+    "apb_ave_ch2_mean": "it",
+    "apb_ave_ch3_mean": "ir",
+    "apb_ave_ch4_mean": "iff",
+    "apb_ave_ch5_mean": "aux1",
+    "apb_ave_ch6_mean": "aux2",
+    "apb_ave_ch7_mean": "aux3",
+    "apb_ave_ch8_mean": "aux4",
     # 'pil100k_stats1_total': 'pil100_ROI1',
     # 'pil100k_stats2_total': 'pil100_ROI2',
     # 'pil100k_stats3_total': 'pil100_ROI3',
     # 'pil100k_stats4_total': 'pil100_ROI4',
-    'pil100k_stats1_total': 'pil100k_roi1',
-    'pil100k_stats2_total': 'pil100k_roi2',
-    'pil100k_stats3_total': 'pil100k_roi3',
-    'pil100k_stats4_total': 'pil100k_roi4',
-    'pil100k_image': 'pil100k_image',
-    'xs_channel1_rois_roi01_value' : 'xs_ch01_roi01',
-    'xs_channel2_rois_roi01_value' : 'xs_ch01_roi02',
-    'xs_channel3_rois_roi01_value' : 'xs_ch01_roi03',
-    'xs_channel4_rois_roi01_value' : 'xs_ch01_roi04',
-    'xs_channel1_rois_roi02_value' : 'xs_ch02_roi01',
-    'xs_channel2_rois_roi02_value' : 'xs_ch02_roi02',
-    'xs_channel3_rois_roi02_value' : 'xs_ch02_roi03',
-    'xs_channel4_rois_roi02_value' : 'xs_ch02_roi04',
-    'xs_channel1_rois_roi03_value' : 'xs_ch03_roi01',
-    'xs_channel2_rois_roi03_value' : 'xs_ch03_roi02',
-    'xs_channel3_rois_roi03_value' : 'xs_ch03_roi03',
-    'xs_channel4_rois_roi03_value' : 'xs_ch03_roi04',
-    'xs_channel1_rois_roi04_value' : 'xs_ch04_roi01',
-    'xs_channel2_rois_roi04_value' : 'xs_ch04_roi02',
-    'xs_channel3_rois_roi04_value' : 'xs_ch04_roi03',
-    'xs_channel4_rois_roi04_value' : 'xs_ch04_roi04',
-    'xs_roi01': 'xs_roi01',
-    'xs_roi02': 'xs_roi02',
-    'xs_roi03': 'xs_roi03',
-    'xs_roi04': 'xs_roi04'}
+    "pil100k_stats1_total": "pil100k_roi1",
+    "pil100k_stats2_total": "pil100k_roi2",
+    "pil100k_stats3_total": "pil100k_roi3",
+    "pil100k_stats4_total": "pil100k_roi4",
+    "pil100k_image": "pil100k_image",
+    "xs_channel1_rois_roi01_value": "xs_ch01_roi01",
+    "xs_channel2_rois_roi01_value": "xs_ch01_roi02",
+    "xs_channel3_rois_roi01_value": "xs_ch01_roi03",
+    "xs_channel4_rois_roi01_value": "xs_ch01_roi04",
+    "xs_channel1_rois_roi02_value": "xs_ch02_roi01",
+    "xs_channel2_rois_roi02_value": "xs_ch02_roi02",
+    "xs_channel3_rois_roi02_value": "xs_ch02_roi03",
+    "xs_channel4_rois_roi02_value": "xs_ch02_roi04",
+    "xs_channel1_rois_roi03_value": "xs_ch03_roi01",
+    "xs_channel2_rois_roi03_value": "xs_ch03_roi02",
+    "xs_channel3_rois_roi03_value": "xs_ch03_roi03",
+    "xs_channel4_rois_roi03_value": "xs_ch03_roi04",
+    "xs_channel1_rois_roi04_value": "xs_ch04_roi01",
+    "xs_channel2_rois_roi04_value": "xs_ch04_roi02",
+    "xs_channel3_rois_roi04_value": "xs_ch04_roi03",
+    "xs_channel4_rois_roi04_value": "xs_ch04_roi04",
+    "xs_roi01": "xs_roi01",
+    "xs_roi02": "xs_roi02",
+    "xs_roi03": "xs_roi03",
+    "xs_roi04": "xs_roi04",
+}
 xs_channel_list = [
-    'xs_ch01_roi01',
-    'xs_ch02_roi01',
-    'xs_ch03_roi01',
-    'xs_ch04_roi01',
-    'xs_ch01_roi02',
-    'xs_ch02_roi02',
-    'xs_ch03_roi02',
-    'xs_ch04_roi02',
-    'xs_ch01_roi03',
-    'xs_ch02_roi03',
-    'xs_ch03_roi03',
-    'xs_ch04_roi03',
-    'xs_ch01_roi04',
-    'xs_ch02_roi04',
-    'xs_ch03_roi04',
-    'xs_ch04_roi04']
+    "xs_ch01_roi01",
+    "xs_ch02_roi01",
+    "xs_ch03_roi01",
+    "xs_ch04_roi01",
+    "xs_ch01_roi02",
+    "xs_ch02_roi02",
+    "xs_ch03_roi02",
+    "xs_ch04_roi02",
+    "xs_ch01_roi03",
+    "xs_ch02_roi03",
+    "xs_ch03_roi03",
+    "xs_ch04_roi03",
+    "xs_ch01_roi04",
+    "xs_ch02_roi04",
+    "xs_ch03_roi04",
+    "xs_ch04_roi04",
+]
 
-xs_channel_comb_dict = {'xs_roi01' : ['xs_ch01_roi01',
-                                      'xs_ch02_roi01',
-                                      'xs_ch03_roi01',
-                                      'xs_ch04_roi01'],
-                        'xs_roi02' : ['xs_ch01_roi01',
-                                      'xs_ch02_roi02',
-                                      'xs_ch03_roi03',
-                                      'xs_ch04_roi04'],
-                        'xs_roi03' : ['xs_ch01_roi01',
-                                      'xs_ch02_roi02',
-                                      'xs_ch03_roi03',
-                                      'xs_ch04_roi04'],
-                        'xs_roi04' : ['xs_ch01_roi01',
-                                      'xs_ch02_roi02',
-                                      'xs_ch03_roi03',
-                                      'xs_ch04_roi04'],
-                        }
-
+xs_channel_comb_dict = {
+    "xs_roi01": ["xs_ch01_roi01", "xs_ch02_roi01", "xs_ch03_roi01", "xs_ch04_roi01"],
+    "xs_roi02": ["xs_ch01_roi01", "xs_ch02_roi02", "xs_ch03_roi03", "xs_ch04_roi04"],
+    "xs_roi03": ["xs_ch01_roi01", "xs_ch02_roi02", "xs_ch03_roi03", "xs_ch04_roi04"],
+    "xs_roi04": ["xs_ch01_roi01", "xs_ch02_roi02", "xs_ch03_roi03", "xs_ch04_roi04"],
+}
 
 
 def stepscan_remove_offsets(hdr, fill=True):
@@ -383,8 +407,10 @@ def stepscan_remove_offsets(hdr, fill=True):
         df = hdr.table()
 
     for channel_name, _ in stepscan_channel_dict.items():
-        if channel_name.startswith('apb'):
-            offset = hdr.descriptors[0]["configuration"]['apb_ave']['data'][channel_name.replace("_mean", "_offset")]
+        if channel_name.startswith("apb"):
+            offset = hdr.descriptors[0]["configuration"]["apb_ave"]["data"][
+                channel_name.replace("_mean", "_offset")
+            ]
             df[channel_name] = df[channel_name] - offset
     return df
 
@@ -392,7 +418,7 @@ def stepscan_remove_offsets(hdr, fill=True):
 def stepscan_normalize_xs(df):
     for channel_name in xs_channel_list:
         if channel_name in df.columns:
-            df[channel_name] = df[channel_name] / df['xs_settings_acquire_time']
+            df[channel_name] = df[channel_name] / df["xs_settings_acquire_time"]
     return df
 
 
@@ -420,17 +446,19 @@ def filter_df_by_valid_keys(df):
 def write_df_to_file(path_to_file, df, comments):
     cols = df.columns.tolist()
 
-    fmt = '%12.6f ' + (' '.join(['%12.6e' for i in range(len(cols) - 1)]))
-    header = '  '.join(cols)
+    fmt = "%12.6f " + (" ".join(["%12.6e" for i in range(len(cols) - 1)]))
+    header = "  ".join(cols)
 
     # df = df[cols]
-    np.savetxt(path_to_file,
-               df.values,
-               fmt=fmt,
-               delimiter=" ",
-               header=f'# {header}',
-               comments=comments)
-    call(['chmod', '774', path_to_file])
+    np.savetxt(
+        path_to_file,
+        df.values,
+        fmt=fmt,
+        delimiter=" ",
+        header=f"# {header}",
+        comments=comments,
+    )
+    call(["chmod", "774", path_to_file])
 
 
 def save_stepscan_as_file(path_to_file, df, comments):
@@ -450,29 +478,34 @@ def save_stepscan_as_file(path_to_file, df, comments):
 def save_primary_df_as_file(path_to_file, df, comments):
     write_df_to_file(path_to_file, df, comments)
 
-def save_extended_data_as_file(path_to_file, extended_data, data_kind='default', ext_data_path='extended_data'):
+
+def save_extended_data_as_file(
+    path_to_file, extended_data, data_kind="default", ext_data_path="extended_data"
+):
     if extended_data is not None:
         folder, file = os.path.split(path_to_file)
         folder = os.path.join(folder, ext_data_path)
         filename, _ = os.path.splitext(file)
-        filename += '.h5'
+        filename += ".h5"
         try:
             os.mkdir(folder)
         except FileExistsError:
             pass
         path_to_ext_file = os.path.join(folder, filename)
-        with h5py.File(path_to_ext_file, 'a') as f:
-            f['data_kind'] = data_kind
+        with h5py.File(path_to_ext_file, "a") as f:
+            f["data_kind"] = data_kind
             for k, v in recursively_parse_dict(extended_data):
                 f[k] = v
+
 
 def recursively_parse_dict(data_dict):
     for k, v in data_dict.items():
         if type(v) == dict:
             for sub_k, sub_v in recursively_parse_dict(v):
-                yield f'{k}/{sub_k}', sub_v
+                yield f"{k}/{sub_k}", sub_v
         else:
             yield k, v
+
 
 def recuresively_parse_h5(f):
     output = {}
@@ -489,20 +522,28 @@ def recuresively_parse_h5(f):
 
 def load_extended_data_from_file(path_to_ext_file):
     try:
-        with h5py.File(path_to_ext_file, 'r') as f:
+        with h5py.File(path_to_ext_file, "r") as f:
             extended_data = recuresively_parse_h5(f)
         return extended_data
     except Exception as e:
         print(e)
         return None
 
-def dump_tiff_images(path_to_file, df, extended_data, df_red=None, tiff_storage_path='/tiff_storage/', zip=True):
-    if 'pil100k_image' in extended_data.keys():
+
+def dump_tiff_images(
+    path_to_file,
+    df,
+    extended_data,
+    df_red=None,
+    tiff_storage_path="/tiff_storage/",
+    zip=True,
+):
+    if "pil100k_image" in extended_data.keys():
         # deal with paths
         tiff_storage_path = os.path.dirname(path_to_file) + tiff_storage_path
         scan_name, _ = os.path.splitext(os.path.basename(path_to_file))
-        dat_file_fpath = tiff_storage_path + scan_name + '.dat'
-        tiff_images_path = tiff_storage_path + scan_name + '/'
+        dat_file_fpath = tiff_storage_path + scan_name + ".dat"
+        tiff_images_path = tiff_storage_path + scan_name + "/"
 
         try:
             os.mkdir(tiff_storage_path)
@@ -512,33 +553,35 @@ def dump_tiff_images(path_to_file, df, extended_data, df_red=None, tiff_storage_
         try:
             os.mkdir(tiff_images_path)
         except FileExistsError:
-            print('These tiff images were saved already')
+            print("These tiff images were saved already")
             return
 
         filename_list = []
         filepath_list = []
-        for i, im in enumerate(extended_data['pil100k_image']):
+        for i, im in enumerate(extended_data["pil100k_image"]):
             image_data = Image.fromarray(im)
             #
-            tiff_filename = '{}{:04d}{}'.format('image', i + 1, '.tif')
+            tiff_filename = "{}{:04d}{}".format("image", i + 1, ".tif")
             tiff_path = tiff_images_path + tiff_filename
-            print(f'TIFF STORAGE: tiff will be saved in {tiff_path}')
+            print(f"TIFF STORAGE: tiff will be saved in {tiff_path}")
             image_data.save(tiff_path)
             filepath_list.append(tiff_path)
             filename_list.append(tiff_filename)
 
         if zip:
-            zip_file = os.path.splitext(dat_file_fpath)[0]+'.zip'
+            zip_file = os.path.splitext(dat_file_fpath)[0] + ".zip"
             os.system(f"cd '{tiff_images_path}'; zip '{zip_file}' ./*.tif")
             # os.system(f"zip '{zip_file}' '{tiff_images_path}'/*.tif")
             filepath_list = [zip_file]
 
         if df_red is None:
-            df_red = pd.concat([df[c] for c in ['energy', 'i0', 'it', 'ir', 'iff'] if c in df.columns], axis=1)
+            df_red = pd.concat(
+                [df[c] for c in ["energy", "i0", "it", "ir", "iff"] if c in df.columns],
+                axis=1,
+            )
 
-        df_red['filenames'] = filename_list
-        print(f'TIFF STORAGE: dat will be saved in {dat_file_fpath}')
-        df_red.to_csv(dat_file_fpath, sep='\t', index=False)
+        df_red["filenames"] = filename_list
+        print(f"TIFF STORAGE: dat will be saved in {dat_file_fpath}")
+        df_red.to_csv(dat_file_fpath, sep="\t", index=False)
         filepath_list.append(dat_file_fpath)
         return filepath_list
-

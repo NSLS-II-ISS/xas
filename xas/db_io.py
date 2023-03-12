@@ -7,58 +7,67 @@ from copy import deepcopy
 
 def load_apb_dataset_from_db(db, uid):
     hdr = db[uid]
-    apb_dataset = list(hdr.data(stream_name='apb_stream', field='apb_stream'))[0].copy()
-    apb_dataset = pd.DataFrame(apb_dataset,
-                               columns=['timestamp', 'i0', 'it', 'ir', 'iff', 'aux1', 'aux2', 'aux3', 'aux4'])
+    apb_dataset = list(hdr.data(stream_name="apb_stream", field="apb_stream"))[0].copy()
+    apb_dataset = pd.DataFrame(
+        apb_dataset,
+        columns=["timestamp", "i0", "it", "ir", "iff", "aux1", "aux2", "aux3", "aux4"],
+    )
     # apb_dataset = list(hdr.data(stream_name='apb_stream', field='apb_stream'))[0]
-    energy_dataset =  list(hdr.data(stream_name='pb9_enc1',field='pb9_enc1'))[0].copy()
-    energy_dataset = pd.DataFrame(energy_dataset,
-                                  columns=['ts_s', 'ts_ns', 'encoder', 'index', 'state'])
-    angle_offset = -float(hdr['start']['angle_offset'])
+    energy_dataset = list(hdr.data(stream_name="pb9_enc1", field="pb9_enc1"))[0].copy()
+    energy_dataset = pd.DataFrame(
+        energy_dataset, columns=["ts_s", "ts_ns", "encoder", "index", "state"]
+    )
+    angle_offset = -float(hdr["start"]["angle_offset"])
 
     # ch_offset_keys = [key for key in hdr.start.keys() if key.startswith('ch') and key.endswith('_offset')]
     # ch_offsets = np.array([hdr.start[key] for key in ch_offset_keys])
 
-    ch_offsets = get_ch_properties(hdr.start, 'ch', '_offset')*1e3 #offsets are ib mV but the readings are in uV
-    ch_gains = get_ch_properties(hdr.start, 'ch', '_amp_gain')
+    ch_offsets = (
+        get_ch_properties(hdr.start, "ch", "_offset") * 1e3
+    )  # offsets are ib mV but the readings are in uV
+    ch_gains = get_ch_properties(hdr.start, "ch", "_amp_gain")
 
     apb_dataset.iloc[:, 1:] -= ch_offsets
     apb_dataset.iloc[:, 1:] /= 1e6
-    apb_dataset.iloc[:, 1:] /= (10**ch_gains)
+    apb_dataset.iloc[:, 1:] /= 10**ch_gains
 
     return apb_dataset, energy_dataset, angle_offset
 
 
-
 def get_ch_properties(hdr_start, start, end):
-    ch_keys = [key for key in hdr_start.keys() if key.startswith(start) and key.endswith(end)]
+    ch_keys = [
+        key for key in hdr_start.keys() if key.startswith(start) and key.endswith(end)
+    ]
     return np.array([hdr_start[key] for key in ch_keys])
 
 
-
-def translate_apb_dataset(apb_dataset, energy_dataset, angle_offset,):
-    data_dict= {}
+def translate_apb_dataset(
+    apb_dataset,
+    energy_dataset,
+    angle_offset,
+):
+    data_dict = {}
     for column in apb_dataset.columns:
-        if column != 'timestamp':
+        if column != "timestamp":
             adc = pd.DataFrame()
-            adc['timestamp'] = apb_dataset['timestamp']
-            adc['adc'] = apb_dataset[column]
+            adc["timestamp"] = apb_dataset["timestamp"]
+            adc["adc"] = apb_dataset[column]
 
-            data_dict[column]=adc
+            data_dict[column] = adc
 
     energy = pd.DataFrame()
-    energy['timestamp'] = energy_dataset['ts_s'] + 1e-9 * energy_dataset['ts_ns']
-    enc  = energy_dataset['encoder'].apply(lambda x: int(x) if int(x) <= 0 else -(int(x) ^ 0xffffff - 1))
+    energy["timestamp"] = energy_dataset["ts_s"] + 1e-9 * energy_dataset["ts_ns"]
+    enc = energy_dataset["encoder"].apply(
+        lambda x: int(x) if int(x) <= 0 else -(int(x) ^ 0xFFFFFF - 1)
+    )
 
+    energy["encoder"] = xray.encoder2energy(enc, 360000, angle_offset)
 
-    energy['encoder'] = xray.encoder2energy(enc, 360000, angle_offset)
-
-    data_dict['energy'] = energy
+    data_dict["energy"] = energy
     return data_dict
 
 
-def load_apb_trig_dataset_from_db(db, uid, use_fall=True, stream_name='apb_trigger_xs'):
-
+def load_apb_trig_dataset_from_db(db, uid, use_fall=True, stream_name="apb_trigger_xs"):
     hdr = db[uid]
     # t = hdr.table(stream_name=stream_name, fill=True)
     data = list(hdr.data(stream_name=stream_name, field=stream_name))[0]
@@ -86,38 +95,44 @@ def load_apb_trig_dataset_from_db(db, uid, use_fall=True, stream_name='apb_trigg
         n_1 = np.sum(transitions == 1)
         n_all = np.min([n_0, n_1])
         rises = timestamps[transitions == 1]
-        apb_trig_timestamps = rises[:n_all] + np.mean(np.diff(rises))/2
+        apb_trig_timestamps = rises[:n_all] + np.mean(np.diff(rises)) / 2
     return apb_trig_timestamps
+
 
 # this is old
 def load_xs3_dataset_from_db_legacy(db, uid, apb_trig_timestamps):
     hdr = db[uid]
-    t = hdr.table(stream_name='xs_stream', fill=True)['xs_stream']
+    t = hdr.table(stream_name="xs_stream", fill=True)["xs_stream"]
     # n_spectra = t.size
     n_spectra = min(t.size, apb_trig_timestamps.size)
     xs_timestamps = apb_trig_timestamps[:n_spectra]
-    chan_roi_names = [f'CHAN{c}ROI{r}' for c, r in product([1, 2, 3, 4], [1, 2, 3, 4])]
+    chan_roi_names = [f"CHAN{c}ROI{r}" for c, r in product([1, 2, 3, 4], [1, 2, 3, 4])]
     spectra = {}
 
     for j, chan_roi in enumerate(chan_roi_names):
         this_spectrum = np.zeros(n_spectra)
 
         for i in range(n_spectra):
-            this_spectrum[i] = t[i+1][chan_roi]
+            this_spectrum[i] = t[i + 1][chan_roi]
 
-        spectra[chan_roi] = pd.DataFrame(np.vstack((xs_timestamps, this_spectrum)).T, columns=['timestamp', chan_roi])
+        spectra[chan_roi] = pd.DataFrame(
+            np.vstack((xs_timestamps, this_spectrum)).T, columns=["timestamp", chan_roi]
+        )
 
     return spectra
+
 
 # this is compatible with new handlers
 def load_xs3_dataset_from_db(db, uid, apb_trig_timestamps):
     hdr = db[uid]
-    t = hdr.table(stream_name='xs_stream', fill=True)
+    t = hdr.table(stream_name="xs_stream", fill=True)
     # n_spectra = t.size
-    n_spectra = min(t['xs_ch01_roi01'][1].size, apb_trig_timestamps.size)
+    n_spectra = min(t["xs_ch01_roi01"][1].size, apb_trig_timestamps.size)
     xs_timestamps = apb_trig_timestamps[:n_spectra]
     # chan_roi_names = [f'CHAN{c}ROI{r}' for c, r in product([1, 2, 3, 4], [1, 2, 3, 4])]
-    chan_roi_names = [f'xs_ch{c:02d}_roi{r:02d}' for r, c in product([1, 2, 3, 4], [1, 2, 3, 4])]
+    chan_roi_names = [
+        f"xs_ch{c:02d}_roi{r:02d}" for r, c in product([1, 2, 3, 4], [1, 2, 3, 4])
+    ]
     spectra = {}
 
     for j, chan_roi in enumerate(chan_roi_names):
@@ -127,39 +142,48 @@ def load_xs3_dataset_from_db(db, uid, apb_trig_timestamps):
         # this_spectrum[i] = t[i+1][chan_roi]
         # this_spectrum[i] = t[chan_roi][i + 1]
 
-        spectra[chan_roi] = pd.DataFrame(np.vstack((xs_timestamps, this_spectrum)).T,
-                                         columns=['timestamp', chan_roi])
+        spectra[chan_roi] = pd.DataFrame(
+            np.vstack((xs_timestamps, this_spectrum)).T, columns=["timestamp", chan_roi]
+        )
 
     return spectra
 
 
+pil100k_legacy_keys_match = {
+    "pil100k_ROI1": "pil100k_roi1",
+    "pil100k_ROI2": "pil100k_roi2",
+    "pil100k_ROI3": "pil100k_roi3",
+    "pil100k_ROI4": "pil100k_roi4",
+    "image": "pil100k_image",
+}
 
-pil100k_legacy_keys_match = {   'pil100k_ROI1': 'pil100k_roi1',
-                                'pil100k_ROI2': 'pil100k_roi2',
-                                'pil100k_ROI3': 'pil100k_roi3',
-                                'pil100k_ROI4': 'pil100k_roi4',
-                                'image' : 'pil100k_image'}
 
-def _load_pil100k_dataset_from_db_legacy(db, uid, apb_trig_timestamps, input_type='hdf5'):
+def _load_pil100k_dataset_from_db_legacy(
+    db, uid, apb_trig_timestamps, input_type="hdf5"
+):
     hdr = db[uid]
     spectra = {}
-    if input_type == 'tiff':
-        t = hdr.table(stream_name='pil100k_stream', fill=True)['pil100k_stream']
+    if input_type == "tiff":
+        t = hdr.table(stream_name="pil100k_stream", fill=True)["pil100k_stream"]
         # n_images = t.shape[0]
         n_images = min(t.size, apb_trig_timestamps.size)
         pil100k_timestamps = apb_trig_timestamps[:n_images]
 
         image_array = np.array([i for i in t])
-        rois = hdr.start['roi']
-
+        rois = hdr.start["roi"]
 
         for j in range(4):
             x, y, dx, dy = rois[j]
-            this_spectrum = np.sum(image_array[:, y: (y + dy), x: (x + dx)], axis=(1,2)) # NOTE : flipped X and Y
+            this_spectrum = np.sum(
+                image_array[:, y : (y + dy), x : (x + dx)], axis=(1, 2)
+            )  # NOTE : flipped X and Y
 
-            spectra[f'pil100k_ROI{j+1}'] = pd.DataFrame(np.vstack((pil100k_timestamps, this_spectrum)).T, columns=['timestamp', f'pil100k_ROI{j+1}'])
-    elif input_type == 'hdf5':
-        t = hdr.table(stream_name='pil100k_stream', fill=True)['pil100k_stream']
+            spectra[f"pil100k_ROI{j+1}"] = pd.DataFrame(
+                np.vstack((pil100k_timestamps, this_spectrum)).T,
+                columns=["timestamp", f"pil100k_ROI{j+1}"],
+            )
+    elif input_type == "hdf5":
+        t = hdr.table(stream_name="pil100k_stream", fill=True)["pil100k_stream"]
         # n_images = t.shape[0]
         n_images = min(t.size, apb_trig_timestamps.size)
         pil100k_timestamps = apb_trig_timestamps[:n_images]
@@ -167,9 +191,11 @@ def _load_pil100k_dataset_from_db_legacy(db, uid, apb_trig_timestamps, input_typ
         # keys = [k for k in t[1].keys() if ('roi' in k.lower())] # do only those with roi in the name
         output = {}
         for key in keys:
-            arr = [t[i+1].tolist()[key] for i in range(n_images)]
+            arr = [t[i + 1].tolist()[key] for i in range(n_images)]
             upd_key = pil100k_legacy_keys_match[key]
-            output[upd_key] = pd.DataFrame({'timestamp': pil100k_timestamps, upd_key: arr})
+            output[upd_key] = pd.DataFrame(
+                {"timestamp": pil100k_timestamps, upd_key: arr}
+            )
         return output
 
 
@@ -177,18 +203,33 @@ def _load_pil100k_dataset_from_db(db, uid, apb_trig_timestamps, load_images=Fals
     hdr = db[uid]
     output = {}
     # t = hdr.table(stream_name='pil100k_stream', fill=True)
-    field_list = ['pil100k_roi1', 'pil100k_roi2', 'pil100k_roi3', 'pil100k_roi4']#, 'pil100k_image']
-    _t = {field : list(hdr.data(stream_name='pil100k_stream', field=field))[0] for field in field_list}
+    field_list = [
+        "pil100k_roi1",
+        "pil100k_roi2",
+        "pil100k_roi3",
+        "pil100k_roi4",
+    ]  # , 'pil100k_image']
+    _t = {
+        field: list(hdr.data(stream_name="pil100k_stream", field=field))[0]
+        for field in field_list
+    }
     if load_images:
-        _t['pil100k_image'] = [i for i in list(hdr.data(stream_name='pil100k_stream', field='pil100k_image'))[0]]
+        _t["pil100k_image"] = [
+            i
+            for i in list(
+                hdr.data(stream_name="pil100k_stream", field="pil100k_image")
+            )[0]
+        ]
     t = pd.DataFrame(_t)
     # n_images = t.shape[0]
-    n_images = min(t['pil100k_roi1'].size, apb_trig_timestamps.size)
+    n_images = min(t["pil100k_roi1"].size, apb_trig_timestamps.size)
     pil100k_timestamps = apb_trig_timestamps[:n_images]
-    keys = [k for k in t.keys() if (k != 'time') ]#and (k != 'pil100k_image')]
+    keys = [k for k in t.keys() if (k != "time")]  # and (k != 'pil100k_image')]
     t = t[:n_images]
     for j, key in enumerate(keys):
-        output[key] = pd.DataFrame(np.vstack((pil100k_timestamps, t[key])).T, columns=['timestamp', f'{key}'])
+        output[key] = pd.DataFrame(
+            np.vstack((pil100k_timestamps, t[key])).T, columns=["timestamp", f"{key}"]
+        )
     return output
     # _spectra = np.zeros((n_images, len(keys)))
     # for i in range(0, n_images):
@@ -199,13 +240,18 @@ def _load_pil100k_dataset_from_db(db, uid, apb_trig_timestamps, load_images=Fals
     #
     # return spectra
 
+
 def load_pil100k_dataset_from_db(db, uid, apb_trig_timestamps, load_images=False):
     try:
-        return _load_pil100k_dataset_from_db(db, uid, apb_trig_timestamps, load_images=load_images)
+        return _load_pil100k_dataset_from_db(
+            db, uid, apb_trig_timestamps, load_images=load_images
+        )
     except Exception as e:
-        print(f'Failed to read pilatus data. Reason: {e}')
-        print('Attempting to use legacy loader')
-        return _load_pil100k_dataset_from_db_legacy(db, uid, apb_trig_timestamps, input_type='hdf5')
+        print(f"Failed to read pilatus data. Reason: {e}")
+        print("Attempting to use legacy loader")
+        return _load_pil100k_dataset_from_db_legacy(
+            db, uid, apb_trig_timestamps, input_type="hdf5"
+        )
 
 
 class MockHeader:
@@ -225,20 +271,22 @@ class MockHeader:
         for k, v in update_dict.items():
             self.start[k] = v
 
+
 def update_header_start(hdr, update_start_dict):
     new_hdr = MockHeader.from_header(hdr)
     new_hdr.update_start(update_start_dict)
     return new_hdr
 
-def get_all_uids_for_proposal(db, year, cycle, proposal, keys=['experiment']):
+
+def get_all_uids_for_proposal(db, year, cycle, proposal, keys=["experiment"]):
     year = str(year)
     cycle = str(cycle)
     proposal = str(proposal)
-    runs = db.v2.search({'year': year, 'cycle' : cycle, 'PROPOSAL' : proposal})
+    runs = db.v2.search({"year": year, "cycle": cycle, "PROPOSAL": proposal})
 
     uids = []
     for uid in runs:
-        start = runs[uid].metadata['start']
+        start = runs[uid].metadata["start"]
         if all((k in start.keys()) for k in keys):
             uids.append(uid)
     return uids
@@ -248,55 +296,57 @@ def get_fly_uids_for_proposal(db, year, cycle, proposal):
     year = str(year)
     cycle = str(cycle)
     proposal = str(proposal)
-    runs = db.v2.search({'year': year, 'cycle' : cycle, 'PROPOSAL' : proposal, 'experiment' : 'fly_scan'})
+    runs = db.v2.search(
+        {"year": year, "cycle": cycle, "PROPOSAL": proposal, "experiment": "fly_scan"}
+    )
     return list(runs)
+
 
 from collections import OrderedDict
 import pandas as pd
+
+
 def get_uid_tree_for_proposal(db, year, cycle, proposal):
     year = str(year)
     cycle = str(cycle)
     proposal = str(proposal)
-    runs = db.v2.search({'year': year, 'cycle': cycle, 'PROPOSAL': proposal})
+    runs = db.v2.search({"year": year, "cycle": cycle, "PROPOSAL": proposal})
 
     uid_df = []
     for uid in runs:
-        start = runs[uid].metadata['start']
-        if 'experiment' in start.keys():
-            uid_dict = {'scan_group_uid' : None,
-                        'uid' : uid,
-                        'experiment' : start['experiment'],
-                        'name': start['interp_filename'],
-                        'kind' : 'default'}
-            if 'scan_group_uid' in start.keys():
-                uid_dict['scan_group_uid'] = start['scan_group_uid']
+        start = runs[uid].metadata["start"]
+        if "experiment" in start.keys():
+            uid_dict = {
+                "scan_group_uid": None,
+                "uid": uid,
+                "experiment": start["experiment"],
+                "name": start["interp_filename"],
+                "kind": "default",
+            }
+            if "scan_group_uid" in start.keys():
+                uid_dict["scan_group_uid"] = start["scan_group_uid"]
             uid_df.append(uid_dict)
     uid_df = pd.DataFrame(uid_df)
-    uid_df['grouped'] = False
+    uid_df["grouped"] = False
 
     output = []
     for i, row in uid_df.iterrows():
-        if not row['grouped']:
-            if ((row['scan_group_uid'] is None) or
-                ((uid_df['scan_group_uid'] == row['scan_group_uid']).sum() == 1)):
+        if not row["grouped"]:
+            if (row["scan_group_uid"] is None) or (
+                (uid_df["scan_group_uid"] == row["scan_group_uid"]).sum() == 1
+            ):
                 output_row = row.to_dict()
-                output_row.pop('scan_group_uid')
-                output_row.pop('grouped')
+                output_row.pop("scan_group_uid")
+                output_row.pop("grouped")
             else:
-                output_row = {'scan_group_uid' : row['scan_group_uid']}
-                uids_loc = uid_df[uid_df['scan_group_uid'] == row['scan_group_uid']]
-                uids_loc = uids_loc.drop(['scan_group_uid', 'grouped'], axis=1)
-                output_row['uids'] = uids_loc.to_dict(orient='records')
+                output_row = {"scan_group_uid": row["scan_group_uid"]}
+                uids_loc = uid_df[uid_df["scan_group_uid"] == row["scan_group_uid"]]
+                uids_loc = uids_loc.drop(["scan_group_uid", "grouped"], axis=1)
+                output_row["uids"] = uids_loc.to_dict(orient="records")
             output.append(output_row)
-            uid_df[uid_df['scan_group_uid'] == row['scan_group_uid']]['grouped'] = True
+            uid_df[uid_df["scan_group_uid"] == row["scan_group_uid"]]["grouped"] = True
 
     return output
-
-
-
-
-
-
 
     #
     #
@@ -307,17 +357,12 @@ def plot_normalized(x, y, factor=1):
     x = np.array(x)
     y = np.array(y)
 
-    y_norm = (y - y.min())/factor
+    y_norm = (y - y.min()) / factor
     plt.plot(x, y_norm)
 
 
 def plot_normalized_scan(db, uid, factor=1):
     hdr = db[uid]
-    x = list(hdr.data('hhm_energy'))
-    y = list(hdr.data('pil100k_stats1_total'))
+    x = list(hdr.data("hhm_energy"))
+    y = list(hdr.data("pil100k_stats1_total"))
     plot_normalized(x, y, factor)
-
-
-
-
-

@@ -1,18 +1,18 @@
 from lmfit import Model
 import numpy as np
 
+
 def gaussian(x, amp, cen, sigma, bkg):
     """1-d gaussian: gaussian(x, amp, cen, sigma, bkg)"""
-    return (bkg + amp * np.exp(-(x-cen)**2 / (2*sigma**2)))
-
+    return bkg + amp * np.exp(-((x - cen) ** 2) / (2 * sigma**2))
 
 
 def get_normalized_gaussian_scan(db, uid, return_norm_param=False):
     t = db[uid].table()
-    E = t['hhm_energy'].values
-    I = t['pil100k_stats1_total'].values
-#     I_smooth = hampel(I)
-#     I_smooth = I
+    E = t["hhm_energy"].values
+    I = t["pil100k_stats1_total"].values
+    #     I_smooth = hampel(I)
+    #     I_smooth = I
     offset = np.mean(np.hstack((I[:2], I[-2:])))
     I -= offset
     scale = I.max()
@@ -36,7 +36,7 @@ def estimate_center_and_width_of_peak(E, I):
 def estimate_center_and_width_of_peak_update(E, I):
     # updated to not require normalized spectrum
     E_cen = E[np.argmax(np.abs(I))]
-    x = np.abs(I - 0.5*(I.max() - I.min()))
+    x = np.abs(I - 0.5 * (I.max() - I.min()))
     e_low = E < E_cen
     e_high = E > E_cen
     x1 = E[e_low][np.argmin(x[e_low])]
@@ -45,16 +45,16 @@ def estimate_center_and_width_of_peak_update(E, I):
     return E_cen, fwhm
 
 
-
 def fit_gaussian(E, I, Ecen0, fwhm0, amp=1, bkg=0):
     gmodel = Model(gaussian)
-    result = gmodel.fit(I, x=E, amp=amp, cen=Ecen0, sigma=fwhm0/2.355, bkg=bkg)
-    Ecen = result.params['cen'].value 
-    fwhm = np.abs(result.params['sigma'].value * 2.355)
-    I_fit = (result.best_fit - result.params['bkg'].value) / result.params['amp']
-    I_cor = (I - result.params['bkg'].value) / result.params['amp']
+    result = gmodel.fit(I, x=E, amp=amp, cen=Ecen0, sigma=fwhm0 / 2.355, bkg=bkg)
+    Ecen = result.params["cen"].value
+    fwhm = np.abs(result.params["sigma"].value * 2.355)
+    I_fit = (result.best_fit - result.params["bkg"].value) / result.params["amp"]
+    I_cor = (I - result.params["bkg"].value) / result.params["amp"]
     I_fit_raw = result.best_fit
     return Ecen, fwhm, I_cor, I_fit, I_fit_raw
+
 
 def fit_gaussian_with_estimation(E, I):
     Ecen0, fwhm0 = estimate_center_and_width_of_peak_update(E, I)
@@ -76,8 +76,8 @@ def fit_linear_surf(x, y, z, plotting=False):
     #     ax.scatter3D(x, y, A @ c, marker='.', color='r')
     return c
 
-class Nominal2ActualConverter:
 
+class Nominal2ActualConverter:
     def __init__(self, x_nominal, x_actual, n_poly=2):
         self.p_n2a = np.polyfit(x_nominal, x_actual, n_poly)
         self.p_a2n = np.polyfit(x_actual, x_nominal, n_poly)
@@ -90,7 +90,3 @@ class Nominal2ActualConverter:
 
     def act2nom(self, e_act):
         return np.polyval(self.p_a2n, e_act)
-
-
-
-

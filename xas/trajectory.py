@@ -8,7 +8,8 @@ import math
 from PyQt5 import QtCore
 
 import time as ttime
-#import pexpect
+
+# import pexpect
 from pexpect import pxssh
 from ftplib import FTP
 from subprocess import call
@@ -31,70 +32,76 @@ def _default_value():
 # Defining the dict
 
 
-
-
 def stitch_two_points(t_orig, e1, v1, e2, v2, frac=0.5):
     t = t_orig.copy()
     t -= t.min()
 
-    T1 = t.max()* frac
-    T2 = t.max() * (1-frac)
+    T1 = t.max() * frac
+    T2 = t.max() * (1 - frac)
 
     n = t.size
-    f1 = (1 + np.cos( (t - T1/2) / (T1*2) * 4* np.pi))/2
-    f2 = (1 + np.cos((t - T1 - T2/2) / (T2 * 2) * 4 * np.pi)) / 2
+    f1 = (1 + np.cos((t - T1 / 2) / (T1 * 2) * 4 * np.pi)) / 2
+    f2 = (1 + np.cos((t - T1 - T2 / 2) / (T2 * 2) * 4 * np.pi)) / 2
 
     f1[t > T1] = 0
     f2[t < T1] = 0
 
-    F = np.vstack((f1,f2)).T
+    F = np.vstack((f1, f2)).T
 
     q = t[1] - t[0]
 
     J = np.ones(n) * q
     J[0] = 0.5 * q
     J[-1] = 0.5 * q
-    O = np.ones((n, n))*q
-    A =  np.tril(O)  - np.diag(np.diag(O)) * 0.5
+    O = np.ones((n, n)) * q
+    A = np.tril(O) - np.diag(np.diag(O)) * 0.5
     A[:, 0] = 0.5 * q
     A[0, 0] = 0
     B = np.vstack((J @ A @ F, J @ F))
     b = np.hstack((e2 - e1 - J @ np.ones(n) * v1, v2 - v1))
-    c,_,_,_ = np.linalg.lstsq(B, b, rcond=-1)
-    return (A @ (A @ F @ c  + v1) + e1)
+    c, _, _, _ = np.linalg.lstsq(B, b, rcond=-1)
+    return A @ (A @ F @ c + v1) + e1
 
 
-
-class TrajectoryCreator():
+class TrajectoryCreator:
     def __init__(self, servocycle=16000, pulses_per_deg=360000):
         self.energy_grid = []
         self.encoder_grid = []
         self.servocycle = servocycle
-        self.pulses_per_deg= pulses_per_deg
+        self.pulses_per_deg = pulses_per_deg
 
-        self.e0 =  None
-        self.direction = 'forward'
+        self.e0 = None
+        self.direction = "forward"
         self.edge_start = -30
         self.edge_end = 50
 
-    def define(self, edge_energy = 11564, offsets = ([-200,-30,50,1000]), velocities = ([200, 20, 200]), stitching = ([75, 75, 10, 10, 100, 100]),
-              padding_lo = 1, padding_hi=1, trajectory_type = 'Step', sine_duration = 20,
-               dsine_preedge_duration = 10,
-               dsine_edge_duration=8,
-              dsine_postedge_duration = 20,
-               dsine_preedge_frac=0.15,
-               dsine_postedge_frac=0.85,
-               pad_time=0):
-
+    def define(
+        self,
+        edge_energy=11564,
+        offsets=([-200, -30, 50, 1000]),
+        velocities=([200, 20, 200]),
+        stitching=([75, 75, 10, 10, 100, 100]),
+        padding_lo=1,
+        padding_hi=1,
+        trajectory_type="Step",
+        sine_duration=20,
+        dsine_preedge_duration=10,
+        dsine_edge_duration=8,
+        dsine_postedge_duration=20,
+        dsine_preedge_frac=0.15,
+        dsine_postedge_frac=0.85,
+        pad_time=0,
+    ):
         # self.servocycle=servocycle
         self.e0 = edge_energy
-        self.direction = 'forward'
+        self.direction = "forward"
         self.edge_start = offsets[1]
         self.edge_end = offsets[2]
         self.gen_t_step = 1 / self.servocycle * 100
 
-        if ((trajectory_type == 'Double Sine/Constant Edge') or
-             (trajectory_type == 'standard')):
+        if (trajectory_type == "Double Sine/Constant Edge") or (
+            trajectory_type == "standard"
+        ):
             t_pre = dsine_preedge_duration
             t_xanes = dsine_edge_duration
             t_exafs = dsine_postedge_duration
@@ -104,7 +111,7 @@ class TrajectoryCreator():
             e_preedge_hi = edge_energy + offsets[1]
             e_postedge_lo = edge_energy + offsets[2]
             e_postedge_hi = edge_energy + offsets[3]
-            self.gen_t_step *= t_all/30
+            self.gen_t_step *= t_all / 30
 
             t = np.arange(0, t_all, self.gen_t_step)
             e = np.zeros(t.shape)
@@ -123,61 +130,85 @@ class TrajectoryCreator():
 
             e_preedge_hi_act = e[t_sel][0]
             e_postedge_lo_act = e[t_sel][-1]
-            t_sel = (t < t_pre)
-            e[t_sel] = stitch_two_points(t[t_sel], e_preedge_lo, 0, e_preedge_hi_act - e_velocity * self.gen_t_step,
-                                         e_velocity, frac=dsine_preedge_frac)
-            t_sel = (t > (t_pre + t_xanes))
-            e[t_sel] = stitch_two_points(t[t_sel], e_postedge_lo_act + e_velocity * self.gen_t_step, e_velocity,
-                                         e_postedge_hi, 0, frac=dsine_postedge_frac)
+            t_sel = t < t_pre
+            e[t_sel] = stitch_two_points(
+                t[t_sel],
+                e_preedge_lo,
+                0,
+                e_preedge_hi_act - e_velocity * self.gen_t_step,
+                e_velocity,
+                frac=dsine_preedge_frac,
+            )
+            t_sel = t > (t_pre + t_xanes)
+            e[t_sel] = stitch_two_points(
+                t[t_sel],
+                e_postedge_lo_act + e_velocity * self.gen_t_step,
+                e_velocity,
+                e_postedge_hi,
+                0,
+                frac=dsine_postedge_frac,
+            )
 
             self.time = t
             self.energy = e
 
-
-
-
-
-        if trajectory_type == 'Step':
-            preedge_lo = edge_energy+offsets[0]
-            preedge_hi = edge_energy+offsets[1]
+        if trajectory_type == "Step":
+            preedge_lo = edge_energy + offsets[0]
+            preedge_hi = edge_energy + offsets[1]
             edge_lo = preedge_hi
-            edge_hi = edge_energy+offsets[2]
+            edge_hi = edge_energy + offsets[2]
             postedge_lo = edge_hi
-            postedge_hi = edge_energy+offsets[3]
+            postedge_hi = edge_energy + offsets[3]
             velocity_preedge = velocities[0]
             velocity_edge = velocities[1]
             velocity_postedge = velocities[2]
 
-            preedge_stitch_lo = preedge_lo + stitching[0] #
-            preedge_stitch_hi = preedge_hi - stitching[1] #
-            edge_stitch_lo = edge_lo + stitching[2] #
-            edge_stitch_hi = edge_hi - stitching[3] #
-            postedge_stitch_lo = postedge_lo + stitching[4] #
-            postedge_stitch_hi = postedge_hi - stitching[5] #
+            preedge_stitch_lo = preedge_lo + stitching[0]  #
+            preedge_stitch_hi = preedge_hi - stitching[1]  #
+            edge_stitch_lo = edge_lo + stitching[2]  #
+            edge_stitch_hi = edge_hi - stitching[3]  #
+            postedge_stitch_lo = postedge_lo + stitching[4]  #
+            postedge_stitch_hi = postedge_hi - stitching[5]  #
 
             # create padding points to ensure derivative is zero
             t_padding_lo = 0
-            e_padding_lo = (1 - ((padding_lo/2.5) * 0.0125)) * preedge_lo#preedge_lo-20
+            e_padding_lo = (
+                1 - ((padding_lo / 2.5) * 0.0125)
+            ) * preedge_lo  # preedge_lo-20
 
-            #create preedge
+            # create preedge
             t_current = padding_lo
-            t_preedge_lo = t_current + (-preedge_lo + preedge_stitch_lo) / velocity_preedge
+            t_preedge_lo = (
+                t_current + (-preedge_lo + preedge_stitch_lo) / velocity_preedge
+            )
             e_preedge_lo = preedge_stitch_lo
-            t_preedge_hi = t_current + (-preedge_lo + preedge_stitch_hi) / velocity_preedge
+            t_preedge_hi = (
+                t_current + (-preedge_lo + preedge_stitch_hi) / velocity_preedge
+            )
             e_preedge_hi = preedge_stitch_hi
             # e_step = 1*1e-2
             # e_preedge = np.arange(e_preedge_lo, e_preedge_hi + e_step, e_step)
-            e_preedge = np.linspace(e_preedge_lo, e_preedge_hi, np.round(e_preedge_hi - e_preedge_lo)*10)
+            e_preedge = np.linspace(
+                e_preedge_lo, e_preedge_hi, np.round(e_preedge_hi - e_preedge_lo) * 10
+            )
             # t_step = (t_preedge_hi - t_preedge_lo) / (len(e_preedge) - 1)
             # t_preedge = np.arange(t_preedge_lo, t_preedge_hi + (t_step / 2), t_step)
             t_preedge = np.linspace(t_preedge_lo, t_preedge_hi, e_preedge.size)
             t_step = t_preedge[1] - t_preedge[0]
             # dfgbdsfgbsd
             # # stich padding an preedge
-            t_stich1 = np.linspace(t_padding_lo, t_preedge_lo, np.round((t_preedge_lo - t_padding_lo)/t_step))
-            e_stich1 = stich_two_points(t_stich1,
-                                        e_padding_lo, 0,
-                                        e_preedge[0], (e_preedge[1] - e_preedge[0]) / (t_preedge[1] - t_preedge[0]))
+            t_stich1 = np.linspace(
+                t_padding_lo,
+                t_preedge_lo,
+                np.round((t_preedge_lo - t_padding_lo) / t_step),
+            )
+            e_stich1 = stich_two_points(
+                t_stich1,
+                e_padding_lo,
+                0,
+                e_preedge[0],
+                (e_preedge[1] - e_preedge[0]) / (t_preedge[1] - t_preedge[0]),
+            )
 
             # create edge
             t_current = t_current + (-preedge_lo + preedge_hi) / velocity_preedge
@@ -187,7 +218,9 @@ class TrajectoryCreator():
             e_edge_hi = edge_stitch_hi
             # e_step = 1*1e-2
             # e_edge = np.arange(e_edge_lo, e_edge_hi + e_step, e_step)
-            e_edge = np.linspace(e_edge_lo, e_edge_hi, np.round(e_edge_hi - e_edge_lo)*10)
+            e_edge = np.linspace(
+                e_edge_lo, e_edge_hi, np.round(e_edge_hi - e_edge_lo) * 10
+            )
             # t_edge = np.arange(t_edge_lo, t_edge_hi + (t_step / 2), t_step)
             # t_step = (t_edge_hi - t_edge_lo) / (len(e_edge) - 1)
             t_edge = np.linspace(t_edge_lo, t_edge_hi, e_edge.size)
@@ -195,67 +228,120 @@ class TrajectoryCreator():
             # t_edge = np.arange(t_edge_lo, t_edge_hi + (t_step / 2), t_step)
 
             # # stich preedge and xanes
-            t_stich2 = np.linspace(t_preedge_hi, t_edge_lo, np.round((t_edge_lo - t_preedge_hi) / t_step*10))
-            e_stich2 = stich_two_points(t_stich2, e_preedge_hi, velocity_preedge, e_edge_lo, velocity_edge)
-            e_stich2 = stich_two_points(t_stich2,
-                                        e_preedge[-1], (e_preedge[1] - e_preedge[0]) / (t_preedge[1] - t_preedge[0]),
-                                        e_edge[0], (e_edge[1] - e_edge[0]) / (t_edge[1] - t_edge[0]))
+            t_stich2 = np.linspace(
+                t_preedge_hi,
+                t_edge_lo,
+                np.round((t_edge_lo - t_preedge_hi) / t_step * 10),
+            )
+            e_stich2 = stich_two_points(
+                t_stich2, e_preedge_hi, velocity_preedge, e_edge_lo, velocity_edge
+            )
+            e_stich2 = stich_two_points(
+                t_stich2,
+                e_preedge[-1],
+                (e_preedge[1] - e_preedge[0]) / (t_preedge[1] - t_preedge[0]),
+                e_edge[0],
+                (e_edge[1] - e_edge[0]) / (t_edge[1] - t_edge[0]),
+            )
 
             t_current = t_current + (-edge_lo + edge_hi) / velocity_edge
-            t_postedge_lo = t_current + (-postedge_lo + postedge_stitch_lo) / velocity_postedge
+            t_postedge_lo = (
+                t_current + (-postedge_lo + postedge_stitch_lo) / velocity_postedge
+            )
             e_postedge_lo = postedge_stitch_lo
-            t_postedge_hi = t_current + (-postedge_lo + postedge_stitch_hi) / velocity_postedge
+            t_postedge_hi = (
+                t_current + (-postedge_lo + postedge_stitch_hi) / velocity_postedge
+            )
             e_postedge_hi = postedge_stitch_hi
             # e_step = 1*1e-2
             # e_postedge = np.arange(e_postedge_lo, e_postedge_hi + e_step, e_step)
-            e_postedge = np.linspace(e_postedge_lo, e_postedge_hi, np.round(e_postedge_hi - e_postedge_lo)*10)
+            e_postedge = np.linspace(
+                e_postedge_lo,
+                e_postedge_hi,
+                np.round(e_postedge_hi - e_postedge_lo) * 10,
+            )
             # t_step = (t_postedge_hi - t_postedge_lo) / (len(e_postedge) - 1)
             # t_postedge = np.arange(t_postedge_lo, t_postedge_hi + (t_step / 2), t_step)
             t_postedge = np.linspace(t_postedge_lo, t_postedge_hi, e_postedge.size)
             t_step = t_postedge[1] - t_postedge[0]
 
             # # stich preedge and xanes
-            t_stich3 = np.linspace(t_edge_hi, t_postedge_lo, np.round((t_postedge_lo - t_edge_hi) / t_step) )
-            e_stich3 = stich_two_points(t_stich3,
-                                        e_edge[-1], (e_edge[1] - e_edge[0]) / (t_edge[1] - t_edge[0]),
-                                        e_postedge[0], (e_postedge[1] - e_postedge[0]) / (t_postedge[1] - t_postedge[0]))
+            t_stich3 = np.linspace(
+                t_edge_hi, t_postedge_lo, np.round((t_postedge_lo - t_edge_hi) / t_step)
+            )
+            e_stich3 = stich_two_points(
+                t_stich3,
+                e_edge[-1],
+                (e_edge[1] - e_edge[0]) / (t_edge[1] - t_edge[0]),
+                e_postedge[0],
+                (e_postedge[1] - e_postedge[0]) / (t_postedge[1] - t_postedge[0]),
+            )
 
             t_current = t_current + (-postedge_lo + postedge_hi) / velocity_postedge
             t_padding_hi = t_current + padding_hi
-            e_padding_hi = (1 + ((padding_hi/2.5) * 0.0125)) * postedge_hi #postedge_hi+20
+            e_padding_hi = (
+                1 + ((padding_hi / 2.5) * 0.0125)
+            ) * postedge_hi  # postedge_hi+20
 
-            t_stich4 = np.linspace(t_postedge_hi, t_padding_hi, np.round((t_padding_hi - t_postedge_hi) / t_step))
-            e_stich4 = stich_two_points(t_stich4,
-                                        e_postedge[-1],  (e_postedge[1] - e_postedge[0]) / (t_postedge[1] - t_postedge[0]),
-                                        e_padding_hi, 0)
+            t_stich4 = np.linspace(
+                t_postedge_hi,
+                t_padding_hi,
+                np.round((t_padding_hi - t_postedge_hi) / t_step),
+            )
+            e_stich4 = stich_two_points(
+                t_stich4,
+                e_postedge[-1],
+                (e_postedge[1] - e_postedge[0]) / (t_postedge[1] - t_postedge[0]),
+                e_padding_hi,
+                0,
+            )
 
             # concatenate the arrays
-            #self.time = np.array([t_padding_lo, t_preedge_lo, t_preedge_hi, \
+            # self.time = np.array([t_padding_lo, t_preedge_lo, t_preedge_hi, \
             #                      t_edge_lo, t_edge_hi, t_postedge_lo, t_postedge_hi, t_padding_hi])
-
 
             # _time = np.concatenate(([t_padding_lo], t_preedge, t_edge, t_postedge, [t_padding_hi]))
             # _energy = np.concatenate(([e_padding_lo], e_preedge, e_edge, e_postedge, [e_padding_hi]))
 
-
-            self.time = np.concatenate(([t_padding_lo], t_stich1[1:-1], t_preedge, t_stich2[1:-1], t_edge, t_stich3[1:-1], t_postedge, t_stich4[1:-1], [t_padding_hi]))
-            #self.energy = np.array([e_padding_lo, e_preedge_lo, e_preedge_hi,\
+            self.time = np.concatenate(
+                (
+                    [t_padding_lo],
+                    t_stich1[1:-1],
+                    t_preedge,
+                    t_stich2[1:-1],
+                    t_edge,
+                    t_stich3[1:-1],
+                    t_postedge,
+                    t_stich4[1:-1],
+                    [t_padding_hi],
+                )
+            )
+            # self.energy = np.array([e_padding_lo, e_preedge_lo, e_preedge_hi,\
             #                        e_edge_lo, e_edge_hi, e_postedge_lo, e_postedge_hi,e_padding_hi])
-            self.energy = np.concatenate(([e_padding_lo], e_stich1[1:-1], e_preedge, e_stich2[1:-1], e_edge, e_stich3[1:-1], e_postedge, e_stich4[1:-1], [e_padding_hi]))
+            self.energy = np.concatenate(
+                (
+                    [e_padding_lo],
+                    e_stich1[1:-1],
+                    e_preedge,
+                    e_stich2[1:-1],
+                    e_edge,
+                    e_stich3[1:-1],
+                    e_postedge,
+                    e_stich4[1:-1],
+                    [e_padding_hi],
+                )
+            )
 
             # _time_ = np.arange(_time[0], self.time[-1], 1 / self.servocycle)
 
-
-
-
-
-
-        elif trajectory_type.lower() == 'sine':
+        elif trajectory_type.lower() == "sine":
             total_time = float(sine_duration)
-            preedge_lo = edge_energy+offsets[0]
-            postedge_hi = edge_energy+offsets[3]
+            preedge_lo = edge_energy + offsets[0]
+            postedge_hi = edge_energy + offsets[3]
             x = np.linspace(-np.pi / 2, np.pi / 2, 100)
-            energy = (np.sin(x) * (postedge_hi - preedge_lo) / 2) + (postedge_hi + preedge_lo) / 2
+            energy = (np.sin(x) * (postedge_hi - preedge_lo) / 2) + (
+                postedge_hi + preedge_lo
+            ) / 2
             time = np.linspace(0, total_time, 100)
             self.energy = energy
             self.time = time
@@ -331,7 +417,7 @@ class TrajectoryCreator():
         #
         #     self.energy = np.concatenate((pos1, pos_int, pos2))
 
-        elif ((trajectory_type == 'Double Sine') or (trajectory_type == 'double_sine')):
+        elif (trajectory_type == "Double Sine") or (trajectory_type == "double_sine"):
             total_time = float(dsine_preedge_duration) + float(dsine_postedge_duration)
             half = float(dsine_preedge_duration) / total_time
             preedge_lo = edge_energy + offsets[0]
@@ -342,58 +428,72 @@ class TrajectoryCreator():
 
             x1_num = int(np.round(half * 100))
             x2_num = int(np.round((1 - half) * 100))
-            x1 = np.linspace(-np.pi / 2, (3 * np.pi / 2), x1_num) #2 * half / x_step1)
-            x2 = np.linspace(-np.pi / 2, (3 * np.pi / 2), x2_num) #2 * (1 - half) / x_step1)
+            x1 = np.linspace(-np.pi / 2, (3 * np.pi / 2), x1_num)  # 2 * half / x_step1)
+            x2 = np.linspace(
+                -np.pi / 2, (3 * np.pi / 2), x2_num
+            )  # 2 * (1 - half) / x_step1)
 
-            accel1 = (edge_energy - preedge_lo) * (np.sin(x1) + 1) #39.584072231342851
+            accel1 = (edge_energy - preedge_lo) * (np.sin(x1) + 1)  # 39.584072231342851
             accel2 = (postedge_hi - edge_energy) * (np.sin(x2) + 1)
             accel1 = np.concatenate((accel1, -accel1))
             accel2 = np.concatenate((accel2, -accel2))
 
-            vel1 = scipy.integrate.cumtrapz(accel1 * (1 / x1_num), initial = 0)
-            vel2 = scipy.integrate.cumtrapz(accel2 * (1 / x2_num), initial = 0)
+            vel1 = scipy.integrate.cumtrapz(accel1 * (1 / x1_num), initial=0)
+            vel2 = scipy.integrate.cumtrapz(accel2 * (1 / x2_num), initial=0)
 
-            pos1 = scipy.integrate.cumtrapz(vel1 * (1 / x1_num), initial = 0) + preedge_lo
+            pos1 = scipy.integrate.cumtrapz(vel1 * (1 / x1_num), initial=0) + preedge_lo
             pos1 = (pos1 / pos1[len(pos1) - 1]) * edge
-            pos2 = scipy.integrate.cumtrapz(vel2 * (1 / x2_num), initial = 0) + edge
+            pos2 = scipy.integrate.cumtrapz(vel2 * (1 / x2_num), initial=0) + edge
 
             self.energy = np.concatenate((pos1, pos2))
 
             time = np.linspace(0, (half * total_time), 2 * len(x1))
-            time2 = np.linspace((half * total_time) + (time[1] - time[0]), total_time, 2 * len(x2))
+            time2 = np.linspace(
+                (half * total_time) + (time[1] - time[0]), total_time, 2 * len(x2)
+            )
             self.time = np.concatenate((time, time2))
 
         if pad_time > 0:
-            t_pad_pre = np.arange(-pad_time, 0, self.gen_t_step/100)
-            t_pad_post = self.time[-1]-np.arange(-pad_time, 0, self.gen_t_step/100)[::-1]
+            t_pad_pre = np.arange(-pad_time, 0, self.gen_t_step / 100)
+            t_pad_post = (
+                self.time[-1] - np.arange(-pad_time, 0, self.gen_t_step / 100)[::-1]
+            )
 
             self.time = np.hstack((t_pad_pre, self.time, t_pad_post))
             self.time += pad_time
-            self.energy = np.hstack((self.energy[0]*np.ones(t_pad_pre.shape),
-                                     self.energy,
-                                     self.energy[-1]*np.ones(t_pad_post.shape)))
-
+            self.energy = np.hstack(
+                (
+                    self.energy[0] * np.ones(t_pad_pre.shape),
+                    self.energy,
+                    self.energy[-1] * np.ones(t_pad_post.shape),
+                )
+            )
 
     def define_from_dict(self, _scan_parameters):
         scan_parameters = defaultdict(_default_value)
         for k, v in _scan_parameters.items():
             scan_parameters[k] = v
-        EXAFS_end =  xray.k2e(scan_parameters['EXAFS_end'], scan_parameters['e0']/1000)
+        EXAFS_end = xray.k2e(scan_parameters["EXAFS_end"], scan_parameters["e0"] / 1000)
 
-        self.define(edge_energy=scan_parameters['e0'],
-                    offsets=([scan_parameters['preedge_start'],
-                              scan_parameters['XANES_start'],
-                              scan_parameters['XANES_end'],
-                              EXAFS_end]),
-                    trajectory_type=scan_parameters['type'],
-                    sine_duration=scan_parameters['duration'],
-                    dsine_preedge_duration=scan_parameters['preedge_duration'],
-                    dsine_edge_duration=scan_parameters['edge_duration'],
-                    dsine_postedge_duration=scan_parameters['postedge_duration'],
-                    dsine_preedge_frac=scan_parameters['preedge_flex'],
-                    dsine_postedge_frac=scan_parameters['postedge_flex'],
-                    pad_time=scan_parameters['pad'])
-
+        self.define(
+            edge_energy=scan_parameters["e0"],
+            offsets=(
+                [
+                    scan_parameters["preedge_start"],
+                    scan_parameters["XANES_start"],
+                    scan_parameters["XANES_end"],
+                    EXAFS_end,
+                ]
+            ),
+            trajectory_type=scan_parameters["type"],
+            sine_duration=scan_parameters["duration"],
+            dsine_preedge_duration=scan_parameters["preedge_duration"],
+            dsine_edge_duration=scan_parameters["edge_duration"],
+            dsine_postedge_duration=scan_parameters["postedge_duration"],
+            dsine_preedge_frac=scan_parameters["preedge_flex"],
+            dsine_postedge_frac=scan_parameters["postedge_flex"],
+            pad_time=scan_parameters["pad"],
+        )
 
     def compute_time_per_bin(self):
         e0 = self.e0
@@ -415,35 +515,40 @@ class TrajectoryCreator():
         e = None
         t = None
 
-        if hasattr(self, 'energy_grid'):
+        if hasattr(self, "energy_grid"):
             e = self.energy_grid
             t = self.time_grid
 
-
         if e is not None:
             try:
-                e_bin = xas_energy_grid(e, e0, edge_start, edge_end, preedge_spacing, xanes_spacing, exafs_k_spacing)
-                e_edges = np.hstack((e_bin[0], e_bin[:-1] + 0.5 * np.diff(e_bin), e_bin[-1]))
+                e_bin = xas_energy_grid(
+                    e,
+                    e0,
+                    edge_start,
+                    edge_end,
+                    preedge_spacing,
+                    xanes_spacing,
+                    exafs_k_spacing,
+                )
+                e_edges = np.hstack(
+                    (e_bin[0], e_bin[:-1] + 0.5 * np.diff(e_bin), e_bin[-1])
+                )
                 npt, _ = np.histogram(e, e_edges)
 
                 self.e_bin = e_bin
-                self.time_per_bin = npt/self.servocycle
+                self.time_per_bin = npt / self.servocycle
             except:
                 self.e_bin = [0, 1]
                 self.time_per_bin = [np.nan, np.nan]
         else:
-
             self.e_bin = [0, 1]
             self.time_per_bin = [np.nan, np.nan]
 
-
-
-
     def interpolate(self):
-        cs = interpolate.CubicSpline(self.time, self.energy, bc_type='clamped')
+        cs = interpolate.CubicSpline(self.time, self.energy, bc_type="clamped")
         # cs = interpolate.CubicSpline(self.time, self.energy, bc_type='natural')
         self.time_grid = np.arange(self.time[0], self.time[-1], 1 / self.servocycle)
-        self.energy_grid=cs(self.time_grid)
+        self.energy_grid = cs(self.time_grid)
         # self.energy_grid_der=np.diff(self.energy_grid)/np.diff(self.time_grid)
         self.compute_time_per_bin()
 
@@ -454,76 +559,104 @@ class TrajectoryCreator():
         self.energy = self.energy[::-1]
         self.energy_grid = self.energy_grid[::-1]
         # self.energy_grid_der = self.energy_grid_der[::-1]
-        self.direction = 'backward'
+        self.direction = "backward"
 
-    def tile_light(self, reps = 1, single_direction = False):
+    def tile_light(self, reps=1, single_direction=False):
         if not single_direction:
-            self.time = np.append(self.time,
-                                       (self.time + self.time[-1] + self.time[1] - self.time[0]))
+            self.time = np.append(
+                self.time, (self.time + self.time[-1] + self.time[1] - self.time[0])
+            )
             self.energy = np.append(self.energy, np.flipud(self.energy))
         # self.time_grid = np.tile(self.time_grid, reps)
         # self.time_grid = np.kron(np.arange(1, reps+1)/self.time_grid[-1], self.time_grid)
         self.time = np.hstack(
-            [i * (self.time[-1] + self.time[1] - self.time[0]) + self.time for i in range(reps)])
+            [
+                i * (self.time[-1] + self.time[1] - self.time[0]) + self.time
+                for i in range(reps)
+            ]
+        )
         self.energy = np.tile(self.energy, reps)
         # self.compute_time_per_bin()
         if reps > 1:
-            if self.direction == 'forward':
-                self.direction += '-backward repeat'
+            if self.direction == "forward":
+                self.direction += "-backward repeat"
             else:
-                self.direction += '-forward repeat'
+                self.direction += "-forward repeat"
 
-    def tile(self,reps = 1, single_direction = False):
+    def tile(self, reps=1, single_direction=False):
         if not single_direction:
-            self.time_grid = np.append(self.time_grid, (self.time_grid + self.time_grid[-1] + self.time_grid[1] - self.time_grid[0]))
+            self.time_grid = np.append(
+                self.time_grid,
+                (
+                    self.time_grid
+                    + self.time_grid[-1]
+                    + self.time_grid[1]
+                    - self.time_grid[0]
+                ),
+            )
             self.energy_grid = np.append(self.energy_grid, np.flipud(self.energy_grid))
         # self.time_grid = np.tile(self.time_grid, reps)
         # self.time_grid = np.kron(np.arange(1, reps+1)/self.time_grid[-1], self.time_grid)
-        self.time_grid = np.hstack([i * (self.time_grid[-1] + self.time_grid[1] - self.time_grid[0]) + self.time_grid for i in range(reps)])
+        self.time_grid = np.hstack(
+            [
+                i * (self.time_grid[-1] + self.time_grid[1] - self.time_grid[0])
+                + self.time_grid
+                for i in range(reps)
+            ]
+        )
         self.energy_grid = np.tile(self.energy_grid, reps)
         self.compute_time_per_bin()
-        if reps>1:
-            if self.direction == 'forward':
-                self.direction += '-backward repeat'
+        if reps > 1:
+            if self.direction == "forward":
+                self.direction += "-backward repeat"
             else:
-                self.direction += '-forward repeat'
-
+                self.direction += "-forward repeat"
 
     def define_complete(self, scan_parameters, lightweight=False):
         self.define_from_dict(scan_parameters)
         if lightweight:
-            if scan_parameters['revert']: self.revert_light()
-            self.tile_light(reps=scan_parameters['repeat'], single_direction=scan_parameters['single_direction'])
+            if scan_parameters["revert"]:
+                self.revert_light()
+            self.tile_light(
+                reps=scan_parameters["repeat"],
+                single_direction=scan_parameters["single_direction"],
+            )
         else:
             self.interpolate()
-            if scan_parameters['revert']: self.revert()
-            self.tile(reps=scan_parameters['repeat'], single_direction=scan_parameters['single_direction'])
-        self.element = scan_parameters['element']
-        self.edge = scan_parameters['edge']
-        self.E0 = scan_parameters['e0']
-
-
+            if scan_parameters["revert"]:
+                self.revert()
+            self.tile(
+                reps=scan_parameters["repeat"],
+                single_direction=scan_parameters["single_direction"],
+            )
+        self.element = scan_parameters["element"]
+        self.edge = scan_parameters["edge"]
+        self.E0 = scan_parameters["e0"]
 
     def e2encoder(self, offset):
-        self.encoder_grid = -xray.energy2encoder(self.energy_grid, self.pulses_per_deg, offset)
+        self.encoder_grid = -xray.energy2encoder(
+            self.energy_grid, self.pulses_per_deg, offset
+        )
 
     def e2energy(self, offset):
-        self.energy_grid = -xray.encoder2energy(self.encoder_grid, self.pulses_per_deg, offset)
+        self.energy_grid = -xray.encoder2energy(
+            self.encoder_grid, self.pulses_per_deg, offset
+        )
 
     def plot(self):
-        plt.plot(self.time, self.energy, 'r+')
-        plt.plot(self.energy_grid,'b')
+        plt.plot(self.time, self.energy, "r+")
+        plt.plot(self.energy_grid, "b")
         plt.show()
 
     def load_trajectory_file(self, filename, offset, is_energy):
-        array_out=[]
+        array_out = []
         with open(str(filename)) as f:
             first = f.readline()
-            if first[0] != '#':
+            if first[0] != "#":
                 array_out.append(float(first))
             else:
-                pattern = 'E0: '
-                idx =  first.find(pattern) + len(pattern)
+                pattern = "E0: "
+                idx = first.find(pattern) + len(pattern)
                 self.e0 = float(first[idx:])
             for line in f:
                 array_out.append(float(line))
@@ -533,10 +666,11 @@ class TrajectoryCreator():
             self.energy_grid = array_out
         else:
             # self.energy_grid_loaded = -xray.encoder2energy(array_out, self.pulses_per_deg, offset)
-            self.energy_grid = -xray.encoder2energy(array_out, self.pulses_per_deg, offset)
-        self.time_grid = np.arange(self.energy_grid.size)/self.servocycle
+            self.energy_grid = -xray.encoder2energy(
+                array_out, self.pulses_per_deg, offset
+            )
+        self.time_grid = np.arange(self.energy_grid.size) / self.servocycle
         self.compute_time_per_bin()
-
 
     def save(self, filename):
         # if filename[-4:] == '.txt':
@@ -553,14 +687,17 @@ class TrajectoryCreator():
         #         if not ret:
         #             print('Aborted!')
         #             return
-            np.savetxt(filename,
-                       self.energy_grid, fmt='%.6f',
-                       header = f'element: {self.element}, edge: {self.edge}, E0: {self.e0}, direction: {self.direction}')
-            call(['chmod', '666', filename])
-            # self.trajectory_path = filename[:filename.rfind('/')] + '/'
-            # self.label_current_trajectory.setText(filename.rsplit('/', 1)[1])
-            # self.push_plot_traj.setEnabled(True)
-            print('Trajectory saved! [{}]'.format(filename))
+        np.savetxt(
+            filename,
+            self.energy_grid,
+            fmt="%.6f",
+            header=f"element: {self.element}, edge: {self.edge}, E0: {self.e0}, direction: {self.direction}",
+        )
+        call(["chmod", "666", filename])
+        # self.trajectory_path = filename[:filename.rfind('/')] + '/'
+        # self.label_current_trajectory.setText(filename.rsplit('/', 1)[1])
+        # self.push_plot_traj.setEnabled(True)
+        print("Trajectory saved! [{}]".format(filename))
 
 
 # class trajectory_manager():

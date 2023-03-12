@@ -323,12 +323,12 @@ def check_refs(sg_df_uid: pd.DataFrame) -> None:
     sg_df_uid["mur_source"] = None
     if all(sg_df_uid["mur_good"]):
         return
-    if all(sg_df_uid["mur_good"]==False):
+    if all(sg_df_uid["mur_good"] == False):
         print("Failed. No good refs in scan group.")
         return
-    #bad_ref_inds = sg_df_uid.index[sg_df_uid["mur_good"]==False]
-    bad_ref_df = sg_df_uid[sg_df_uid["mur_good"]==False]
-    good_ref_df = sg_df_uid[sg_df_uid["mur_good"]==True]
+    # bad_ref_inds = sg_df_uid.index[sg_df_uid["mur_good"]==False]
+    bad_ref_df = sg_df_uid[sg_df_uid["mur_good"] == False]
+    good_ref_df = sg_df_uid[sg_df_uid["mur_good"] == True]
 
     for i, scan_time in bad_ref_df["time"].items():
         closest_time_idx = np.abs(scan_time - good_ref_df["time"]).idxmin()
@@ -342,7 +342,9 @@ def big_test(df_uid):
     sg_dfs_out = []
     for sg in df_uid.scan_group.unique()[1:2]:
         sg_df_uid = df_uid[df_uid.scan_group == sg]
-        outlier_results.append(outlier_rejection(sg_df_uid.data.tolist(), sg_df_uid.uid.tolist()))
+        outlier_results.append(
+            outlier_rejection(sg_df_uid.data.tolist(), sg_df_uid.uid.tolist())
+        )
         check_refs(sg_df_uid)
         sg_dfs_out.append(sg_df_uid)
     return outlier_results, sg_dfs_out
