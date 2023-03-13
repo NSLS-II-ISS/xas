@@ -4,6 +4,7 @@ import dash_bootstrap_components as dbc
 
 import numpy as np
 import plotly.graph_objects as go
+import itertools
 
 from xas.tiled_io import get_iss_sandbox, filter_node_for_proposal
 from xas.analysis import check_scan
@@ -50,7 +51,11 @@ app.layout = dbc.Container([
                                 ],
                                 id="channel_checklist",
                             ),
-                            dbc.Button("see more", color="link", size="sm", id="more_channels_btn"),
+                            dbc.Button("see more", 
+                                        color="link",
+                                        size="sm",
+                                        n_clicks=0,
+                                        id="change_channels_btn"),
                             ],
                             body=True
                         ),
@@ -125,6 +130,38 @@ def update_plot(plot_click, clear_click, selected_scans, selected_scan_id_dicts,
                             fig.add_scatter(x=df["energy"], y=df[ch], name=f"{scan_id} {ch}")
     return fig
         
+
+@app.callback(
+    Output("channel_checklist", "options"),
+    Output("change_channels_btn", "children"),
+    Input("change_channels_btn", "n_clicks"),
+    State({"type": "scan_check", "uid": ALL, "group": ALL}, "value"),
+    State({"type": "scan_check", "uid": ALL, "group": ALL}, "id"),
+    prevent_initial_call=True,
+)
+def change_visible_channels(n_channel_clicks, selected_scans, scan_id_dicts):
+    default_options = [
+        {"label": "mut", "value": "mut"},
+        {"label": "muf", "value": "muf"},
+        {"label": "mur", "value": "mur"},
+    ]
+
+    if n_channel_clicks % 2 == 0:
+        selected_uids = [id_dict["uid"] for id_dict in itertools.compress(scan_id_dicts, selected_scans)]
+        other_channels = set()
+        for uid in selected_uids:
+            other_channels = other_channels.union(ISS_SANDBOX[uid].read().keys())
+        
+        new_options = [{"label": ch, "value": ch} for ch in sorted(other_channels)]
+        channel_options = default_options + new_options
+        channel_btn_text = "see less"
+    
+    else:
+        channel_options = default_options
+        channel_btn_text = "see more"
+    
+    return channel_options, channel_btn_text
+
 
 @app.callback(
     Output({"type": "scan_check", "uid": ALL, "group": MATCH}, "value"),
