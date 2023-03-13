@@ -7,24 +7,34 @@ import numpy as np
 import pickle
 
 
-
 class XASDataSet:
     _md = {}
-    _filename = ''
+    _filename = ""
     _larch = Interpreter()
 
-    def __init__(self, name=None, md=None, energy = None, mu=None,
-                 filename=None, datatype=None, process=True,
-                 xasdataset=None, ext_data=None, df=None,
-                 *args, **kwargs):
+    def __init__(
+        self,
+        name=None,
+        md=None,
+        energy=None,
+        mu=None,
+        filename=None,
+        datatype=None,
+        process=True,
+        xasdataset=None,
+        ext_data=None,
+        df=None,
+        *args,
+        **kwargs,
+    ):
         self.larch = xafsgroup()
         if md is not None:
             self._md = md
-            if 'e0' in md:
-                self.larch.e0 = float(md['e0'])
-            elif 'edge' in md:
-                edge = md['edge']
-                self.larch.e0 = int(edge[edge.find('(') + 1: edge.find(')')])
+            if "e0" in md:
+                self.larch.e0 = float(md["e0"])
+            elif "edge" in md:
+                edge = md["edge"]
+                self.larch.e0 = int(edge[edge.find("(") + 1 : edge.find(")")])
 
         if mu is not None:
             self.larch.mu = np.array(mu)
@@ -90,7 +100,7 @@ class XASDataSet:
         # mu_deriv=np.diff(np.transpose(self.mu.values))/np.diff(self.energy)
         mu_deriv = np.diff(self.mu) / np.diff(self.energy)
         self.mu_deriv = mu_deriv
-        self.energy_deriv=(self.energy[1:]+self.energy[:-1])/2
+        self.energy_deriv = (self.energy[1:] + self.energy[:-1]) / 2
 
     def flatten(self):
         step_index = int(np.argwhere(self.energy > self.e0)[0])
@@ -111,25 +121,33 @@ class XASDataSet:
         self.norm1 = self.larch.pre_edge_details.norm1
         self.norm2 = self.larch.pre_edge_details.norm2
         self.e0 = self.larch.e0
-        self.pre_edge=self.larch.pre_edge
+        self.pre_edge = self.larch.pre_edge
         self.post_edge = self.larch.post_edge
         self.edge_step = self.larch.edge_step
         self.flatten()
 
-
     def normalize_force(self):
-        pre_edge(self.larch, group=self.larch, _larch=self._larch, e0=self.e0, pre1=self.pre1, pre2=self.pre2,
-                                                                           norm1=self.norm1, norm2=self.norm2, nnorm=self.nnorm)
+        pre_edge(
+            self.larch,
+            group=self.larch,
+            _larch=self._larch,
+            e0=self.e0,
+            pre1=self.pre1,
+            pre2=self.pre2,
+            norm1=self.norm1,
+            norm2=self.norm2,
+            nnorm=self.nnorm,
+        )
         self.norm = self.larch.norm
         self.e0 = self.larch.e0
-        self.pre_edge=self.larch.pre_edge
+        self.pre_edge = self.larch.pre_edge
         self.post_edge = self.larch.post_edge
         self.edge_step = self.larch.edge_step
         self.flatten()
 
     def extract_chi(self):
-        #print('chi ing')
-        autobk(self.larch, group=self.larch,  _larch=self._larch)
+        # print('chi ing')
+        autobk(self.larch, group=self.larch, _larch=self._larch)
 
         self.chi = self.larch.chi
         self.bkg = self.larch.bkg
@@ -138,57 +156,83 @@ class XASDataSet:
         # self.nclamp = 2
         # self.rbkg = 1
 
-        #self.kmin_ft = self.kmin
-
+        # self.kmin_ft = self.kmin
 
     def extract_chi_force(self):
-        #print('chi force reporting')
-        autobk(self.larch, group=self.larch, _larch=self._larch,
-               e0=self.e0, kmin=self.kmin, kmax=self.kmax, kweight=self.kweight,
-               rbkg=self.rbkg, clamp_lo=self.clamp_lo, clamp_hi=self.clamp_hi)
+        # print('chi force reporting')
+        autobk(
+            self.larch,
+            group=self.larch,
+            _larch=self._larch,
+            e0=self.e0,
+            kmin=self.kmin,
+            kmax=self.kmax,
+            kweight=self.kweight,
+            rbkg=self.rbkg,
+            clamp_lo=self.clamp_lo,
+            clamp_hi=self.clamp_hi,
+        )
         # autobk(self.larch, group=self.larch, _larch=self._larch, e0=self.e0, kmin=self.kmin, kmax=self.kmax,
         #        nclamp=2, clamp_hi=10)
         self.k = self.larch.k
         self.chi = self.larch.chi
         self.bkg = self.larch.bkg
 
-
     def extract_ft(self):
-        #print('ft reporting')
-        #print(self.kmin_ft)
+        # print('ft reporting')
+        # print(self.kmin_ft)
         # xftf(self.larch, group=self.larch,  _larch=self._larch, kmin=self.kmin_ft, kmax=self.kmax)
-        xftf(self.larch, group=self.larch, _larch=self._larch,kmin=self.kmin_ft, kmax=self.kmax_ft)
+        xftf(
+            self.larch,
+            group=self.larch,
+            _larch=self._larch,
+            kmin=self.kmin_ft,
+            kmax=self.kmax_ft,
+        )
 
         self.r = self.larch.r
         self.chir = self.larch.chir
         self.chir_mag = self.larch.chir_mag
         self.chir_im = self.larch.chir_re
         self.chir_re = self.larch.chir_im
-        #self.chir_pha = self.larch.chir_pha
+        # self.chir_pha = self.larch.chir_pha
         self.kmax_ft = self.kmax
         self.kwin = self.larch.kwin
 
     def extract_ft_force(self, window={}):
-        #print('ft force reporting')
+        # print('ft force reporting')
         if not window:
-            xftf(self.larch, group=self.larch,  _larch=self._larch,
-                 kmin=self.kmin_ft, kmax=self.kmax_ft, kweight=self.kweight)
+            xftf(
+                self.larch,
+                group=self.larch,
+                _larch=self._larch,
+                kmin=self.kmin_ft,
+                kmax=self.kmax_ft,
+                kweight=self.kweight,
+            )
         else:
-            window_type = window['window_type']
-            tapering = window['tapering']
-            r_weight = window['r_weight']
+            window_type = window["window_type"]
+            tapering = window["tapering"]
+            r_weight = window["r_weight"]
             # print('setting window')
-            xftf(self.larch, group=self.larch, _larch=self._larch,
-                 kmin=self.kmin_ft, kmax=self.kmax_ft, kweight=self.kweight,
-                 window=window_type, dk=tapering,rweight=r_weight)
+            xftf(
+                self.larch,
+                group=self.larch,
+                _larch=self._larch,
+                kmin=self.kmin_ft,
+                kmax=self.kmax_ft,
+                kweight=self.kweight,
+                window=window_type,
+                dk=tapering,
+                rweight=r_weight,
+            )
         self.r = self.larch.r
         self.chir = self.larch.chir
         self.chir_mag = self.larch.chir_mag
         self.chir_im = self.larch.chir_re
         self.chir_re = self.larch.chir_im
-        #self.chir_pha = self.larch.chir_phas
+        # self.chir_pha = self.larch.chir_phas
         self.kwin = self.larch.kwin
-
 
     @property
     def md(self):
@@ -197,13 +241,13 @@ class XASDataSet:
     @md.setter
     def md(self, md):
         self._md = md
-        if 'e0' in md:
+        if "e0" in md:
             # self.larch.e0 = int(md['e0'])
-            self.larch.e0 = float(md['e0'])
+            self.larch.e0 = float(md["e0"])
             pass
-        elif 'edge' in md:
-            edge = md['edge']
-            self.larch.e0 = int(edge[edge.find('(') + 1: edge.find(')')])
+        elif "edge" in md:
+            edge = md["edge"]
+            self.larch.e0 = int(edge[edge.find("(") + 1 : edge.find(")")])
 
     @property
     def mu(self):
@@ -211,7 +255,7 @@ class XASDataSet:
 
     @mu.setter
     def mu(self, mu):
-        if hasattr(mu, 'values'):
+        if hasattr(mu, "values"):
             values = mu.values
         else:
             values = mu
@@ -265,7 +309,7 @@ class XASProject(QtCore.QObject):
         self.datasets_changed.emit(self._datasets)
 
     def __repr__(self):
-        return f'{self._datasets}'.replace(', ', ',\n ')
+        return f"{self._datasets}".replace(", ", ",\n ")
 
     def __iter__(self):
         self._iterator = 0
@@ -283,19 +327,19 @@ class XASProject(QtCore.QObject):
         return self.datasets[item]
 
     def save(self, filename=None):
-        if  self._datasets:
+        if self._datasets:
             if filename is not None:
-                list_to_save=[]
+                list_to_save = []
                 for i in self._datasets:
                     list_to_save.append(i)
-                fid = open(filename, 'wb')
+                fid = open(filename, "wb")
                 pickle.dump(list_to_save, fid)
                 fid.close()
-                print('XAS project was succesfully stored in {}'.format(filename))
+                print("XAS project was succesfully stored in {}".format(filename))
 
     def load(self, filename=None):
         if filename is not None:
-            fid = open(filename, 'rb')
+            fid = open(filename, "rb")
             datasets = pickle.load(fid)
             for i in datasets:
                 self.append(i)
@@ -309,14 +353,14 @@ class XASProject(QtCore.QObject):
         n_curves = len(ds_all)
         # t =  # default independent parameter
         t_dict = dict((i, list()) for i in useful_md_keys)
-        t_dict['index'] = []
+        t_dict["index"] = []
         data = np.zeros((energy_master.size, n_curves))
 
         for i, ds in enumerate(ds_all):
             data[:, i] = np.interp(energy_master, ds.energy, ds.flat)
-            t_dict['index'].append(i)
+            t_dict["index"].append(i)
             for key in useful_md_keys:
-                if key == 'name':
+                if key == "name":
                     _t = ds.name
                 else:
                     if key in ds.md.keys():
@@ -328,12 +372,4 @@ class XASProject(QtCore.QObject):
         return energy_master, t_dict, data
 
 
-useful_md_keys = ['name', 'time', 'sample_x_position', 'sample_y_position']
-
-
-
-
-
-
-
-
+useful_md_keys = ["name", "time", "sample_x_position", "sample_y_position"]

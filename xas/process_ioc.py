@@ -8,31 +8,33 @@ from caproto.server import PVGroup, ioc_arg_parser, pvproperty, run
 import numpy as np
 from ophyd import Component as Cpt, Device, EpicsSignal, Kind
 
-print('#####################################################################')
-print('###                   LAUNCHING PROCESSING IOC                    ###')
-print('#####################################################################')
+print("#####################################################################")
+print("###                   LAUNCHING PROCESSING IOC                    ###")
+print("#####################################################################")
 
 db = get_iss_db()
+
 
 class ProcessingIOC(PVGroup):
     """
     An IOC for executing ramps of pv_setpoints
 
     """
+
     pv_data_available = pvproperty(
         value=0,
-        doc='pv data available',
+        doc="pv data available",
     )
 
     pv_uid = pvproperty(
-        value='',
+        value="",
         dtype=ChannelType.STRING,
-        doc='pv uid',
+        doc="pv uid",
     )
 
     pv_heartbeat = pvproperty(
         value=0,
-        doc='pv heartbeat',
+        doc="pv heartbeat",
     )
 
     dwell = 0.5
@@ -44,9 +46,9 @@ class ProcessingIOC(PVGroup):
         while True:
             await async_lib.sleep(self.dwell)
             # print(f'{instance.value=}')
-            if instance.value != '':
+            if instance.value != "":
                 self.uid_list.append(instance.value)
-                await instance.write(value='')
+                await instance.write(value="")
                 await self.pv_data_available.write(1)
 
     @pv_data_available.startup
@@ -58,15 +60,16 @@ class ProcessingIOC(PVGroup):
             if instance.value == 1:
                 process_uid = self.uid_list.pop(0)
 
-                print(f'PROCESS IOC: File received {process_uid}')
-                if 'experiment' in db[process_uid].start.keys():
+                print(f"PROCESS IOC: File received {process_uid}")
+                if "experiment" in db[process_uid].start.keys():
                     process_interpolate_bin_from_uid(process_uid, db)
 
                 await instance.write(0)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     ioc_options, run_options = ioc_arg_parser(
-        default_prefix='XF:08IDB-Processing:',
-        desc=dedent(ProcessingIOC.__doc__))
+        default_prefix="XF:08IDB-Processing:", desc=dedent(ProcessingIOC.__doc__)
+    )
     ioc = ProcessingIOC(**ioc_options)
     run(ioc.pvdb, **run_options)

@@ -1,23 +1,33 @@
-
-
 import numpy as np
 import pyFAI as pyFAI
 import kkcalc, kkcalc.data, kkcalc.kk
 
 
-
-
-def get_ai(dist=40, center_ver=93, center_hor=440,
-           pixel1=0.172, pixel2=0.172,
-           rot1=0, rot2=0, rot3=np.pi/2,
-           energy=11300):
+def get_ai(
+    dist=40,
+    center_ver=93,
+    center_hor=440,
+    pixel1=0.172,
+    pixel2=0.172,
+    rot1=0,
+    rot2=0,
+    rot3=np.pi / 2,
+    energy=11300,
+):
     wavelength = 12.3984 / energy * 1e-3 * 1e-10
-    ai = pyFAI.AzimuthalIntegrator(dist=dist*1e-3,
-                                   poni1=center_ver * pixel1 * 1e-3, poni2=center_hor * pixel2 * 1e-3,
-                                   pixel1=pixel1 * 1e-3, pixel2=pixel2 * 1e-3,
-                                   rot1=rot1, rot2=rot2, rot3=rot3,
-                                   wavelength=wavelength)
+    ai = pyFAI.AzimuthalIntegrator(
+        dist=dist * 1e-3,
+        poni1=center_ver * pixel1 * 1e-3,
+        poni2=center_hor * pixel2 * 1e-3,
+        pixel1=pixel1 * 1e-3,
+        pixel2=pixel2 * 1e-3,
+        rot1=rot1,
+        rot2=rot2,
+        rot3=rot3,
+        wavelength=wavelength,
+    )
     return ai
+
 
 # ai = get_ai()
 #
@@ -38,7 +48,6 @@ def get_ai(dist=40, center_ver=93, center_hor=440,
 # jupyter.plot2d(res2)
 
 
-
 # hdr = db['928a1184-5ea7-4eb3-aa44-3b5b725ce1b3']# Ir dimer sample
 # hdr = db['c723a571-e3e2-4d15-9b36-cf573bf85834'] # neat MeCN
 # pil100k_data = hdr.table(stream_name='pil100k_stream', fill=True)
@@ -47,9 +56,9 @@ def get_ai(dist=40, center_ver=93, center_hor=440,
 # images_raw = pil100k_data['pil100k_image'][1]
 
 
-
-
 from scipy.signal import medfilt2d
+
+
 def process_image(image, nw=5):
     a, b = image.shape
     image_smooth = medfilt2d(image, kernel_size=nw)
@@ -61,7 +70,9 @@ def process_image(image, nw=5):
     for i in range(dw, a - dw):
         for j in range(dw, b - dw):
             subset = image[(i - dw) : (i + dw + 1), (j - dw) : (j + dw + 1)]
-            subset_smooth = image_smooth[(i - dw): (i + dw + 1), (j - dw): (j + dw + 1)]
+            subset_smooth = image_smooth[
+                (i - dw) : (i + dw + 1), (j - dw) : (j + dw + 1)
+            ]
             # print(subset.shape)
             subset = subset.ravel()
             subset_smooth = subset_smooth.ravel()
@@ -76,8 +87,8 @@ def process_image(image, nw=5):
     plt.figure(8)
     plt.clf()
     plt.subplot(221)
-    plt.plot(I.ravel(), sigma.ravel()**2, 'k.')
-    plt.plot([0, 20e3], [0, 20e3], 'r-')
+    plt.plot(I.ravel(), sigma.ravel() ** 2, "k.")
+    plt.plot([0, 20e3], [0, 20e3], "r-")
 
     plt.subplot(222)
     plt.imshow(I)
@@ -88,10 +99,13 @@ def process_image(image, nw=5):
     plt.subplot(224)
     plt.imshow(gains, vmin=0.9, vmax=1.1)
 
+
 # process_image(image)
 
 
-def integrate_pil100k_image_stack(images_array, energy, dist=40, center_ver=93, center_hor=440, deadtime_cor=False):
+def integrate_pil100k_image_stack(
+    images_array, energy, dist=40, center_ver=93, center_hor=440, deadtime_cor=False
+):
     ai = get_ai(dist=dist, center_ver=center_ver, center_hor=center_hor)
     s = []
     mask = None
@@ -100,14 +114,16 @@ def integrate_pil100k_image_stack(images_array, energy, dist=40, center_ver=93, 
             image *= np.exp(-image * 25 * 160e-9)
         if mask is None:
             mask = image < np.percentile(image.ravel(), 5)
-        res = ai.integrate1d_ng(image,
-                                350,
-                                mask=mask,
-                                unit="2th_deg")
+        res = ai.integrate1d_ng(image, 350, mask=mask, unit="2th_deg")
         s.append(res[1])
         tth = res[0]
 
-    q_all = 4 * np.pi / (12398.4 / energy[np.newaxis, :]) * np.sin(np.deg2rad(tth[:, np.newaxis])/2)
+    q_all = (
+        4
+        * np.pi
+        / (12398.4 / energy[np.newaxis, :])
+        * np.sin(np.deg2rad(tth[:, np.newaxis]) / 2)
+    )
     qmin = q_all.min(axis=0).max()
     qmax = q_all.max(axis=0).min()
     nq = np.sum((q_all >= qmin) & (q_all <= qmax), axis=0).min()
@@ -118,33 +134,52 @@ def integrate_pil100k_image_stack(images_array, energy, dist=40, center_ver=93, 
 
     return q, sq
 
+
 #
 # fname_base = 'Ir sample 2 scan AXS wide 600 um'
 
 # reprocess the data
 # process files for sample 2 with AXS wide trajectory
 from xas.process import process_interpolate_bin_from_uid
+
 # for i in range(255080, 255104+1):
 for i in range(255114, 255313 + 1):
     print(i)
     process_interpolate_bin_from_uid(i, db)
 
-from xas.file_io import load_binned_df_and_extended_data_from_file, save_extended_data_as_file
-folder = '/nsls2/data/iss/legacy/processed/2022/2/300011/'
-fname_base = 'Ir sample 1 scan AXS wide 600 um data'
+from xas.file_io import (
+    load_binned_df_and_extended_data_from_file,
+    save_extended_data_as_file,
+)
+
+folder = "/nsls2/data/iss/legacy/processed/2022/2/300011/"
+fname_base = "Ir sample 1 scan AXS wide 600 um data"
 
 
-
-dist=40
-center_ver=105
-center_hor=438
+dist = 40
+center_ver = 105
+center_hor = 438
 for i in range(2, 201):
-    f = f'{folder}{fname_base} {i:04d}-r0003.dat'
+    f = f"{folder}{fname_base} {i:04d}-r0003.dat"
     df_i, ext_data_i, _ = load_binned_df_and_extended_data_from_file(f)
-    q_i, sq_i = integrate_pil100k_image_stack(ext_data_i['pil100k_image'], df_i['energy'], dist=dist, center_ver=center_ver, center_hor=center_hor)
-    int_data_i = {'q' : q_i, 'sq' : sq_i, 'dist' : dist, 'center_ver' : center_ver, 'center_hor' : center_hor}
-    f_int = f'{f[:-4]}_int.dat'
-    save_extended_data_as_file(f_int, int_data_i, data_kind='default', ext_data_path='extended_data')
+    q_i, sq_i = integrate_pil100k_image_stack(
+        ext_data_i["pil100k_image"],
+        df_i["energy"],
+        dist=dist,
+        center_ver=center_ver,
+        center_hor=center_hor,
+    )
+    int_data_i = {
+        "q": q_i,
+        "sq": sq_i,
+        "dist": dist,
+        "center_ver": center_ver,
+        "center_hor": center_hor,
+    }
+    f_int = f"{f[:-4]}_int.dat"
+    save_extended_data_as_file(
+        f_int, int_data_i, data_kind="default", ext_data_path="extended_data"
+    )
 
     # if df is None:
 #         df = df_i
@@ -170,7 +205,6 @@ for i in range(2, 201):
 #
 # df = df/15
 # data = data/15
-
 
 
 # df, _ = load_binned_df_from_file(f'{folder}{fname}.dat')
@@ -245,7 +279,7 @@ def process_stack_of_patterns(energy, s, iff, emin=11000, emax=11270, e0=11217):
     s_proc = np.zeros(s.shape)
     # poly_iff = np.polyfit(energy[e_lo_mask], s[e_lo_mask, :], 1)
 
-    basis = np.vstack((np.ones(energy.size), energy, energy**2, iff, iff*energy)).T
+    basis = np.vstack((np.ones(energy.size), energy, energy**2, iff, iff * energy)).T
     print(basis.shape, s[:, 0].shape)
     for i in range(s.shape[1]):
         # preedge = np.polyval(poly[:, i], energy)
@@ -258,7 +292,7 @@ def process_stack_of_patterns(energy, s, iff, emin=11000, emax=11270, e0=11217):
         # basis = np.vstack((iff, energy)).T
         # c, _, _, _ = np.linalg.lstsq( iff[e_hi_mask, None], (s[:, i] - preedge)[e_hi_mask])
         # s_bkg[:, i] = preedge + c * iff
-        c, _, _, _ = np.linalg.lstsq(basis[e_mask], s[e_mask, i] )
+        c, _, _, _ = np.linalg.lstsq(basis[e_mask], s[e_mask, i])
         s_bkg[:, i] = basis @ c
         # s_proc[:, i] = (s[:, i] - preedge)/postedge
 
@@ -268,7 +302,6 @@ def process_stack_of_patterns(energy, s, iff, emin=11000, emax=11270, e0=11217):
 
     # s_proc /= np.mean(s_proc[e_hi_mask, :], axis=0)
     return s_proc, s_bkg
-
 
 
 # s_proc, s_bkg = process_stack_of_patterns(df['energy'].values, s.T, iff)
@@ -301,19 +334,20 @@ def process_stack_of_patterns(energy, s, iff, emin=11000, emax=11270, e0=11217):
 #
 # from scipy.optimize import nnls
 
-def fit_stack_of_patterns(energy, sq, iff, f_real, f_imag):
 
+def fit_stack_of_patterns(energy, sq, iff, f_real, f_imag):
     # s_fit = np.zeros(sq.shape)
     # s_bkg = np.zeros(sq.shape)
     # anomalous_scat = np.zeros((2, sq.shape[1]))
 
     f_lin = 2 * f_real
-    f_quad = f_real ** 2 + f_imag ** 2
+    f_quad = f_real**2 + f_imag**2
     f_lin_use = f_lin - f_lin[0]
     f_quad_use = f_quad - f_quad[0]
 
-    basis = np.vstack((np.ones(energy.size), energy, energy**2, iff,
-                       f_lin_use, f_quad_use)).T
+    basis = np.vstack(
+        (np.ones(energy.size), energy, energy**2, iff, f_lin_use, f_quad_use)
+    ).T
 
     c, _, _, _ = np.linalg.lstsq(basis, sq.T)
     s_fit = (basis @ c).T
@@ -338,19 +372,26 @@ def fit_stack_of_patterns(energy, sq, iff, f_real, f_imag):
     return s_fit, s_bkg, anomalous_scat
 
 
-
-
-def kk_calculate_real_from_array(energy, mu_flat, element, merge_points=None, add_background=True, fix_distortions=False, curve_tolerance=None, curve_recursion=50):
+def kk_calculate_real_from_array(
+    energy,
+    mu_flat,
+    element,
+    merge_points=None,
+    add_background=True,
+    fix_distortions=False,
+    curve_tolerance=None,
+    curve_recursion=50,
+):
     """Do all data loading and processing and then calculate the kramers-Kronig transform.
     Parameters
     ----------
     NearEdgeDataFile : string
-    	Path to file containg near-edge data
+        Path to file containg near-edge data
     ChemicalFormula : string
-    	A standard chemical formula string consisting of element symbols, numbers and parentheses.
+        A standard chemical formula string consisting of element symbols, numbers and parentheses.
     merge_points : list or tuple pair of `float` values, or None
-    	The photon energy values (low, high) at which the near-edge and scattering factor data values
-    	are set equal so as to ensure continuity of the merged data set.
+        The photon energy values (low, high) at which the near-edge and scattering factor data values
+        are set equal so as to ensure continuity of the merged data set.
     Returns
     -------
     This function returns a numpy array with columns consisting of the photon energy, the real and the imaginary parts of the scattering factors.
@@ -359,13 +400,31 @@ def kk_calculate_real_from_array(energy, mu_flat, element, merge_points=None, ad
     Relativistic_Correction = kkcalc.kk.calc_relativistic_correction(Stoichiometry)
     Full_E, Imaginary_Spectrum = kkcalc.data.calculate_asf(Stoichiometry)
     _data = np.vstack((energy, mu_flat)).T
-    NearEdge_Data = kkcalc.data.convert_data(_data, FromType='xanes', ToType='asf')
-    Full_E, Imaginary_Spectrum = kkcalc.data.merge_spectra(NearEdge_Data, Full_E, Imaginary_Spectrum, merge_points=merge_points, add_background=add_background, fix_distortions=fix_distortions)
-    Real_Spectrum = kkcalc.kk.KK_PP(Full_E, Full_E, Imaginary_Spectrum, Relativistic_Correction)
+    NearEdge_Data = kkcalc.data.convert_data(_data, FromType="xanes", ToType="asf")
+    Full_E, Imaginary_Spectrum = kkcalc.data.merge_spectra(
+        NearEdge_Data,
+        Full_E,
+        Imaginary_Spectrum,
+        merge_points=merge_points,
+        add_background=add_background,
+        fix_distortions=fix_distortions,
+    )
+    Real_Spectrum = kkcalc.kk.KK_PP(
+        Full_E, Full_E, Imaginary_Spectrum, Relativistic_Correction
+    )
     if curve_tolerance is not None:
-        output_data = kkcalc.kk.improve_accuracy(Full_E, Real_Spectrum, Imaginary_Spectrum, Relativistic_Correction, curve_tolerance, curve_recursion)
+        output_data = kkcalc.kk.improve_accuracy(
+            Full_E,
+            Real_Spectrum,
+            Imaginary_Spectrum,
+            Relativistic_Correction,
+            curve_tolerance,
+            curve_recursion,
+        )
     else:
-        Imaginary_Spectrum_Values = kkcalc.data.coeffs_to_ASF(Full_E, np.vstack((Imaginary_Spectrum, Imaginary_Spectrum[-1])))
+        Imaginary_Spectrum_Values = kkcalc.data.coeffs_to_ASF(
+            Full_E, np.vstack((Imaginary_Spectrum, Imaginary_Spectrum[-1]))
+        )
         output_data = np.vstack((Full_E, Real_Spectrum, Imaginary_Spectrum_Values)).T
     return output_data
 
@@ -378,9 +437,17 @@ def compute_f_real_imag(energy, mu_flat, element):
     return f_real, f_imag
 
 
-def integrate_scattering_dataset(ds, dist=40, center_ver=93, center_hor=440, plotting=True):
-    q, sq = integrate_pil100k_image_stack(np.abs(ds.ext_data['pil100k_image']), ds.energy, dist=dist,
-                                           center_ver=center_ver, center_hor=center_hor, deadtime_cor=False)
+def integrate_scattering_dataset(
+    ds, dist=40, center_ver=93, center_hor=440, plotting=True
+):
+    q, sq = integrate_pil100k_image_stack(
+        np.abs(ds.ext_data["pil100k_image"]),
+        ds.energy,
+        dist=dist,
+        center_ver=center_ver,
+        center_hor=center_hor,
+        deadtime_cor=False,
+    )
     ds.q = q
     ds.sq = sq
 
@@ -388,20 +455,25 @@ def integrate_scattering_dataset(ds, dist=40, center_ver=93, center_hor=440, plo
         plt.figure()
         plt.plot(q, sq)
 
+
 integrate_scattering_dataset(x[0])
 
-def process_scattering_dataset(ds, dist=40, center_ver=93, center_hor=440, plotting=True):
-    element = ds.md['element']
+
+def process_scattering_dataset(
+    ds, dist=40, center_ver=93, center_hor=440, plotting=True
+):
+    element = ds.md["element"]
     f_real, f_imag = compute_f_real_imag(ds.energy, ds.flat, element)
 
-    sq_fit, sq_bkg, anomalous_scat = fit_stack_of_patterns(ds.energy, ds.sq, ds.flat, f_real, f_imag)
+    sq_fit, sq_bkg, anomalous_scat = fit_stack_of_patterns(
+        ds.energy, ds.sq, ds.flat, f_real, f_imag
+    )
 
     if plotting:
-
         fig, ax1 = plt.subplots(1)
         ax2 = ax1.twinx()
-        ax1.plot(ds.energy, f_real, 'k-', label='real')
-        ax2.plot(ds.energy, f_imag, 'r-', label='imag')
+        ax1.plot(ds.energy, f_real, "k-", label="real")
+        ax2.plot(ds.energy, f_imag, "r-", label="imag")
         ax1.legend()
         ax2.legend()
 
@@ -416,9 +488,9 @@ def process_scattering_dataset(ds, dist=40, center_ver=93, center_hor=440, plott
         plt.imshow(ds.sq - sq_bkg)
 
         plt.subplot(234)
-        plt.plot(ds.energy, ds.sq[200, :], 'k-')
-        plt.plot(ds.energy, sq_fit[200, :], 'r-')
-        plt.plot(ds.energy, sq_bkg[200, :], 'g-')
+        plt.plot(ds.energy, ds.sq[200, :], "k-")
+        plt.plot(ds.energy, sq_fit[200, :], "r-")
+        plt.plot(ds.energy, sq_bkg[200, :], "g-")
 
         plt.subplot(235)
         plt.plot(ds.q, anomalous_scat[0, :])
@@ -477,9 +549,3 @@ process_scattering_dataset(x[0])
 # # plt.plot(df['energy'], df['iff']/df['i0'])
 #
 #
-
-
-
-
-
-

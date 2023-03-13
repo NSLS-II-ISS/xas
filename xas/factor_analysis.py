@@ -2,10 +2,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-def svd_analysis(energy, mus, emin=None, emax=None, n_cmp=None, ac_thresh=0.8, plotting=False):
+def svd_analysis(
+    energy, mus, emin=None, emax=None, n_cmp=None, ac_thresh=0.8, plotting=False
+):
     e_mask = np.ones(energy.size, dtype=bool)
-    if emin is not None: e_mask &= (energy >= emin)
-    if emax is not None: e_mask &= (energy <= emax)
+    if emin is not None:
+        e_mask &= energy >= emin
+    if emax is not None:
+        e_mask &= energy <= emax
 
     mus_masked = mus[e_mask, :]
     u, s, v = np.linalg.svd(mus_masked)
@@ -19,97 +23,101 @@ def svd_analysis(energy, mus, emin=None, emax=None, n_cmp=None, ac_thresh=0.8, p
         plt.figure()
         plt.subplot(321)
         plt.plot(energy[e_mask], mus_masked)
-        plt.xlabel('energy, eV')
-        plt.ylabel('mu norm')
-        plt.title('Data')
+        plt.xlabel("energy, eV")
+        plt.ylabel("mu norm")
+        plt.title("Data")
 
         plt.subplot(323)
-        plt.semilogy(s, 'ks-')
-        plt.xlabel('component number')
-        plt.ylabel('singular value')
-        plt.title('Singular values')
+        plt.semilogy(s, "ks-")
+        plt.xlabel("component number")
+        plt.ylabel("singular value")
+        plt.title("Singular values")
 
         plt.subplot(325)
-        plt.plot(ac_u, 'rs-', label='AC_U')
-        plt.plot(ac_v, 'bs-', label='AC_V')
-        plt.xlabel('component number')
-        plt.ylabel('autocorrelaion value')
-        plt.title('Autocorrelation')
+        plt.plot(ac_u, "rs-", label="AC_U")
+        plt.plot(ac_v, "bs-", label="AC_V")
+        plt.xlabel("component number")
+        plt.ylabel("autocorrelaion value")
+        plt.title("Autocorrelation")
         plt.legend()
-        plt.xlim(0, n_cmp+5)
+        plt.xlim(0, n_cmp + 5)
 
         plt.subplot(222)
-        shift_y = np.tile(np.arange(n_cmp+3)[None, :], (np.sum(e_mask), 1))*0.3
-        plt.plot(energy[e_mask], u[:, :(n_cmp+3)] - shift_y)
-        plt.xlabel('energy, eV')
-        plt.ylabel('LSV')
-        plt.title('U -Left Singular Vectors')
+        shift_y = np.tile(np.arange(n_cmp + 3)[None, :], (np.sum(e_mask), 1)) * 0.3
+        plt.plot(energy[e_mask], u[:, : (n_cmp + 3)] - shift_y)
+        plt.xlabel("energy, eV")
+        plt.ylabel("LSV")
+        plt.title("U -Left Singular Vectors")
 
         plt.subplot(224)
-        shift_y = np.tile(np.arange(n_cmp + 3)[None, :], (mus.shape[1], 1))*0.3
-        plt.plot(v.T[:, :(n_cmp + 3)] - shift_y)
-        plt.xlabel('spectrum number')
-        plt.ylabel('RSV')
-        plt.title('V - Right Singular Vectors')
-
+        shift_y = np.tile(np.arange(n_cmp + 3)[None, :], (mus.shape[1], 1)) * 0.3
+        plt.plot(v.T[:, : (n_cmp + 3)] - shift_y)
+        plt.xlabel("spectrum number")
+        plt.ylabel("RSV")
+        plt.title("V - Right Singular Vectors")
 
     return u, s, v, n_cmp
 
 
-def evolving_svd_analysis(energy, mus, emin=None, emax=None, plotting=False, n_cmp=None):
+def evolving_svd_analysis(
+    energy, mus, emin=None, emax=None, plotting=False, n_cmp=None
+):
     n_energies, n_curves = mus.shape
     all_cmp = np.min([n_energies, n_curves])
     ss_forward = np.zeros((all_cmp, n_curves))
     for i in range(n_curves):
-        _, s, _, _n_cmp = svd_analysis(energy, mus[:, :i+1], emin=emin, emax=emax)
-        ss_forward[:s.size, i] = s
+        _, s, _, _n_cmp = svd_analysis(energy, mus[:, : i + 1], emin=emin, emax=emax)
+        ss_forward[: s.size, i] = s
 
     ss_backward = np.zeros((all_cmp, n_curves))
-    for i in range(n_curves-1, -1, -1):
+    for i in range(n_curves - 1, -1, -1):
         _, s, _, _ = svd_analysis(energy, mus[:, i:], emin=emin, emax=emax)
-        ss_backward[:s.size, i] = s
+        ss_backward[: s.size, i] = s
 
     if n_cmp is None:
         n_cmp = _n_cmp
-    elif n_cmp == 'all':
+    elif n_cmp == "all":
         n_cmp = all_cmp
 
     if plotting:
         plt.figure()
         plt.subplot(211)
         plt.semilogy(ss_forward.T[:, :n_cmp])
-        plt.semilogy(ss_forward.T[:, n_cmp:(n_cmp+3)], 'k--')
-        plt.xlabel('number fof curves')
-        plt.title('Forward')
+        plt.semilogy(ss_forward.T[:, n_cmp : (n_cmp + 3)], "k--")
+        plt.xlabel("number fof curves")
+        plt.title("Forward")
 
         plt.subplot(212)
         plt.semilogy(ss_backward.T[:, :n_cmp])
-        plt.semilogy(ss_backward.T[:, n_cmp:(n_cmp + 3)], 'k--')
-        plt.xlabel('number fof curves')
-        plt.title('Backward')
+        plt.semilogy(ss_backward.T[:, n_cmp : (n_cmp + 3)], "k--")
+        plt.xlabel("number fof curves")
+        plt.title("Backward")
 
     return ss_forward, ss_backward
 
 
-
 def script_for_elis_slide(energy, mus, emin=9600, emax=9780):
-    fpath = '/nsls2/xf08id/Sandbox/2021_analysis_slides/'
-    image_base_name = 'image_v1_'
+    fpath = "/nsls2/xf08id/Sandbox/2021_analysis_slides/"
+    image_base_name = "image_v1_"
     n_curves = mus.shape[1]
     e_mask = np.ones(energy.size, dtype=bool)
-    if emin is not None: e_mask &= (energy >= emin)
-    if emax is not None: e_mask &= (energy <= emax)
+    if emin is not None:
+        e_mask &= energy >= emin
+    if emax is not None:
+        e_mask &= energy <= emax
 
-    font = {'size': 7}
+    font = {"size": 7}
 
-    matplotlib.rc('font', **font)
+    matplotlib.rc("font", **font)
 
     for i in range(4, n_curves):
-    # for i in [30, 50, 80, n_curves]:
+        # for i in [30, 50, 80, n_curves]:
         mus_subset = mus[:, :i]
-        u, s, v,_ = svd_analysis(energy, mus_subset, emin=emin, emax=emax, plotting=False)
+        u, s, v, _ = svd_analysis(
+            energy, mus_subset, emin=emin, emax=emax, plotting=False
+        )
 
-        plt.figure(1, figsize=(18/2.54, 6/2.54))
+        plt.figure(1, figsize=(18 / 2.54, 6 / 2.54))
         plt.clf()
 
         plt.subplot(141)
@@ -118,7 +126,7 @@ def script_for_elis_slide(energy, mus, emin=9600, emax=9780):
         plt.ylim(-0.1, 1.7)
 
         plt.subplot(142)
-        plt.semilogy(s, 'k.-')
+        plt.semilogy(s, "k.-")
         plt.ylim(1e-3, 1e3)
 
         plt.subplot(143)
@@ -129,12 +137,11 @@ def script_for_elis_slide(energy, mus, emin=9600, emax=9780):
 
         plt.subplot(144)
         shift_y = np.tile(np.arange(4)[None, :], (mus_subset.shape[1], 1)) * 0.3
-        plt.plot(v.T[:, :4]-shift_y)
+        plt.plot(v.T[:, :4] - shift_y)
         plt.ylim(-1.2, 0.1)
-        #plt.xlim(0, n_curves)
+        # plt.xlim(0, n_curves)
         plt.tight_layout()
-        plt.savefig(fpath + image_base_name + str(i) + '.png', dpi=300)
-
+        plt.savefig(fpath + image_base_name + str(i) + ".png", dpi=300)
 
 
 #
