@@ -41,7 +41,7 @@ app.layout = dbc.Container([
                 dbc.Col(dbc.Spinner(html.Div(id="accordion_loc"), color="primary")),
                 dbc.Col([
                     dbc.Row(
-                        dbc.Card(
+                        dbc.Card([
                             dbc.Checklist(
                                 options=[
                                     {"label": "mut", "value": "mut"},
@@ -50,6 +50,8 @@ app.layout = dbc.Container([
                                 ],
                                 id="channel_checklist",
                             ),
+                            dbc.Button("see more", color="link", size="sm", id="more_channels_btn"),
+                            ],
                             body=True
                         ),
                     style={"padding-bottom": "10px"}),
@@ -64,6 +66,8 @@ app.layout = dbc.Container([
             ]),
         ], width=9),
     ]),
+    dbc.Row(html.Div("test text"))
+# ], fluid=True)
 ], fluid=True)
 
 
@@ -94,8 +98,8 @@ def calc_mus(df):
     Output("spectrum_plot", "figure"),
     Input("plot_btn", "n_clicks"),
     Input("clear_btn", "n_clicks"),
-    State({"type": "scan_check", "uid": ALL}, "value"),
-    State({"type": "scan_check", "uid": ALL}, "id"),
+    State({"type": "scan_check", "uid": ALL, "group": ALL}, "value"),
+    State({"type": "scan_check", "uid": ALL, "group": ALL}, "id"),
     State("spectrum_plot", "figure"),
     State("channel_checklist", "value"),
     prevent_initial_call=True,
@@ -107,54 +111,31 @@ def update_plot(plot_click, clear_click, selected_scans, selected_scan_id_dicts,
         fig.data = ()
 
     if dash.ctx.triggered_id == "plot_btn":
-        for scan_selected, id_dict in zip(selected_scans, selected_scan_id_dicts):
-            if scan_selected is True:
-                uid = id_dict["uid"]
-                scan_id = ISS_SANDBOX[uid].metadata["scan_id"]
-                df = ISS_SANDBOX[uid].read()
-                calc_mus(df)
-                for ch in selected_channels:
+        if selected_channels is not None:
+            for scan_selected, id_dict in zip(selected_scans, selected_scan_id_dicts):
+                if scan_selected is True:
+                    uid = id_dict["uid"]
+                    scan_id = ISS_SANDBOX[uid].metadata["scan_id"]
+                    df = ISS_SANDBOX[uid].read()
+                    calc_mus(df)
+                    for ch in selected_channels:
 
-                    # check spectrum isn't already plotted
-                    if f"{scan_id} {ch}" not in [trace.name for trace in fig.data]:
-                        fig.add_scatter(x=df["energy"], y=df[ch], name=f"{scan_id} {ch}")
+                        # check spectrum isn't already plotted
+                        if f"{scan_id} {ch}" not in [trace.name for trace in fig.data]:
+                            fig.add_scatter(x=df["energy"], y=df[ch], name=f"{scan_id} {ch}")
     return fig
         
 
-
-
-
 @app.callback(
-    # Output({"type": "test_text", "group": MATCH}, "children"),
-    Output({"type": "scan_check", "group": MATCH}, "value"),
-    Input({"type": "select_all_btn", "group": MATCH}, "n_clicks"),
+    Output({"type": "scan_check", "uid": ALL, "group": MATCH}, "value"),
+    Input({"type": "select_all", "group": MATCH}, "value"),
     prevent_initial_call=True,
 )
-def select_all_scans_in_group(select_all_click):
-    print(len(dash.ctx.outputs_list))
-    return tuple(True for _ in range(len(dash.ctx.outputs_list)))
-
-
-# @app.callback(
-#     Output("spectrum_plot", "figure"),
-#     Input({"type": "plus_btn", "uid": ALL}, "n_clicks"),
-#     State("spectrum_plot", "figure"),
-#     prevent_initial_call=True,
-# )
-# def add_spectrum_to_plot(click, current_fig):
-#     uid = dash.ctx.triggered_id["uid"]
-#     fig = go.Figure(current_fig)
-
-#     scan_id = ISS_SANDBOX[uid].metadata["scan_id"]
-#     df = ISS_SANDBOX[uid].read()
-    # df["mut"] = -np.log(df["it"] / df["i0"])
-    # df["mur"] = -np.log(df["ir"] / df["it"])
-    # df["muf"] = df["iff"] / df["i0"]
-    
-#     for mu in ("mut", "muf", "mur"):
-#         fig.add_scatter(x=df["energy"], y=df[mu], name=f"{scan_id} {mu}")
-    
-#     return fig
+def select_all_scans_in_group(select_all_chk):
+    if select_all_chk is True:
+        return tuple(True for _ in range(len(dash.ctx.outputs_list)))    
+    else:
+        return tuple(False for _ in range(len(dash.ctx.outputs_list)))    
 
 
 if __name__ == "__main__":
