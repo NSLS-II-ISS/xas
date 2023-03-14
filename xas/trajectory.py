@@ -378,7 +378,8 @@ class TrajectoryCreator():
         scan_parameters = defaultdict(_default_value)
         for k, v in _scan_parameters.items():
             scan_parameters[k] = v
-        EXAFS_end =  xray.k2e(scan_parameters['EXAFS_end'], scan_parameters['e0']/1000)
+        # EXAFS_end = xray.k2e(scan_parameters['EXAFS_end'], scan_parameters['e0']/1000)
+        EXAFS_end = xray.k2e(scan_parameters['EXAFS_end'], 0)
 
         self.define(edge_energy=scan_parameters['e0'],
                     offsets=([scan_parameters['preedge_start'],

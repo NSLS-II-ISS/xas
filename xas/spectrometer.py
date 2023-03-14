@@ -90,7 +90,7 @@ def analyze_elastic_fly_scan(db, uid, rois=None, plot_func=None):
         intensity = normalize_peak(intensity)
         Ecen0, fwhm0 = estimate_center_and_width_of_peak(energy, intensity)
         Ecen, fwhm, intensity_cor, intensity_fit, intensity_fit_raw = fit_gaussian(energy, intensity, Ecen0, fwhm0)
-        print(f'{field}: {Ecen=}, {fwhm=}')
+        print(f'{field}: {Ecen=:0.3f}, {fwhm=:0.3f}')
         if plot_func is not None:
             roi_color = _pilatus_roi_colors[i]
             roi_label = f'roi{i}'
