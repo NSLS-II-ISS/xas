@@ -61,16 +61,9 @@ def build_proposal_accordion(proposal_node, sort_key):
     return proposal_accordion
 
 
-visualization_tab = dbc.Tab(
-    [
-    # dbc.Row(
-    #     dbc.Col(
-    #         html.Table([
-    #             html.Thead(html.Tr([html.Th(" "), html.Th("Scan"), html.Th("mut"), html.Th("muf"), html.Th("mur")])),
-    #         ], style={"width": "50%"}, id="scan_table"),
-    #     ), 
-    # ),
-    dbc.Row(dcc.Graph(figure=go.Figure(layout={"height": 800}), id="spectrum_plot")),
+visualization_tab = dbc.Tab([
+        dcc.Store(id="previous_plot_data"),
+        dbc.Row(dcc.Graph(figure=go.Figure(layout={"height": 800}), id="spectrum_plot")),
     ],
     label="Visualization",
 )

@@ -1,8 +1,11 @@
 import dash
 from dash import html, dcc, Input, Output, State, ALL, MATCH
 import dash_bootstrap_components as dbc
+import json
 
 import numpy as np
+import larch
+from larch.xafs import pre_edge
 import plotly.graph_objects as go
 import itertools
 
@@ -55,13 +58,14 @@ app.layout = dbc.Container([
                                         color="link",
                                         size="sm",
                                         n_clicks=0,
-                                        id="change_channels_btn"),
+                                        id="change_visible_channels_btn"),
                             ],
                             body=True
                         ),
                     style={"padding-bottom": "10px"}),
                     dbc.Row(dbc.Button("plot", id="plot_btn"), style={"padding-bottom": "10px"}),
-                    dbc.Row(dbc.Button("clear figure", id="clear_btn"))
+                    dbc.Row(dbc.Button("clear figure", id="clear_btn"), style={"padding-bottom": "10px"}),
+                    dbc.Row(dbc.Switch(label="show normalized", id="norm_view_toggle"))
                 ]),
             ]),
         ], width=3),
@@ -94,6 +98,7 @@ def show_proposal_accordion(n_search_clicks, n_sort_clicks, dropdown_choice, yea
 
 
 def calc_mus(df):
+    """Shorthand function to calculate mut, muf, and mur 'on the fly'"""
     df["mut"] = -np.log(df["it"] / df["i0"])
     df["mur"] = -np.log(df["ir"] / df["it"])
     df["muf"] = df["iff"] / df["i0"]
@@ -101,16 +106,20 @@ def calc_mus(df):
 
 @app.callback(
     Output("spectrum_plot", "figure"),
+    Output("previous_plot_data", "data"),
     Input("plot_btn", "n_clicks"),
     Input("clear_btn", "n_clicks"),
+    Input("norm_view_toggle", "value"),
     State({"type": "scan_check", "uid": ALL, "group": ALL}, "value"),
     State({"type": "scan_check", "uid": ALL, "group": ALL}, "id"),
     State("spectrum_plot", "figure"),
+    State("previous_plot_data", "data"),
     State("channel_checklist", "value"),
     prevent_initial_call=True,
 )
-def update_plot(plot_click, clear_click, selected_scans, selected_scan_id_dicts, current_fig, selected_channels):
+def update_plot(plot_click, clear_click, normalized_view, selected_scans, selected_scan_id_dicts, current_fig, previous_data, selected_channels):
     fig = go.Figure(current_fig)
+    updated_previous_data = fig.data
     
     if dash.ctx.triggered_id == "clear_btn":
         fig.data = ()
@@ -128,13 +137,32 @@ def update_plot(plot_click, clear_click, selected_scans, selected_scan_id_dicts,
                         # check spectrum isn't already plotted
                         if f"{scan_id} {ch}" not in [trace.name for trace in fig.data]:
                             fig.add_scatter(x=df["energy"], y=df[ch], name=f"{scan_id} {ch}")
-    return fig
+
+    if dash.ctx.triggered_id == "norm_view_toggle":
+        if normalized_view is True:
+            current_data = fig.data
+            fig.data = ()
+            for trace in current_data:
+                raw_larch_group = larch.Group(energy=np.array(trace.x), mu=np.array(trace.y))
+                norm_larch_group = larch.Group()
+                pre_edge(raw_larch_group, group=norm_larch_group)
+                fig.add_scatter(x=raw_larch_group.energy, y=norm_larch_group.flat, name=f"{trace.name} norm")
+        else:
+            if previous_data is None:
+                raise dash.exceptions.PreventUpdate
+            else:
+                fig.data = ()
+                for trace_data in previous_data:
+                    fig.add_scatter(**trace_data)
+
+    return fig, updated_previous_data
         
 
 @app.callback(
     Output("channel_checklist", "options"),
-    Output("change_channels_btn", "children"),
-    Input("change_channels_btn", "n_clicks"),
+    # Output("channel_checklist", "value"),
+    Output("change_visible_channels_btn", "children"),
+    Input("change_visible_channels_btn", "n_clicks"),
     State({"type": "scan_check", "uid": ALL, "group": ALL}, "value"),
     State({"type": "scan_check", "uid": ALL, "group": ALL}, "id"),
     prevent_initial_call=True,
@@ -148,9 +176,10 @@ def change_visible_channels(n_channel_clicks, selected_scans, scan_id_dicts):
 
     if n_channel_clicks % 2 == 0:
         selected_uids = [id_dict["uid"] for id_dict in itertools.compress(scan_id_dicts, selected_scans)]
-        other_channels = set()
-        for uid in selected_uids:
-            other_channels = other_channels.union(ISS_SANDBOX[uid].read().keys())
+        selected_scan_df_cols = [set(ISS_SANDBOX[uid].read().keys()) for uid in selected_uids]
+
+        # flatten into set of all unique column names
+        other_channels = set.union(*selected_scan_df_cols)
         
         new_options = [{"label": ch, "value": ch} for ch in sorted(other_channels)]
         channel_options = default_options + new_options
