@@ -68,12 +68,12 @@ app.layout = dbc.Container([
                     dbc.Row(dbc.Switch(label="show normalized", id="norm_view_toggle"))
                 ]),
             ]),
-        ], width=3),
+        ], width=4),
         dbc.Col([
             dbc.Tabs([
                 visualization_tab,
             ]),
-        ], width=9),
+        ], width=8),
     ]),
     dbc.Row(html.Div("test text"))
 # ], fluid=True)
@@ -148,12 +148,12 @@ def update_plot(plot_click, clear_click, normalized_view, selected_scans, select
                 pre_edge(raw_larch_group, group=norm_larch_group)
                 fig.add_scatter(x=raw_larch_group.energy, y=norm_larch_group.flat, name=f"{trace.name} norm")
         else:
-            if previous_data is None:
-                raise dash.exceptions.PreventUpdate
-            else:
-                fig.data = ()
-                for trace_data in previous_data:
-                    fig.add_scatter(**trace_data)
+            # if previous_data is None:
+            #     raise dash.exceptions.PreventUpdate
+            # else:
+            fig.data = ()
+            for trace_data in previous_data:
+                fig.add_scatter(**trace_data)
 
     return fig, updated_previous_data
         
@@ -174,7 +174,7 @@ def change_visible_channels(n_channel_clicks, selected_scans, scan_id_dicts):
         {"label": "mur", "value": "mur"},
     ]
 
-    if n_channel_clicks % 2 == 0:
+    if n_channel_clicks % 2 == 1:
         selected_uids = [id_dict["uid"] for id_dict in itertools.compress(scan_id_dicts, selected_scans)]
         selected_scan_df_cols = [set(ISS_SANDBOX[uid].read().keys()) for uid in selected_uids]
 
