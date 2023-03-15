@@ -34,12 +34,16 @@ app.layout = dbc.Container([
                 dbc.Col(dbc.Button("search", id="search_btn", n_clicks=0))
             ], style={"padding-bottom": "10px"}),
             dbc.Row([
-                dbc.Col(dcc.Dropdown([
-                    {"label": "sample", "value": "sample_name"},
-                    {"label": "scan plan", "value": "monochromator_scan_uid"},
-                ], placeholder="Sort by...", id="sort_dropdown"
+                dbc.Col(
+                    dcc.Dropdown([
+                        {"label": "sample", "value": "sample_name"},
+                        {"label": "scan plan", "value": "monochromator_scan_uid"},
+                    ], 
+                    placeholder="Group by...", 
+                    id="groupby_dropdown",
+                    multi=True
                 )),
-                dbc.Col(dbc.Button("sort", id="sort_btn")),
+                dbc.Col(dbc.Button("apply", id="apply_btn")),
             ], style={"padding-bottom": "10px"}),
             dbc.Row([
                 dbc.Col(dbc.Spinner(html.Div(id="accordion_loc"), color="primary")),
@@ -83,18 +87,19 @@ app.layout = dbc.Container([
 @app.callback(
     Output("accordion_loc", "children"),
     Input("search_btn", "n_clicks"),
-    Input("sort_btn", "n_clicks"),
-    State("sort_dropdown", "value"),
+    Input("apply_btn", "n_clicks"),
+    State("groupby_dropdown", "value"),
     State("year_input", "value"),
     State("cycle_input", "value"),
     State("proposal_input", "value"),
 )
-def show_proposal_accordion(n_search_clicks, n_sort_clicks, dropdown_choice, year, cycle, proposal):
+def show_proposal_accordion(n_search_clicks, n_apply_clicks, dropdown_choice, year, cycle, proposal):
     if n_search_clicks == 0:
         return
-    if dropdown_choice is None:
-        dropdown_choice = "sample_name" 
-    return build_proposal_accordion(filter_node_for_proposal(ISS_SANDBOX, year, cycle, proposal), sort_key=dropdown_choice)
+    if not dropdown_choice:  # check if empty or None
+        dropdown_choice = ("sample_name", )
+    print(dropdown_choice)
+    return build_proposal_accordion(filter_node_for_proposal(ISS_SANDBOX, year, cycle, proposal), groupby_keys=dropdown_choice)
 
 
 def calc_mus(df):
@@ -160,30 +165,35 @@ def update_plot(plot_click, clear_click, normalized_view, selected_scans, select
 
 @app.callback(
     Output("channel_checklist", "options"),
-    # Output("channel_checklist", "value"),
     Output("change_visible_channels_btn", "children"),
     Input("change_visible_channels_btn", "n_clicks"),
     State({"type": "scan_check", "uid": ALL, "group": ALL}, "value"),
     State({"type": "scan_check", "uid": ALL, "group": ALL}, "id"),
+    State("change_visible_channels_btn", "children"),
     prevent_initial_call=True,
 )
-def change_visible_channels(n_channel_clicks, selected_scans, scan_id_dicts):
+def change_visible_channels(n_channel_clicks, selected_scans, scan_id_dicts, current_btn_text):
     default_options = [
         {"label": "mut", "value": "mut"},
         {"label": "muf", "value": "muf"},
         {"label": "mur", "value": "mur"},
     ]
 
-    if n_channel_clicks % 2 == 1:
-        selected_uids = [id_dict["uid"] for id_dict in itertools.compress(scan_id_dicts, selected_scans)]
-        selected_scan_df_cols = [set(ISS_SANDBOX[uid].read().keys()) for uid in selected_uids]
+    if current_btn_text == "see more":
+        if any(selected for selected in selected_scans):
+            selected_uids = [id_dict["uid"] for id_dict in itertools.compress(scan_id_dicts, selected_scans)]
+            selected_scan_df_cols = [set(ISS_SANDBOX[uid].read().keys()) for uid in selected_uids]
 
-        # flatten into set of all unique column names
-        other_channels = set.union(*selected_scan_df_cols)
-        
-        new_options = [{"label": ch, "value": ch} for ch in sorted(other_channels)]
+            # flatten into set of all unique column names
+            other_channels = set.union(*selected_scan_df_cols)
+            
+            channel_btn_text = "see less"
+            new_options = [{"label": ch, "value": ch} for ch in sorted(other_channels)]
+
+        else:
+            new_options = []
+
         channel_options = default_options + new_options
-        channel_btn_text = "see less"
     
     else:
         channel_options = default_options

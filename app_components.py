@@ -24,10 +24,10 @@ def build_scangroup_interactable(scangroup_node, group_label):
     # return scan_labels
 
 
-def build_nested_accordion(base_node, sort_keys: list[str], _node_label=""):
-    current_key = sort_keys[0]
+def build_nested_accordion(base_node, groupby_keys: list[str], _node_label=""):
+    current_key = groupby_keys[0]
     next_nodes, next_labels = group_node_by_metadata_key(base_node, current_key, return_values=True)
-    next_level_keys = sort_keys[1:]
+    next_level_keys = groupby_keys[1:]
 
     # reached final level of sorting
     if len(next_level_keys) == 0:
@@ -54,11 +54,12 @@ def build_nested_accordion(base_node, sort_keys: list[str], _node_label=""):
                          always_open=True,)
 
 
-def build_proposal_accordion(proposal_node, sort_key):
-    if sort_key == "sample_name":
-        proposal_accordion = build_nested_accordion(proposal_node, ("sample_name", "monochromator_scan_uid"))
-    elif sort_key == "monochromator_scan_uid":
-        proposal_accordion = build_nested_accordion(proposal_node, ("monochromator_scan_uid", "sample_name"))
+def build_proposal_accordion(proposal_node, groupby_keys):
+    proposal_accordion = build_nested_accordion(proposal_node, groupby_keys)
+    # if sort_key == "sample_name":
+    #     proposal_accordion = build_nested_accordion(proposal_node, ("sample_name", "monochromator_scan_uid"))
+    # elif sort_key == "monochromator_scan_uid":
+    #     proposal_accordion = build_nested_accordion(proposal_node, ("monochromator_scan_uid", "sample_name"))
     return html.Div(proposal_accordion, style={"max-height": "700px", "overflow-y": "scroll"})
 
 
