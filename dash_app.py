@@ -1,7 +1,6 @@
 import dash
 from dash import html, dcc, Input, Output, State, ALL, MATCH
 import dash_bootstrap_components as dbc
-import json
 
 import numpy as np
 import larch
@@ -35,16 +34,29 @@ app.layout = dbc.Container([
             ], style={"padding-bottom": "10px"}),
             dbc.Row([
                 dbc.Col(
-                    dcc.Dropdown([
+                    dcc.Dropdown(
+                    options = [
                         {"label": "sample", "value": "sample_name"},
-                        {"label": "scan plan", "value": "monochromator_scan_uid"},
+                        {"label": "scan", "value": "monochromator_scan_uid"},
                     ], 
+                    value = [
+                        "sample_name",
+                        "monochromator_scan_uid",
+                    ],
                     placeholder="Group by...", 
                     id="groupby_dropdown",
                     multi=True
                 )),
                 dbc.Col(dbc.Button("apply", id="apply_btn")),
-            ], style={"padding-bottom": "10px"}),
+            ]),
+            dbc.Row([
+                dbc.Col(
+                    dbc.Button("add filter", color="link", size="sm"),
+                    width=2
+                ),
+                html.Div(id="filters_loc")
+            ], align="start",
+            ),
             dbc.Row([
                 dbc.Col(dbc.Spinner(html.Div(id="accordion_loc"), color="primary")),
                 dbc.Col([
@@ -69,8 +81,41 @@ app.layout = dbc.Container([
                     style={"padding-bottom": "10px"}),
                     dbc.Row(dbc.Button("plot", id="plot_btn"), style={"padding-bottom": "10px"}),
                     dbc.Row(dbc.Button("clear figure", id="clear_btn"), style={"padding-bottom": "10px"}),
-                    dbc.Row(dbc.Switch(label="show normalized", id="norm_view_toggle"))
-                ]),
+                    dbc.Row([
+                        dcc.Store(id="normalization_scheme"),
+                        dbc.Card([
+                            html.Div("Normalization Parameters", className="mb-3"),
+                            html.Div([
+                                dbc.InputGroup([
+                                    dbc.InputGroupText(["E", html.Sub("0")]),
+                                    dbc.Input(id="E0_input"),
+                                    dbc.InputGroupText("[eV]"),
+                                ]),
+                                html.Div("Pre-edge range"),
+                                dbc.InputGroup([
+                                    dbc.Input(id="pre_edge_start_input"),
+                                    dbc.InputGroupText("⮕"),
+                                    dbc.Input(id="pre_edge_stop_input"),
+                                    dbc.InputGroupText("[eV]"),
+                                ]),
+                                html.Div("Post-edge range"),
+                                dbc.InputGroup([
+                                    dbc.Input(id="post_edge_start_input"),
+                                    dbc.InputGroupText("⮕"),
+                                    dbc.Input(id="post_edge_stop_input"),
+                                    dbc.InputGroupText("[eV]"),
+                                ], class_name="mb-2"),
+                                dbc.InputGroup([
+                                    dbc.InputGroupText("Polynom order"),
+                                    dbc.Input(id="polynom_order_input", type="number"),
+                                ]),
+                            ])
+
+                        ],
+                        body=True,
+                        id="norm_scheme_panel")
+                    ])
+                ], style={"max-height": "700px", "overflow-y": "auto"}),
             ]),
         ], width=4),
         dbc.Col([
@@ -78,9 +123,9 @@ app.layout = dbc.Container([
                 visualization_tab,
             ]),
         ], width=8),
-    ]),
+    ],
+    style={"max-height": "800px", "overflow-y": "visible"}),
     dbc.Row(html.Div("test text"))
-# ], fluid=True)
 ], fluid=True)
 
 
@@ -97,7 +142,7 @@ def show_proposal_accordion(n_search_clicks, n_apply_clicks, dropdown_choice, ye
     if n_search_clicks == 0:
         return
     if not dropdown_choice:  # check if empty or None
-        dropdown_choice = ("sample_name", )
+        dropdown_choice = ("sample_name", "monochromator_scan_uid", )
     print(dropdown_choice)
     return build_proposal_accordion(filter_node_for_proposal(ISS_SANDBOX, year, cycle, proposal), groupby_keys=dropdown_choice)
 
@@ -114,7 +159,7 @@ def calc_mus(df):
     Output("previous_plot_data", "data"),
     Input("plot_btn", "n_clicks"),
     Input("clear_btn", "n_clicks"),
-    Input("norm_view_toggle", "value"),
+    # Input("norm_view_toggle", "value"),
     State({"type": "scan_check", "uid": ALL, "group": ALL}, "value"),
     State({"type": "scan_check", "uid": ALL, "group": ALL}, "id"),
     State("spectrum_plot", "figure"),
@@ -122,7 +167,8 @@ def calc_mus(df):
     State("channel_checklist", "value"),
     prevent_initial_call=True,
 )
-def update_plot(plot_click, clear_click, normalized_view, selected_scans, selected_scan_id_dicts, current_fig, previous_data, selected_channels):
+# def update_plot(plot_click, clear_click, normalized_view, selected_scans, selected_scan_id_dicts, current_fig, previous_data, selected_channels):
+def update_plot(plot_click, clear_click, selected_scans, selected_scan_id_dicts, current_fig, previous_data, selected_channels):
     fig = go.Figure(current_fig)
     updated_previous_data = fig.data
     
