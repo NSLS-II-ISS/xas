@@ -110,15 +110,15 @@ app.layout = dbc.Container([
                                     dbc.Input(id="xas_polynom_order_input", type="number"),
                                 ]),
                             ]),
-                            html.Div([
-                                dbc.Checklist(
-                                    options= {
-                                        "label": "Normalized", "value": "Normalized",
-                                        "label": "Flattened", "value": "Flattened",
-                                    },
-                                    id="xas_normalization_checklist"
-                                )
-                            ])
+                            # html.Div([
+                            #     dbc.Checklist(
+                            #         options= {
+                            #             "label": "Normalized", "value": "Normalized",
+                            #             "label": "Flattened", "value": "Flattened",
+                            #         },
+                            #         id="xas_normalization_checklist"
+                            #     )
+                            # ])
 
                         ],
                         body=True,
@@ -183,20 +183,7 @@ def update_normalization_scheme(
     ):
     """Returns dict of `larch.xafs.pre_edge` keyword-argument pairs
     to be stored as json in a `dcc.Store` object."""
-    print(
-        dict(
-            # step and nvict could be implemented as inputs later
-            e0=e0_input,
-            step=None,
-            pre1=pre_edge_start_input,
-            pre2=pre_edge_stop_input,
-            norm1=post_edge_start_input,
-            norm2=post_edge_stop_input,
-            nnorm=post_edge_polynom_order_input,
-            nvict=None,
-        )
-    )
-    return dict(
+    larch_pre_edge_kwargs = dict(
         # step and nvict could be implemented as inputs later
         e0=e0_input,
         step=None,
@@ -207,8 +194,7 @@ def update_normalization_scheme(
         nnorm=post_edge_polynom_order_input,
         nvict=None,
     )
-
-
+    return larch_pre_edge_kwargs
 
 
 @app.callback(
@@ -223,13 +209,13 @@ def update_normalization_scheme(
     State("previous_plot_data", "data"),
     State("channel_checklist", "value"),
 
-    State("xas_normalization_checklist", "value"),
-    
+    # State("xas_normalization_checklist", "value"),
+    #
     
     prevent_initial_call=True,
 )
 # def update_plot(plot_click, clear_click, normalized_view, selected_scans, selected_scan_id_dicts, current_fig, previous_data, selected_channels):
-def update_plot(plot_click, clear_click, selected_scans, selected_scan_id_dicts, current_fig, previous_data, selected_channels, normalization_selections):
+def update_plot(plot_click, clear_click, selected_scans, selected_scan_id_dicts, current_fig, previous_data, selected_channels):
     fig = go.Figure(current_fig)
     updated_previous_data = fig.data
     
@@ -251,22 +237,22 @@ def update_plot(plot_click, clear_click, selected_scans, selected_scan_id_dicts,
                         if f"{scan_id} {ch}" not in [trace.name for trace in fig.data]:
                             fig.add_scatter(x=df["energy"], y=df[ch], name=f"{scan_id} {ch}")
 
-    if dash.ctx.triggered_id == "norm_view_toggle":
-        if normalized_view is True:
-            current_data = fig.data
-            fig.data = ()
-            for trace in current_data:
-                raw_larch_group = larch.Group(energy=np.array(trace.x), mu=np.array(trace.y))
-                norm_larch_group = larch.Group()
-                pre_edge(raw_larch_group, group=norm_larch_group)
-                fig.add_scatter(x=raw_larch_group.energy, y=norm_larch_group.flat, name=f"{trace.name} norm")
-        else:
-            # if previous_data is None:
-            #     raise dash.exceptions.PreventUpdate
-            # else:
-            fig.data = ()
-            for trace_data in previous_data:
-                fig.add_scatter(**trace_data)
+    # if dash.ctx.triggered_id == "norm_view_toggle":
+    #     if normalized_view is True:
+    #         current_data = fig.data
+    #         fig.data = ()
+    #         for trace in current_data:
+    #             raw_larch_group = larch.Group(energy=np.array(trace.x), mu=np.array(trace.y))
+    #             norm_larch_group = larch.Group()
+    #             pre_edge(raw_larch_group, group=norm_larch_group)
+    #             fig.add_scatter(x=raw_larch_group.energy, y=norm_larch_group.flat, name=f"{trace.name} norm")
+    #     else:
+    #         # if previous_data is None:
+    #         #     raise dash.exceptions.PreventUpdate
+    #         # else:
+    #         fig.data = ()
+    #         for trace_data in previous_data:
+    #             fig.add_scatter(**trace_data)
 
     return fig, updated_previous_data
         
