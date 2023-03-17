@@ -169,8 +169,9 @@ def calc_mus(df):
     Input("xas_pre_edge_start_input", "value"),
     Input("xas_pre_edge_stop_input", "value"),
     Input("xas_post_edge_start_input", "value"),
-    Input("xas_post_edge_start_input", "value"),
+    Input("xas_post_edge_stop_input", "value"),
     Input("xas_polynom_order_input", "value"),
+    prevent_initial_callback=True,
 )
 def update_normalization_scheme(
     e0_input,
