@@ -82,33 +82,42 @@ app.layout = dbc.Container([
                     dbc.Row(dbc.Button("plot", id="plot_btn"), style={"padding-bottom": "10px"}),
                     dbc.Row(dbc.Button("clear figure", id="clear_btn"), style={"padding-bottom": "10px"}),
                     dbc.Row([
-                        dcc.Store(id="normalization_scheme"),
+                        dcc.Store(id="xas_normalization_scheme"),
                         dbc.Card([
-                            html.Div("Normalization Parameters", className="mb-3"),
+                            html.Div("XAS Normalization Parameters", className="mb-3"),
                             html.Div([
                                 dbc.InputGroup([
                                     dbc.InputGroupText(["E", html.Sub("0")]),
-                                    dbc.Input(id="E0_input"),
+                                    dbc.Input(id="xas_e0_input", type="number"),
                                     dbc.InputGroupText("[eV]"),
                                 ]),
                                 html.Div("Pre-edge range"),
                                 dbc.InputGroup([
-                                    dbc.Input(id="pre_edge_start_input"),
+                                    dbc.Input(id="xas_pre_edge_start_input", type="number"),
                                     dbc.InputGroupText("⮕"),
-                                    dbc.Input(id="pre_edge_stop_input"),
+                                    dbc.Input(id="xas_pre_edge_stop_input", type="number"),
                                     dbc.InputGroupText("[eV]"),
                                 ]),
                                 html.Div("Post-edge range"),
                                 dbc.InputGroup([
-                                    dbc.Input(id="post_edge_start_input"),
+                                    dbc.Input(id="xas_post_edge_start_input", type="number"),
                                     dbc.InputGroupText("⮕"),
-                                    dbc.Input(id="post_edge_stop_input"),
+                                    dbc.Input(id="xas_post_edge_stop_input", type="number"),
                                     dbc.InputGroupText("[eV]"),
                                 ], class_name="mb-2"),
                                 dbc.InputGroup([
                                     dbc.InputGroupText("Polynom order"),
-                                    dbc.Input(id="polynom_order_input", type="number"),
+                                    dbc.Input(id="xas_polynom_order_input", type="number"),
                                 ]),
+                            ]),
+                            html.Div([
+                                dbc.Checklist(
+                                    options= {
+                                        "label": "Normalized", "value": "Normalized",
+                                        "label": "Flattened", "value": "Flattened",
+                                    },
+                                    id="xas_normalization_checklist"
+                                )
                             ])
 
                         ],
@@ -155,6 +164,53 @@ def calc_mus(df):
 
 
 @app.callback(
+    Output("xas_normalization_scheme", "data"),
+    Input("xas_e0_input", "value"),
+    Input("xas_pre_edge_start_input", "value"),
+    Input("xas_pre_edge_stop_input", "value"),
+    Input("xas_post_edge_start_input", "value"),
+    Input("xas_post_edge_start_input", "value"),
+    Input("xas_polynom_order_input", "value"),
+)
+def update_normalization_scheme(
+    e0_input,
+    pre_edge_start_input, 
+    pre_edge_stop_input,
+    post_edge_start_input,
+    post_edge_stop_input,
+    post_edge_polynom_order_input,
+    ):
+    """Returns dict of `larch.xafs.pre_edge` keyword-argument pairs
+    to be stored as json in a `dcc.Store` object."""
+    print(
+        dict(
+            # step and nvict could be implemented as inputs later
+            e0=e0_input,
+            step=None,
+            pre1=pre_edge_start_input,
+            pre2=pre_edge_stop_input,
+            norm1=post_edge_start_input,
+            norm2=post_edge_stop_input,
+            nnorm=post_edge_polynom_order_input,
+            nvict=None,
+        )
+    )
+    return dict(
+        # step and nvict could be implemented as inputs later
+        e0=e0_input,
+        step=None,
+        pre1=pre_edge_start_input,
+        pre2=pre_edge_stop_input,
+        norm1=post_edge_start_input,
+        norm2=post_edge_stop_input,
+        nnorm=post_edge_polynom_order_input,
+        nvict=None,
+    )
+
+
+
+
+@app.callback(
     Output("spectrum_plot", "figure"),
     Output("previous_plot_data", "data"),
     Input("plot_btn", "n_clicks"),
@@ -165,10 +221,14 @@ def calc_mus(df):
     State("spectrum_plot", "figure"),
     State("previous_plot_data", "data"),
     State("channel_checklist", "value"),
+
+    State("xas_normalization_checklist", "value"),
+    
+    
     prevent_initial_call=True,
 )
 # def update_plot(plot_click, clear_click, normalized_view, selected_scans, selected_scan_id_dicts, current_fig, previous_data, selected_channels):
-def update_plot(plot_click, clear_click, selected_scans, selected_scan_id_dicts, current_fig, previous_data, selected_channels):
+def update_plot(plot_click, clear_click, selected_scans, selected_scan_id_dicts, current_fig, previous_data, selected_channels, normalization_selections):
     fig = go.Figure(current_fig)
     updated_previous_data = fig.data
     
@@ -184,6 +244,7 @@ def update_plot(plot_click, clear_click, selected_scans, selected_scan_id_dicts,
                     df = ISS_SANDBOX[uid].read()
                     calc_mus(df)
                     for ch in selected_channels:
+                        # if "Normalization" in normalization_selections:
 
                         # check spectrum isn't already plotted
                         if f"{scan_id} {ch}" not in [trace.name for trace in fig.data]:
