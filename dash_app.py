@@ -11,7 +11,7 @@ import itertools
 from xas.tiled_io import get_iss_sandbox, filter_node_for_proposal
 from xas.analysis import check_scan
 
-from app_components import build_proposal_accordion, visualization_tab
+from app_components import build_proposal_accordion, visualization_tab, normalization_scheme_panel
 
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 app.title = "new ISS app"
@@ -83,46 +83,7 @@ app.layout = dbc.Container([
                     dbc.Row(dbc.Button("clear figure", id="clear_btn"), style={"padding-bottom": "10px"}),
                     dbc.Row([
                         dcc.Store(id="xas_normalization_scheme"),
-                        dbc.Card([
-                            html.Div("XAS Normalization Parameters", className="mb-3"),
-                            html.Div([
-                                dbc.InputGroup([
-                                    dbc.InputGroupText(["E", html.Sub("0")]),
-                                    dbc.Input(id="xas_e0_input", type="number"),
-                                    dbc.InputGroupText("[eV]"),
-                                ]),
-                                html.Div("Pre-edge range"),
-                                dbc.InputGroup([
-                                    dbc.Input(id="xas_pre_edge_start_input", type="number"),
-                                    dbc.InputGroupText("⮕"),
-                                    dbc.Input(id="xas_pre_edge_stop_input", type="number"),
-                                    dbc.InputGroupText("[eV]"),
-                                ]),
-                                html.Div("Post-edge range"),
-                                dbc.InputGroup([
-                                    dbc.Input(id="xas_post_edge_start_input", type="number"),
-                                    dbc.InputGroupText("⮕"),
-                                    dbc.Input(id="xas_post_edge_stop_input", type="number"),
-                                    dbc.InputGroupText("[eV]"),
-                                ], class_name="mb-2"),
-                                dbc.InputGroup([
-                                    dbc.InputGroupText("Polynom order"),
-                                    dbc.Input(id="xas_polynom_order_input", type="number"),
-                                ]),
-                            ]),
-                            # html.Div([
-                            #     dbc.Checklist(
-                            #         options= {
-                            #             "label": "Normalized", "value": "Normalized",
-                            #             "label": "Flattened", "value": "Flattened",
-                            #         },
-                            #         id="xas_normalization_checklist"
-                            #     )
-                            # ])
-
-                        ],
-                        body=True,
-                        id="norm_scheme_panel")
+                        normalization_scheme_panel,
                     ])
                 ], style={"max-height": "700px", "overflow-y": "auto"}),
             ]),
@@ -136,6 +97,62 @@ app.layout = dbc.Container([
     style={"max-height": "800px", "overflow-y": "visible"}),
     dbc.Row(html.Div("test text"))
 ], fluid=True)
+
+
+def calc_mus(df):
+    """Shorthand function to calculate mut, muf, and mur 'on the fly'"""
+    df["mut"] = -np.log(df["it"] / df["i0"])
+    df["mur"] = -np.log(df["ir"] / df["it"])
+    df["muf"] = df["iff"] / df["i0"]
+
+
+class MyLarchCalculator:
+    def __init__(self) -> None:
+        pass
+    
+    def _custom_flatten(larch_group):
+        step_index = int(np.argwhere(larch_group.energy > larch_group.e0)[0])
+        zeros = np.zeros(step_index)
+        ones = np.ones(larch_group.energy.shape[0] - step_index)
+        step = np.concatenate((zeros, ones), axis=0)
+        diffline = (larch_group.post_edge - larch_group.pre_edge) / larch_group.edge_step
+        larch_group.flat = larch_group.norm + step * (1 - diffline)
+
+    def normalization(
+        self,
+        energy,
+        mu,
+        flatten_output=True,
+        return_norm_parameters=False,
+        **larch_pre_edge_kwargs,
+        ):
+        """Wrapper around `larch.xafs.pre_edge` shenanigans"""
+        energy = np.array(energy)
+        mu = np.array(mu)
+        raw_larch_group = larch.Group(energy=energy, mu=mu)
+        norm_larch_group = larch.Group()
+        pre_edge(raw_larch_group, group=norm_larch_group, **larch_pre_edge_kwargs)
+        self._custom_flatten(norm_larch_group)
+        
+        if flatten_output:
+            mu_out = norm_larch_group.flat
+        else:
+            mu_out = norm_larch_group.norm
+        
+        if return_norm_parameters:
+            norm_parameters = dict(
+                e0=norm_larch_group.e0,
+                step=norm_larch_group.step,
+                pre1=norm_larch_group.pre1,
+                pre2=norm_larch_group.pre2,
+                norm1=norm_larch_group.norm1,
+                norm2=norm_larch_group.norm2,
+                nnorm=norm_larch_group.nnorm,
+                nvict=norm_larch_group.nvict,
+            )
+            return mu_out, norm_parameters
+        else:
+            return mu_out
 
 
 @app.callback(
@@ -155,12 +172,6 @@ def show_proposal_accordion(n_search_clicks, n_apply_clicks, dropdown_choice, ye
     print(dropdown_choice)
     return build_proposal_accordion(filter_node_for_proposal(ISS_SANDBOX, year, cycle, proposal), groupby_keys=dropdown_choice)
 
-
-def calc_mus(df):
-    """Shorthand function to calculate mut, muf, and mur 'on the fly'"""
-    df["mut"] = -np.log(df["it"] / df["i0"])
-    df["mur"] = -np.log(df["ir"] / df["it"])
-    df["muf"] = df["iff"] / df["i0"]
 
 
 @app.callback(
@@ -237,22 +248,22 @@ def update_plot(plot_click, clear_click, selected_scans, selected_scan_id_dicts,
                         if f"{scan_id} {ch}" not in [trace.name for trace in fig.data]:
                             fig.add_scatter(x=df["energy"], y=df[ch], name=f"{scan_id} {ch}")
 
-    # if dash.ctx.triggered_id == "norm_view_toggle":
-    #     if normalized_view is True:
-    #         current_data = fig.data
-    #         fig.data = ()
-    #         for trace in current_data:
-    #             raw_larch_group = larch.Group(energy=np.array(trace.x), mu=np.array(trace.y))
-    #             norm_larch_group = larch.Group()
-    #             pre_edge(raw_larch_group, group=norm_larch_group)
-    #             fig.add_scatter(x=raw_larch_group.energy, y=norm_larch_group.flat, name=f"{trace.name} norm")
-    #     else:
-    #         # if previous_data is None:
-    #         #     raise dash.exceptions.PreventUpdate
-    #         # else:
-    #         fig.data = ()
-    #         for trace_data in previous_data:
-    #             fig.add_scatter(**trace_data)
+    if dash.ctx.triggered_id == "norm_view_toggle":
+        if normalized_view is True:
+            current_data = fig.data
+            fig.data = ()
+            for trace in current_data:
+                raw_larch_group = larch.Group(energy=np.array(trace.x), mu=np.array(trace.y))
+                norm_larch_group = larch.Group()
+                pre_edge(raw_larch_group, group=norm_larch_group)
+                fig.add_scatter(x=raw_larch_group.energy, y=norm_larch_group.flat, name=f"{trace.name} norm")
+        else:
+            # if previous_data is None:
+            #     raise dash.exceptions.PreventUpdate
+            # else:
+            fig.data = ()
+            for trace_data in previous_data:
+                fig.add_scatter(**trace_data)
 
     return fig, updated_previous_data
         

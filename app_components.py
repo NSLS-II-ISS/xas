@@ -69,3 +69,45 @@ visualization_tab = dbc.Tab([
     ],
     label="Visualization",
 )
+
+normalization_scheme_panel = dbc.Card([
+    html.Div("XAS Normalization Parameters", className="mb-3"),
+    html.Div([
+        dbc.InputGroup([
+            dbc.InputGroupText(["E", html.Sub("0")]),
+            dbc.Input(id="xas_e0_input", type="number"),
+            dbc.InputGroupText("[eV]"),
+        ]),
+        html.Div("Pre-edge range"),
+        dbc.InputGroup([
+            dbc.Input(id="xas_pre_edge_start_input", type="number"),
+            dbc.InputGroupText("⮕"),
+            dbc.Input(id="xas_pre_edge_stop_input", type="number"),
+            dbc.InputGroupText("[eV]"),
+        ]),
+        html.Div("Post-edge range"),
+        dbc.InputGroup([
+            dbc.Input(id="xas_post_edge_start_input", type="number"),
+            dbc.InputGroupText("⮕"),
+            dbc.Input(id="xas_post_edge_stop_input", type="number"),
+            dbc.InputGroupText("[eV]"),
+        ], class_name="mb-2"),
+        dbc.InputGroup([
+            dbc.InputGroupText("Polynom order"),
+            dbc.Input(id="xas_polynom_order_input", type="number"),
+        ]),
+    ], style={"padding-bottom": "8px"}),
+    html.Div([
+        dbc.RadioItems(
+            options=[
+                {"label": "mu", "value": "mu"},
+                {"label": "normalized", "value": "normalized"},
+                {"label": "flattened", "value": "flattened"},
+            ],
+            value="mu",
+            id="xas_norm_radioitems",
+        ),
+    ]),
+],
+body=True,
+id="norm_scheme_panel")
