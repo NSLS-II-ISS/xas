@@ -29,6 +29,28 @@ def load_apb_dataset_from_db(db, uid):
     return apb_dataset, energy_dataset, angle_offset
 
 
+def load_dataset_from_tiled(run, stream_name):
+    t = run[stream_name]['data'][stream_name].read()
+    arr = np.array(t.tolist()).squeeze()
+    columns = list(t.dtype.fields.keys())
+    return pd.DataFrame(arr, columns=columns)
+
+
+def load_apb_dataset_from_tiled(run):
+    apb_dataset = load_dataset_from_tiled(run, 'apb_stream')
+    apb_dataset = apb_dataset[apb_dataset['timestamp'] >1]
+    ch_offsets = get_ch_properties(run.metadata['start'], 'ch', '_offset') * 1e3  # offsets are ib mV but the readings are in uV
+    ch_gains = get_ch_properties(run.metadata['start'], 'ch', '_amp_gain')
+
+    apb_dataset.iloc[:, 1:] -= ch_offsets
+    apb_dataset.iloc[:, 1:] /= 1e6
+    apb_dataset.iloc[:, 1:] /= (10 ** ch_gains)
+
+    energy_dataset = load_dataset_from_tiled(run, 'pb9_enc1')
+    energy_dataset = energy_dataset[energy_dataset['ts_s'] > 0]
+    angle_offset = -float(run.metadata['start']['angle_offset'])
+
+    return apb_dataset, energy_dataset, angle_offset
 
 def get_ch_properties(hdr_start, start, end):
     ch_keys = [key for key in hdr_start.keys() if key.startswith(start) and key.endswith(end)]

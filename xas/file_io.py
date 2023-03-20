@@ -133,10 +133,10 @@ def _get_value_from_hdr_start(hdr, key):
 def create_file_header(hdr):
     return generate_file_header_from_hdr(hdr)
 
-def find_e0(hdr):
+def find_e0(md):
     e0 = -1
-    if 'e0' in hdr.start:
-        e0 = float(hdr.start['e0'])
+    if 'e0' in md['start']:
+        e0 = float(md['start']['e0'])
     return e0
 
 
