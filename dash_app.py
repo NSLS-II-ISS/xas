@@ -5,7 +5,7 @@ import dash_bootstrap_components as dbc
 import plotly.graph_objects as go
 from itertools import compress  # basically numpy bool array casting using python iterables
 
-from xas.tiled_io import get_iss_sandbox, filter_node_by_key, filter_node_for_proposal
+from xas.tiled_io import get_iss_sandbox, filter_node_by_metadata_key, filter_node_for_proposal
 from xas.analysis import check_scan
 
 from app_components import build_proposal_accordion, build_filter_input, visualization_tab, normalization_scheme_panel
@@ -28,7 +28,11 @@ app.layout = dbc.Container([
                 dbc.Col(dbc.Input(id="year_input", placeholder="year")),
                 dbc.Col(dbc.Input(id="cycle_input", placeholder="cycle")),
                 dbc.Col(dbc.Input(id="proposal_input", placeholder="proposal")),
-                dbc.Col(dbc.Button("search", id="search_btn", n_clicks=0))
+                dbc.Col(
+                    dbc.Button("search", id="search_btn", n_clicks=0, style={"width": "100%"}),
+                    width=2,
+                    # style={"text-align": "right"},
+                    ),
             ]),
             dbc.Row([
                 html.Div(id="filters_loc"),
@@ -109,24 +113,35 @@ app.layout = dbc.Container([
     State("year_input", "value"),
     State("cycle_input", "value"),
     State("proposal_input", "value"),
-    # State({"type": "filter_key_input", "index": ALL}, "value"),
-    # State({"type": "filter_value_input", "index": ALL}, "value"),
+    State({"type": "filter_key_input", "index": ALL}, "value"),
+    State({"type": "filter_value_input", "index": ALL}, "value"),
 )
-def show_proposal_accordion(n_search_clicks, n_apply_clicks, dropdown_choice, year, cycle, proposal):
+def show_proposal_accordion(n_search_clicks, n_apply_clicks, dropdown_choice, year, cycle, proposal, other_filter_keys, other_filter_values):
+    proposal_node = filter_node_for_proposal(ISS_SANDBOX, year, cycle, proposal)
+    
+    if other_filter_keys and other_filter_values:
+        for key, value in zip(other_filter_keys, other_filter_values):
+            if key and value:
+                proposal_node = filter_node_by_metadata_key(proposal_node, key, value)
+
     if n_search_clicks == 0:
         return
     if not dropdown_choice:  # check if empty or None
         dropdown_choice = ("sample_name", "monochromator_scan_uid", )
-    return build_proposal_accordion(filter_node_for_proposal(ISS_SANDBOX, year, cycle, proposal), groupby_keys=dropdown_choice)
+
+    return build_proposal_accordion(proposal_node, groupby_keys=dropdown_choice)
 
 
 @app.callback(
     Output("filters_loc", "children"),
+    # Output({"type": "filter_delete_btn", "index": ALL}, "id"),
     Input("add_filter_btn", "n_clicks"),
     Input({"type": "filter_delete_btn", "index": ALL}, "n_clicks"),
+    # State({"type": "filter_delete_btn", "index": ALL}, "id"),
     State("filters_loc", "children"),
 )
 def update_filters(add_filter_click, delete_filter_click, current_filters):
+    print(dash.ctx.triggered_id)
     if dash.ctx.triggered_id is None:
         return current_filters
     if dash.ctx.triggered_id == "add_filter_btn":
@@ -134,13 +149,14 @@ def update_filters(add_filter_click, delete_filter_click, current_filters):
             new_filter = build_filter_input(filter_index=0)
             return [new_filter]
         else: 
-            new_filter = build_filter_input(len(current_filters))
+            new_filter = build_filter_input(filter_index=len(current_filters))
             current_filters.append(new_filter)
             return current_filters
     if dash.ctx.triggered_id["type"] == "filter_delete_btn":
         delete_filter_index = dash.ctx.triggered_id["index"]
         current_filters.pop(delete_filter_index)
         return current_filters
+
 
 
 @app.callback(

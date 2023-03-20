@@ -11,7 +11,7 @@ def get_iss_sandbox():
     return iss_sandbox_node
 
 
-def filter_node_by_key(node, key, value):
+def filter_node_by_metadata_key(node, key, value):
     key = str(key)
     value = str(value)
     return node.search(Key(key) == value)

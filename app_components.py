@@ -57,18 +57,36 @@ def build_proposal_accordion(proposal_node, groupby_keys):
     return html.Div(proposal_accordion, style={"max-height": "700px", "overflow-y": "scroll"})
 
 
+# class FilterInput:
+#     def __init__(self, filters=None) -> None:
+#         if filters is not None:
+#             self.filters = filters
+
+#     def build_new_input
+
+
+
+
 def build_filter_input(filter_index):
     key_input = dbc.Input(id={"type": "filter_key_input", "index": filter_index},
                           placeholder="metadata key")
-    value_input = dbc.Input(id={"type": "filter_key_input", "index": filter_index},
+    value_input = dbc.Input(id={"type": "filter_value_input", "index": filter_index},
                             placeholder="value")
-    delete_button = dbc.Button("X", id={"type": "filter_delete_btn", "index": filter_index},
-                               color="danger")
-    return dbc.InputGroup([
+    delete_button = dbc.Button("X", 
+                               id={"type": "filter_delete_btn", "index": filter_index},
+                               color="light",)
+    
+    key_value_inputgroup = dbc.InputGroup([
         key_input,
+        dbc.InputGroupText(":"),
         value_input,
-        delete_button,
     ])
+    
+    return dbc.Row([
+        dbc.Col(key_value_inputgroup),
+        dbc.Col(delete_button, width=1),
+    ],)
+    # ], id={"type": "filter_input_row", "index": filter_index})
 
 
 visualization_tab = dbc.Tab([
