@@ -2,16 +2,14 @@ import dash
 from dash import html, dcc, Input, Output, State, ALL, MATCH
 import dash_bootstrap_components as dbc
 
-import numpy as np
-import larch
-from larch.xafs import pre_edge
 import plotly.graph_objects as go
-import itertools
+from itertools import compress  # basically numpy bool array casting using python iterables
 
-from xas.tiled_io import get_iss_sandbox, filter_node_for_proposal
+from xas.tiled_io import get_iss_sandbox, filter_node_by_key, filter_node_for_proposal
 from xas.analysis import check_scan
 
-from app_components import build_proposal_accordion, visualization_tab, normalization_scheme_panel
+from app_components import build_proposal_accordion, build_filter_input, visualization_tab, normalization_scheme_panel
+from app_math import calc_mus, LarchCalculator
 
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 app.title = "new ISS app"
@@ -31,7 +29,19 @@ app.layout = dbc.Container([
                 dbc.Col(dbc.Input(id="cycle_input", placeholder="cycle")),
                 dbc.Col(dbc.Input(id="proposal_input", placeholder="proposal")),
                 dbc.Col(dbc.Button("search", id="search_btn", n_clicks=0))
-            ], style={"padding-bottom": "10px"}),
+            ]),
+            dbc.Row([
+                html.Div(id="filters_loc"),
+                dbc.Col(
+                    dbc.Button("add filter",
+                               id="add_filter_btn", 
+                               color="link", 
+                               size="sm"),
+                    width=2
+                ),
+            ], align="start",
+            ),
+            dbc.Row(dbc.Col(html.Div("Group by"))),
             dbc.Row([
                 dbc.Col(
                     dcc.Dropdown(
@@ -43,20 +53,12 @@ app.layout = dbc.Container([
                         "sample_name",
                         "monochromator_scan_uid",
                     ],
-                    placeholder="Group by...", 
+                    # placeholder="Group by...", 
                     id="groupby_dropdown",
                     multi=True
                 )),
                 dbc.Col(dbc.Button("apply", id="apply_btn")),
-            ]),
-            dbc.Row([
-                dbc.Col(
-                    dbc.Button("add filter", color="link", size="sm"),
-                    width=2
-                ),
-                html.Div(id="filters_loc")
-            ], align="start",
-            ),
+            ], class_name="mb-3"),
             dbc.Row([
                 dbc.Col(dbc.Spinner(html.Div(id="accordion_loc"), color="primary")),
                 dbc.Col([
@@ -79,8 +81,8 @@ app.layout = dbc.Container([
                             body=True
                         ),
                     style={"padding-bottom": "10px"}),
-                    dbc.Row(dbc.Button("plot", id="plot_btn"), style={"padding-bottom": "10px"}),
-                    dbc.Row(dbc.Button("clear figure", id="clear_btn"), style={"padding-bottom": "10px"}),
+                    # dbc.Row(dbc.Button("plot", id="plot_btn"), style={"padding-bottom": "10px"}),
+                    # dbc.Row(dbc.Button("clear figure", id="clear_btn"), style={"padding-bottom": "10px"}),
                     dbc.Row([
                         dcc.Store(id="xas_normalization_scheme"),
                         normalization_scheme_panel,
@@ -99,62 +101,6 @@ app.layout = dbc.Container([
 ], fluid=True)
 
 
-def calc_mus(df):
-    """Shorthand function to calculate mut, muf, and mur 'on the fly'"""
-    df["mut"] = -np.log(df["it"] / df["i0"])
-    df["mur"] = -np.log(df["ir"] / df["it"])
-    df["muf"] = df["iff"] / df["i0"]
-
-
-class MyLarchCalculator:
-    def __init__(self) -> None:
-        pass
-    
-    def _custom_flatten(larch_group):
-        step_index = int(np.argwhere(larch_group.energy > larch_group.e0)[0])
-        zeros = np.zeros(step_index)
-        ones = np.ones(larch_group.energy.shape[0] - step_index)
-        step = np.concatenate((zeros, ones), axis=0)
-        diffline = (larch_group.post_edge - larch_group.pre_edge) / larch_group.edge_step
-        larch_group.flat = larch_group.norm + step * (1 - diffline)
-
-    def normalization(
-        self,
-        energy,
-        mu,
-        flatten_output=True,
-        return_norm_parameters=False,
-        **larch_pre_edge_kwargs,
-        ):
-        """Wrapper around `larch.xafs.pre_edge` shenanigans"""
-        energy = np.array(energy)
-        mu = np.array(mu)
-        raw_larch_group = larch.Group(energy=energy, mu=mu)
-        norm_larch_group = larch.Group()
-        pre_edge(raw_larch_group, group=norm_larch_group, **larch_pre_edge_kwargs)
-        self._custom_flatten(norm_larch_group)
-        
-        if flatten_output:
-            mu_out = norm_larch_group.flat
-        else:
-            mu_out = norm_larch_group.norm
-        
-        if return_norm_parameters:
-            norm_parameters = dict(
-                e0=norm_larch_group.e0,
-                step=norm_larch_group.step,
-                pre1=norm_larch_group.pre1,
-                pre2=norm_larch_group.pre2,
-                norm1=norm_larch_group.norm1,
-                norm2=norm_larch_group.norm2,
-                nnorm=norm_larch_group.nnorm,
-                nvict=norm_larch_group.nvict,
-            )
-            return mu_out, norm_parameters
-        else:
-            return mu_out
-
-
 @app.callback(
     Output("accordion_loc", "children"),
     Input("search_btn", "n_clicks"),
@@ -163,15 +109,38 @@ class MyLarchCalculator:
     State("year_input", "value"),
     State("cycle_input", "value"),
     State("proposal_input", "value"),
+    # State({"type": "filter_key_input", "index": ALL}, "value"),
+    # State({"type": "filter_value_input", "index": ALL}, "value"),
 )
 def show_proposal_accordion(n_search_clicks, n_apply_clicks, dropdown_choice, year, cycle, proposal):
     if n_search_clicks == 0:
         return
     if not dropdown_choice:  # check if empty or None
         dropdown_choice = ("sample_name", "monochromator_scan_uid", )
-    print(dropdown_choice)
     return build_proposal_accordion(filter_node_for_proposal(ISS_SANDBOX, year, cycle, proposal), groupby_keys=dropdown_choice)
 
+
+@app.callback(
+    Output("filters_loc", "children"),
+    Input("add_filter_btn", "n_clicks"),
+    Input({"type": "filter_delete_btn", "index": ALL}, "n_clicks"),
+    State("filters_loc", "children"),
+)
+def update_filters(add_filter_click, delete_filter_click, current_filters):
+    if dash.ctx.triggered_id is None:
+        return current_filters
+    if dash.ctx.triggered_id == "add_filter_btn":
+        if current_filters is None:
+            new_filter = build_filter_input(filter_index=0)
+            return [new_filter]
+        else: 
+            new_filter = build_filter_input(len(current_filters))
+            current_filters.append(new_filter)
+            return current_filters
+    if dash.ctx.triggered_id["type"] == "filter_delete_btn":
+        delete_filter_index = dash.ctx.triggered_id["index"]
+        current_filters.pop(delete_filter_index)
+        return current_filters
 
 
 @app.callback(
@@ -193,7 +162,7 @@ def update_normalization_scheme(
     post_edge_polynom_order_input,
     ):
     """Returns dict of `larch.xafs.pre_edge` keyword-argument pairs
-    to be stored as json in a `dcc.Store` object."""
+    to be stored as json in a `dcc.Store` object"""
     larch_pre_edge_kwargs = dict(
         # step and nvict could be implemented as inputs later
         e0=e0_input,
@@ -203,7 +172,7 @@ def update_normalization_scheme(
         norm1=post_edge_start_input,
         norm2=post_edge_stop_input,
         nnorm=post_edge_polynom_order_input,
-        nvict=None,
+        nvict=0,  # for some reason this is the only pre_edge keyword that doesn't default to None
     )
     return larch_pre_edge_kwargs
 
@@ -213,20 +182,28 @@ def update_normalization_scheme(
     Output("previous_plot_data", "data"),
     Input("plot_btn", "n_clicks"),
     Input("clear_btn", "n_clicks"),
-    # Input("norm_view_toggle", "value"),
     State({"type": "scan_check", "uid": ALL, "group": ALL}, "value"),
     State({"type": "scan_check", "uid": ALL, "group": ALL}, "id"),
     State("spectrum_plot", "figure"),
     State("previous_plot_data", "data"),
     State("channel_checklist", "value"),
 
-    # State("xas_normalization_checklist", "value"),
-    #
+    State("xas_normalization_scheme", "data"),
+    State("xas_normalization_radioitems", "value"),
     
     prevent_initial_call=True,
 )
-# def update_plot(plot_click, clear_click, normalized_view, selected_scans, selected_scan_id_dicts, current_fig, previous_data, selected_channels):
-def update_plot(plot_click, clear_click, selected_scans, selected_scan_id_dicts, current_fig, previous_data, selected_channels):
+def update_plot(
+    plot_click,
+    clear_click,
+    selected_scans,
+    selected_scan_id_dicts,
+    current_fig, 
+    previous_data,
+    selected_channels,
+    larch_normalization_kwargs,
+    xas_normalization_selection,
+    ):
     fig = go.Figure(current_fig)
     updated_previous_data = fig.data
     
@@ -235,35 +212,27 @@ def update_plot(plot_click, clear_click, selected_scans, selected_scan_id_dicts,
 
     if dash.ctx.triggered_id == "plot_btn":
         if selected_channels is not None:
-            for scan_selected, id_dict in zip(selected_scans, selected_scan_id_dicts):
-                if scan_selected is True:
-                    uid = id_dict["uid"]
-                    scan_id = ISS_SANDBOX[uid].metadata["scan_id"]
-                    df = ISS_SANDBOX[uid].read()
-                    calc_mus(df)
-                    for ch in selected_channels:
-                        # if "Normalization" in normalization_selections:
+            for id_dict in compress(selected_scan_id_dicts, selected_scans):
+                uid = id_dict["uid"]
+                scan_id = ISS_SANDBOX[uid].metadata["scan_id"]
+                df = ISS_SANDBOX[uid].read()
+                calc_mus(df)
 
-                        # check spectrum isn't already plotted
-                        if f"{scan_id} {ch}" not in [trace.name for trace in fig.data]:
-                            fig.add_scatter(x=df["energy"], y=df[ch], name=f"{scan_id} {ch}")
+                for ch in selected_channels:
+                    
+                    mu_label = f"{scan_id} {ch}"
+                    if xas_normalization_selection == "mu":
+                        mu_plot = df[ch]
+                    elif xas_normalization_selection == "normalized":
+                        mu_plot = LarchCalculator.normalize(df["energy"], df[ch], flatten_output=False, **larch_normalization_kwargs)
+                        mu_label += " norm"
+                    elif xas_normalization_selection == "flattened":
+                        mu_plot = LarchCalculator.normalize(df["energy"], df[ch], flatten_output=True, **larch_normalization_kwargs)
+                        mu_label += " flat"
 
-    if dash.ctx.triggered_id == "norm_view_toggle":
-        if normalized_view is True:
-            current_data = fig.data
-            fig.data = ()
-            for trace in current_data:
-                raw_larch_group = larch.Group(energy=np.array(trace.x), mu=np.array(trace.y))
-                norm_larch_group = larch.Group()
-                pre_edge(raw_larch_group, group=norm_larch_group)
-                fig.add_scatter(x=raw_larch_group.energy, y=norm_larch_group.flat, name=f"{trace.name} norm")
-        else:
-            # if previous_data is None:
-            #     raise dash.exceptions.PreventUpdate
-            # else:
-            fig.data = ()
-            for trace_data in previous_data:
-                fig.add_scatter(**trace_data)
+                    # check spectrum isn't already plotted
+                    if mu_label not in [trace.name for trace in fig.data]:
+                        fig.add_scatter(x=df["energy"], y=mu_plot, name=mu_label)
 
     return fig, updated_previous_data
         
@@ -286,7 +255,7 @@ def change_visible_channels(n_channel_clicks, selected_scans, scan_id_dicts, cur
 
     if current_btn_text == "see more":
         if any(selected for selected in selected_scans):
-            selected_uids = [id_dict["uid"] for id_dict in itertools.compress(scan_id_dicts, selected_scans)]
+            selected_uids = [id_dict["uid"] for id_dict in compress(scan_id_dicts, selected_scans)]
             selected_scan_df_cols = [set(ISS_SANDBOX[uid].read().keys()) for uid in selected_uids]
 
             # flatten into set of all unique column names
@@ -314,9 +283,9 @@ def change_visible_channels(n_channel_clicks, selected_scans, scan_id_dicts, cur
 )
 def select_all_scans_in_group(select_all_chk):
     if select_all_chk is True:
-        return tuple(True for _ in range(len(dash.ctx.outputs_list)))    
+        return tuple(True for _ in dash.ctx.outputs_list)
     else:
-        return tuple(False for _ in range(len(dash.ctx.outputs_list)))    
+        return tuple(False for _ in dash.ctx.outputs_list)
 
 
 if __name__ == "__main__":

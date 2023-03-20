@@ -11,6 +11,12 @@ def get_iss_sandbox():
     return iss_sandbox_node
 
 
+def filter_node_by_key(node, key, value):
+    key = str(key)
+    value = str(value)
+    return node.search(Key(key) == value)
+
+
 def filter_node_for_proposal(node, year, cycle, proposal):
     year = str(year)
     cycle = str(cycle)

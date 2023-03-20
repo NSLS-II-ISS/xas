@@ -49,23 +49,41 @@ def build_nested_accordion(base_node, groupby_keys: list[str], _node_label=""):
             for sub_node, sub_label in zip(next_nodes, next_labels)
         ]
 
-    return dbc.Accordion(accordion_items, 
-                         start_collapsed=True, 
-                         always_open=True,)
+    return dbc.Accordion(accordion_items, start_collapsed=True, always_open=True,)
 
 
 def build_proposal_accordion(proposal_node, groupby_keys):
     proposal_accordion = build_nested_accordion(proposal_node, groupby_keys)
-    # if sort_key == "sample_name":
-    #     proposal_accordion = build_nested_accordion(proposal_node, ("sample_name", "monochromator_scan_uid"))
-    # elif sort_key == "monochromator_scan_uid":
-    #     proposal_accordion = build_nested_accordion(proposal_node, ("monochromator_scan_uid", "sample_name"))
     return html.Div(proposal_accordion, style={"max-height": "700px", "overflow-y": "scroll"})
+
+
+def build_filter_input(filter_index):
+    key_input = dbc.Input(id={"type": "filter_key_input", "index": filter_index},
+                          placeholder="metadata key")
+    value_input = dbc.Input(id={"type": "filter_key_input", "index": filter_index},
+                            placeholder="value")
+    delete_button = dbc.Button("X", id={"type": "filter_delete_btn", "index": filter_index},
+                               color="danger")
+    return dbc.InputGroup([
+        key_input,
+        value_input,
+        delete_button,
+    ])
 
 
 visualization_tab = dbc.Tab([
         dcc.Store(id="previous_plot_data"),
         dbc.Row(dcc.Graph(figure=go.Figure(layout={"height": 800}), id="spectrum_plot")),
+        dbc.Row([
+            dbc.Col(
+                dbc.Button("plot", id="plot_btn", style={"width": "100%"}),
+                width=4,
+            ),
+            dbc.Col(
+                dbc.Button("clear figure", id="clear_btn", style={"width": "100%"}),
+                width=4
+            )
+        ], justify="center")
     ],
     label="Visualization",
 )
@@ -105,9 +123,10 @@ normalization_scheme_panel = dbc.Card([
                 {"label": "flattened", "value": "flattened"},
             ],
             value="mu",
-            id="xas_norm_radioitems",
+            id="xas_normalization_radioitems",
         ),
     ]),
 ],
 body=True,
 id="norm_scheme_panel")
+
