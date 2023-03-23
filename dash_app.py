@@ -5,7 +5,8 @@ import dash_bootstrap_components as dbc
 import plotly.graph_objects as go
 from itertools import compress  # basically numpy bool array casting using python iterables
 
-from xas.tiled_io import get_iss_sandbox, filter_node_by_metadata_key, filter_node_for_proposal
+from xas import tiled_io
+from xas.tiled_io import filter_node_by_metadata_key, filter_node_for_proposal
 from xas.analysis import check_scan
 
 from app_components import build_proposal_accordion, build_filter_input, visualization_tab, normalization_scheme_panel
@@ -41,13 +42,13 @@ app.layout = dbc.Container([
                                id="add_filter_btn", 
                                color="link", 
                                size="sm"),
-                    width=2
+                    width=2,
                 ),
             ], align="start",
             ),
-            dbc.Row(dbc.Col(html.Div("Group by"))),
             dbc.Row([
-                dbc.Col(
+                dbc.Col([
+                    dbc.Label("Group by"),
                     dcc.Dropdown(
                     options = [
                         {"label": "sample", "value": "sample_name"},
@@ -57,12 +58,20 @@ app.layout = dbc.Container([
                         "sample_name",
                         "monochromator_scan_uid",
                     ],
-                    # placeholder="Group by...", 
                     id="groupby_dropdown",
                     multi=True
-                )),
-                dbc.Col(dbc.Button("apply", id="apply_btn")),
-            ], class_name="mb-3"),
+                    ),
+                ]),
+                dbc.Col([
+                    dbc.Label("Sort by"),
+                    dbc.Input(id="sort_input"),
+                ]),
+                dbc.Col(
+                    dbc.Button("apply", id="apply_btn"),
+                    # align="end",
+                    width=2,
+                ),
+            ], align="end", class_name="mb-3"),
             dbc.Row([
                 dbc.Col(dbc.Spinner(html.Div(id="accordion_loc"), color="primary")),
                 dbc.Col([
@@ -134,29 +143,40 @@ def show_proposal_accordion(n_search_clicks, n_apply_clicks, dropdown_choice, ye
 
 @app.callback(
     Output("filters_loc", "children"),
-    # Output({"type": "filter_delete_btn", "index": ALL}, "id"),
+    Output({"type": "filter_delete_btn", "index": ALL}, "id"),
     Input("add_filter_btn", "n_clicks"),
     Input({"type": "filter_delete_btn", "index": ALL}, "n_clicks"),
-    # State({"type": "filter_delete_btn", "index": ALL}, "id"),
+    State({"type": "filter_delete_btn", "index": ALL}, "id"),
     State("filters_loc", "children"),
+    prevent_initial_callback=True,
 )
-def update_filters(add_filter_click, delete_filter_click, current_filters):
-    print(dash.ctx.triggered_id)
-    if dash.ctx.triggered_id is None:
-        return current_filters
+def update_filters(add_filter_click, delete_filter_click, current_filter_id_dicts, current_filters):
+
+    updated_id_dicts = current_filter_id_dicts
+    updated_filters = current_filters
+    
     if dash.ctx.triggered_id == "add_filter_btn":
         if current_filters is None:
             new_filter = build_filter_input(filter_index=0)
-            return [new_filter]
+            updated_filters = [new_filter]
         else: 
             new_filter = build_filter_input(filter_index=len(current_filters))
-            current_filters.append(new_filter)
-            return current_filters
-    if dash.ctx.triggered_id["type"] == "filter_delete_btn":
-        delete_filter_index = dash.ctx.triggered_id["index"]
-        current_filters.pop(delete_filter_index)
-        return current_filters
+            updated_filters.append(new_filter)
+    
+    # TODO fix index updating
+    if isinstance(dash.ctx.triggered_id, dict):
+        if dash.ctx.triggered_id["type"] == "filter_delete_btn":
+            delete_filter_index = dash.ctx.triggered_id["index"]
 
+            updated_filters.pop(delete_filter_index)
+            updated_id_dicts.pop(delete_filter_index)
+
+            for new_index, id_dict in enumerate(updated_id_dicts):
+                print(new_index)
+                id_dict.update({"index": new_index})
+                
+    print(updated_id_dicts)
+    return updated_filters, updated_id_dicts
 
 
 @app.callback(
@@ -193,6 +213,7 @@ def update_normalization_scheme(
     return larch_pre_edge_kwargs
 
 
+# TODO implement plot undo button using stored previous data
 @app.callback(
     Output("spectrum_plot", "figure"),
     Output("previous_plot_data", "data"),
@@ -230,8 +251,8 @@ def update_plot(
         if selected_channels is not None:
             for id_dict in compress(selected_scan_id_dicts, selected_scans):
                 uid = id_dict["uid"]
-                scan_id = ISS_SANDBOX[uid].metadata["scan_id"]
-                df = ISS_SANDBOX[uid].read()
+                scan_id = SANDBOX_READER[uid].metadata["scan_id"]
+                df = SANDBOX_READER[uid].read()
                 calc_mus(df)
 
                 for ch in selected_channels:
@@ -272,7 +293,7 @@ def change_visible_channels(n_channel_clicks, selected_scans, scan_id_dicts, cur
     if current_btn_text == "see more":
         if any(selected for selected in selected_scans):
             selected_uids = [id_dict["uid"] for id_dict in compress(scan_id_dicts, selected_scans)]
-            selected_scan_df_cols = [set(ISS_SANDBOX[uid].read().keys()) for uid in selected_uids]
+            selected_scan_df_cols = [set(SANDBOX_READER[uid].read().keys()) for uid in selected_uids]
 
             # flatten into set of all unique column names
             other_channels = set.union(*selected_scan_df_cols)
@@ -305,5 +326,6 @@ def select_all_scans_in_group(select_all_chk):
 
 
 if __name__ == "__main__":
-    ISS_SANDBOX = get_iss_sandbox()
+    ISS_SANDBOX = tiled_io.get_iss_sandbox()
+    SANDBOX_READER = tiled_io.TiledReader(ISS_SANDBOX)
     app.run_server(debug=True)
