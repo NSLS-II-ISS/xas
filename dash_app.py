@@ -6,7 +6,7 @@ import plotly.graph_objects as go
 from itertools import compress  # basically numpy bool array casting using python iterables
 
 from xas import tiled_io
-from xas.tiled_io import filter_node_by_metadata_key, filter_node_for_proposal
+from xas.tiled_io import filter_node_by_metadata_key, filter_node_for_proposal, sort_nodes_by_metadata_key
 from xas.analysis import check_scan
 
 from app_components import build_proposal_accordion, build_filter_input, visualization_tab, normalization_scheme_panel
@@ -64,14 +64,28 @@ app.layout = dbc.Container([
                 ]),
                 dbc.Col([
                     dbc.Label("Sort by"),
-                    dbc.Input(id="sort_input"),
+                    html.Div([
+                        dcc.Dropdown(
+                            options = [
+                                {"label": "alphabetical", "value": "default"},
+                                {"label": "time", "value": "time"},
+                            ],
+                            value = "scan_name",
+                            id="sort_dropdown",
+                            ),
+                        dbc.Checkbox(
+                            id="reverse_sort_checkbox",
+                            label="reverse",
+                            value=False,
+                        ),
+                    ])
                 ]),
                 dbc.Col(
                     dbc.Button("apply", id="apply_btn"),
                     # align="end",
                     width=2,
                 ),
-            ], align="end", class_name="mb-3"),
+            ], align="start", class_name="mb-3"),
             dbc.Row([
                 dbc.Col(dbc.Spinner(html.Div(id="accordion_loc"), color="primary")),
                 dbc.Col([
@@ -119,13 +133,26 @@ app.layout = dbc.Container([
     Input("search_btn", "n_clicks"),
     Input("apply_btn", "n_clicks"),
     State("groupby_dropdown", "value"),
+    State("sort_dropdown", "value"),
+    State("reverse_sort_checkbox", "value"),
     State("year_input", "value"),
     State("cycle_input", "value"),
     State("proposal_input", "value"),
     State({"type": "filter_key_input", "index": ALL}, "value"),
     State({"type": "filter_value_input", "index": ALL}, "value"),
 )
-def show_proposal_accordion(n_search_clicks, n_apply_clicks, dropdown_choice, year, cycle, proposal, other_filter_keys, other_filter_values):
+def show_proposal_accordion(
+    n_search_clicks, 
+    n_apply_clicks, 
+    groupby_dropdown_choice, 
+    sort_dropdown_choice,
+    reverse_sort_checked,
+    year, 
+    cycle, 
+    proposal, 
+    other_filter_keys, 
+    other_filter_values,
+    ):
     proposal_node = filter_node_for_proposal(ISS_SANDBOX, year, cycle, proposal)
     
     if other_filter_keys and other_filter_values:
@@ -135,10 +162,13 @@ def show_proposal_accordion(n_search_clicks, n_apply_clicks, dropdown_choice, ye
 
     if n_search_clicks == 0:
         return
-    if not dropdown_choice:  # check if empty or None
-        dropdown_choice = ("sample_name", "monochromator_scan_uid", )
+    if not groupby_dropdown_choice:  # check if empty or None
+        groupby_dropdown_choice = ("sample_name", "monochromator_scan_uid", )
 
-    return build_proposal_accordion(proposal_node, groupby_keys=dropdown_choice)
+    return build_proposal_accordion(proposal_node, 
+                                    groupby_keys=groupby_dropdown_choice, 
+                                    sort_key=sort_dropdown_choice,
+                                    reverse_order=reverse_sort_checked)
 
 
 @app.callback(
@@ -293,7 +323,7 @@ def change_visible_channels(n_channel_clicks, selected_scans, scan_id_dicts, cur
     if current_btn_text == "see more":
         if any(selected for selected in selected_scans):
             selected_uids = [id_dict["uid"] for id_dict in compress(scan_id_dicts, selected_scans)]
-            selected_scan_df_cols = [set(SANDBOX_READER[uid].read().keys()) for uid in selected_uids]
+            selected_scan_df_cols = [set(ISS_SANDBOX[uid].columns) for uid in selected_uids]
 
             # flatten into set of all unique column names
             other_channels = set.union(*selected_scan_df_cols)

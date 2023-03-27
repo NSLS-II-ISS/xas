@@ -5,44 +5,6 @@ from tiled.queries import Key
 from collections import UserDict
 
 
-class StoredTiledEntry:
-    def __init__(self, client_obj):
-        self.source_type = type(client_obj)
-        self.data = client_obj.read()
-        self.metadata = client_obj.metadata
-
-    def read(self):
-        """implemented to closer mimic tiled client object funcionality"""
-        return self.data
-    
-    def __repr__(self):
-        return f"Stored data and metadata from {self.source_type}"
-
-
-class TiledReader(UserDict):
-    """Custom dictionary for accessing data from a source tiled client node.
-    When data is pulled from the node then it will be saved in the `TiledReader.data` 
-    attribute and pulled from there in the future."""
-
-    def __init__(self, source_node: Node):
-        self.data = {}
-        self.source_node = source_node
-
-    def __setitem__(self, *args):
-        raise RuntimeError("Cannot set uid values using TiledReader")
-    
-    def __getitem__(self, uid: str):
-        if uid in self.data.keys():
-            return self.data[uid]
-        elif uid in self.source_node.keys():
-            self.data[uid] = StoredTiledEntry(self.source_node[uid])
-            return self.data[uid]
-        else:
-            raise KeyError("Could not find uid in locally stored data or source node")
-
-        
-
-
 def get_iss_sandbox():
     username=input("BNL Username: ")
     tiled_catalog = from_uri("https://localhost:8008", verify=False, username=username)
@@ -63,8 +25,25 @@ def filter_node_for_proposal(node, year, cycle, proposal):
     return node.search(Key('year') == year).search(Key('cycle') == cycle).search(Key('PROPOSAL') == proposal)
 
 
-def sort_nodes_by_metadata_key(list_of_nodes: list, sort_key):
-    return list_of_nodes.sort(key=(lambda node: node[sort_key]))
+def min_value_for_metadata_key(node: Node, key):
+    return min([client_obj.metadata[key] for client_obj in node.values_indexer if key in client_obj.metadata.keys()], default=None)
+
+
+def sort_nodes_by_metadata_key(list_of_nodes: list[Node], sort_key, node_labels:list=None, reverse_order=False):
+    """Returns nodes sorted by the minimum value for the `sort_key` within each node.
+    If `node_labels` is provided then the labels are sorted in the same order as the sorted nodes
+    and also returned."""    
+    if node_labels is None:
+        # weird lambda returning tuple is a hacky way to push `None`s to the end of sorted list
+        return sorted(list_of_nodes, key=lambda node: (min_value_for_metadata_key(node, sort_key) is None, min_value_for_metadata_key(node, sort_key)), 
+                      reverse=reverse_order)
+    else:
+        sorted_nodes_and_labels = sorted(
+            zip(list_of_nodes, node_labels), key=lambda node: (min_value_for_metadata_key(node[0], sort_key) is None, min_value_for_metadata_key(node[0], sort_key)),
+            reverse=reverse_order,
+        )
+        sorted_nodes, sorted_labels = zip(*sorted_nodes_and_labels)
+        return list(sorted_nodes), list(sorted_labels)
 
 
 def group_node_by_metadata_key(node, key, return_values=False):
@@ -83,6 +62,38 @@ def get_df_for_uid(node, uid):
     return dfc.read()
 
 
-class TiledViewer:
-    def __init__(self, tiled_client):
-        self.tiled_client = tiled_client
+class StoredTiledEntry:
+    def __init__(self, client_obj):
+        self.source_type = type(client_obj)
+        self.data = client_obj.read()
+        self.metadata = client_obj.metadata
+        # self.processed_data = {}
+
+    def read(self):
+        """implemented to closer mimic tiled client object funcionality"""
+        return self.data
+    
+    def __repr__(self):
+        return f"Stored data and metadata from {self.source_type}"
+
+
+class TiledReader(UserDict):
+    """Custom dictionary for accessing data from a source tiled client node.
+    When data is pulled from the node it will also be saved in the `TiledReader.data` 
+    attribute and pulled from there in the future."""
+
+    def __init__(self, source_node: Node):
+        super().__init__()
+        self.source_node = source_node
+
+    def __setitem__(self, *args):
+        raise RuntimeError("Cannot set uid values using TiledReader")
+    
+    def __getitem__(self, uid: str):
+        if uid in self.data.keys():
+            return self.data[uid]
+        elif uid in self.source_node.keys():
+            self.data[uid] = StoredTiledEntry(self.source_node[uid])
+            return self.data[uid]
+        else:
+            raise KeyError("Could not find uid in locally stored data or source node")

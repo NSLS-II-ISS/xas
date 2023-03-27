@@ -4,7 +4,7 @@ import dash_bootstrap_components as dbc
 
 import plotly.graph_objects as go
 
-from xas.tiled_io import group_node_by_metadata_key
+from xas.tiled_io import group_node_by_metadata_key, sort_nodes_by_metadata_key
 
 def build_scangroup_interactable(scangroup_node, group_label):
     select_all = html.Div([
@@ -24,12 +24,21 @@ def build_scangroup_interactable(scangroup_node, group_label):
     # return scan_labels
 
 
-def build_nested_accordion(base_node, groupby_keys: list[str], _node_label=""):
+def build_nested_accordion(base_node, groupby_keys: list[str], sort_key:str=None, reverse_order=False, _node_label=""):
     current_key = groupby_keys[0]
-    next_nodes, next_labels = group_node_by_metadata_key(base_node, current_key, return_values=True)
     next_level_keys = groupby_keys[1:]
+    
+    next_nodes, next_labels = group_node_by_metadata_key(base_node, current_key, return_values=True)
 
-    # reached final level of sorting
+    if sort_key is not None:
+        next_nodes, next_labels = sort_nodes_by_metadata_key(next_nodes, sort_key, node_labels=next_labels)
+
+    if reverse_order:
+        next_nodes.reverse()
+        next_labels.reverse()
+
+
+    # reached final level of grouping
     if len(next_level_keys) == 0:
         accordion_items = [
             dbc.AccordionItem(
@@ -52,8 +61,8 @@ def build_nested_accordion(base_node, groupby_keys: list[str], _node_label=""):
     return dbc.Accordion(accordion_items, start_collapsed=True, always_open=True,)
 
 
-def build_proposal_accordion(proposal_node, groupby_keys):
-    proposal_accordion = build_nested_accordion(proposal_node, groupby_keys)
+def build_proposal_accordion(proposal_node, groupby_keys, sort_key=None, reverse_order=False):
+    proposal_accordion = build_nested_accordion(proposal_node, groupby_keys, sort_key=sort_key, reverse_order=reverse_order)
     return html.Div(proposal_accordion, style={"max-height": "700px", "overflow-y": "scroll"})
 
 
