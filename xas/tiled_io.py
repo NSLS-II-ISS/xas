@@ -4,6 +4,83 @@ from tiled.queries import Key
 
 from collections import UserDict
 
+# Outlining TiledReader object
+# may be absolete? https://blueskyproject.io/tiled/tutorials/caching.html
+#
+# def PROCESS_MY_DATASET(data):
+#     data_type = 'xas'
+
+#     if data_type == 'xas':
+#         default_kwargs = {.....}
+#         processed_data = larch_normalize_this_somehow(data, **default_kwargs) # ideally at some point AIML people will take care of kwargs and whatnot
+
+
+#     return processed_data,
+
+# def function_for_xas_processing():
+#     pass
+
+
+# mapping_of_processing = {'xas' : function_for_xas_processing}
+
+
+# class StoredTiledEntry(UserDict):
+#     def __init__(self, client_obj):
+#         super().__init__()
+#         self.client_obj = client_obj
+#         # self.source_type = type(client_obj)
+#         # self.data = client_obj.read()
+#         # self.metadata = client_obj.metadata
+
+#     # def read(self):
+#     #     """implemented to closer mimic tiled client object funcionality"""
+#     #     return self.data
+    
+#     def __repr__(self):
+#         return f"Stored data and metadata from {self.source_type}"
+
+#     def __getitem__(self, kind):
+#         if kind in self.data.keys():
+#             return self.data[kind]
+#         else:
+#             if kind == 'binned':
+#                 data = self.client_obj.read()
+#                 metadata = self.client_obj.metadata
+
+#             elif kind == 'processed':
+#                 data, metadata = PROCESS_MY_DATASET(self.data['binned'])
+#                 self.data[kind] = {'data': data, 'metadata': metadata}
+#             else:
+#                 raise KeyError('NOT IMPLEMENTED')
+#                 # see if you have it
+
+#     # def process(self):
+
+
+# class TiledReader(UserDict):
+#     """Custom dictionary for accessing data from a source tiled client node.
+#     When data is pulled from the node then it will be saved in the `TiledReader.data` 
+#     attribute and pulled from there in the future."""
+
+#     def __init__(self, source_node: Node):
+#         super().__init__()
+#         # self.data = {}
+#         self.source_node = source_node
+
+#     def __setitem__(self, *args):
+#         raise RuntimeError("Cannot set uid values using TiledReader")
+    
+#     def __getitem__(self, uid: str):
+#         if uid in self.data.keys():
+#             return self.data[uid]
+#         elif uid in self.source_node.keys():
+#             self.data[uid] = StoredTiledEntry(self.source_node[uid])
+#             return self.data[uid]
+#         else:
+#             raise KeyError("Could not find uid in locally stored data or source node")
+
+        
+
 
 def get_iss_sandbox():
     username=input("BNL Username: ")
