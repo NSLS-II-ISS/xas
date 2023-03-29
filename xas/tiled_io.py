@@ -177,3 +177,20 @@ class TiledReader(UserDict):
             return self.data[uid]
         else:
             raise KeyError("Could not find uid in locally stored data or source node")
+
+    def get_data_for_uid(self, uid, channel, kind):
+        metadata = self.source_node[uid].metadata
+        label = get_my_label(metadata, suffix='')
+        df = self.source_node[uid].read()
+        if kind == 'mu':
+            x = df['energy']
+            y = df['channel']
+            return x, y, label
+        elif kind == 'normalized':
+
+
+            # metadata =
+
+    def assemble_dataset(self, uids, channel, kind):
+        pass
+        # make your favorite array of things that can be used for PCA/MCR and whatnot (probably xarray)
