@@ -1,6 +1,7 @@
 from tiled.client import from_uri
 from tiled.client.node import Node
 from tiled.queries import Key
+from tiled.client.cache import Cache
 
 from collections import UserDict
 
@@ -84,7 +85,8 @@ from collections import UserDict
 
 def get_iss_sandbox():
     username=input("BNL Username: ")
-    tiled_catalog = from_uri("https://localhost:8008", verify=False, username=username)
+    # cache maximum of 2GB in RAM
+    tiled_catalog = from_uri("https://localhost:8008", verify=False, username=username, cache=Cache.in_memory(2e9))
     iss_sandbox_node = tiled_catalog["iss"]["sandbox"]
     return iss_sandbox_node
 
@@ -103,6 +105,7 @@ def filter_node_for_proposal(node, year, cycle, proposal):
 
 
 def min_value_for_metadata_key(node: Node, key):
+    """Loop over metadata for entries in node and find the minimum value of metadata[key]"""
     return min([client_obj.metadata[key] for client_obj in node.values_indexer if key in client_obj.metadata.keys()], default=None)
 
 

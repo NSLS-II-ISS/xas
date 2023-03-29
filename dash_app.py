@@ -12,6 +12,8 @@ from xas.analysis import check_scan
 from app_components import build_proposal_accordion, build_filter_input, visualization_tab, normalization_scheme_panel
 from app_math import calc_mus, LarchCalculator
 
+import time
+
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 app.title = "new ISS app"
 
@@ -24,68 +26,70 @@ app.layout = dbc.Container([
                 }),
     dbc.Row([
         dbc.Col([
-            dbc.Row(dbc.Col(html.Div("Search by proposal"))),
-            dbc.Row([
-                dbc.Col(dbc.Input(id="year_input", placeholder="year")),
-                dbc.Col(dbc.Input(id="cycle_input", placeholder="cycle")),
-                dbc.Col(dbc.Input(id="proposal_input", placeholder="proposal")),
-                dbc.Col(
-                    dbc.Button("search", id="search_btn", n_clicks=0, style={"width": "100%"}),
-                    width=2,
-                    # style={"text-align": "right"},
-                    ),
-            ]),
-            dbc.Row([
-                html.Div(id="filters_loc"),
-                dbc.Col(
-                    dbc.Button("add filter",
-                               id="add_filter_btn", 
-                               color="link", 
-                               size="sm"),
-                    width=2,
-                ),
-            ], align="start",
-            ),
-            dbc.Row([
-                dbc.Col([
-                    dbc.Label("Group by"),
-                    dcc.Dropdown(
-                    options = [
-                        {"label": "sample", "value": "sample_name"},
-                        {"label": "scan", "value": "monochromator_scan_uid"},
-                    ], 
-                    value = [
-                        "sample_name",
-                        "monochromator_scan_uid",
-                    ],
-                    id="groupby_dropdown",
-                    multi=True
-                    ),
-                ]),
-                dbc.Col([
-                    dbc.Label("Sort by"),
-                    html.Div([
-                        dcc.Dropdown(
-                            options = [
-                                {"label": "alphabetical", "value": "default"},
-                                {"label": "time", "value": "time"},
-                            ],
-                            value = "scan_name",
-                            id="sort_dropdown",
-                            ),
-                        dbc.Checkbox(
-                            id="reverse_sort_checkbox",
-                            label="reverse",
-                            value=False,
+            dbc.Card([
+                dbc.Row(dbc.Col(html.Div("Search by proposal"))),
+                dbc.Row([
+                    dbc.Col(dbc.Input(id="year_input", placeholder="year")),
+                    dbc.Col(dbc.Input(id="cycle_input", placeholder="cycle")),
+                    dbc.Col(dbc.Input(id="proposal_input", placeholder="proposal")),
+                    dbc.Col(
+                        dbc.Button("search", id="search_btn", n_clicks=0, style={"width": "100%"}),
+                        width=2,
+                        # style={"text-align": "right"},
                         ),
-                    ])
                 ]),
-                dbc.Col(
-                    dbc.Button("apply", id="apply_btn"),
-                    # align="end",
-                    width=2,
+                dbc.Row([
+                    html.Div(id="filters_loc"),
+                    dbc.Col(
+                        dbc.Button("add filter",
+                                id="add_filter_btn", 
+                                color="link", 
+                                size="sm"),
+                        width=2,
+                    ),
+                ], align="start",
                 ),
-            ], align="start", class_name="mb-3"),
+                dbc.Row([
+                    dbc.Col([
+                        dbc.Label("Group by"),
+                        dcc.Dropdown(
+                        options = [
+                            {"label": "sample", "value": "sample_name"},
+                            {"label": "scan", "value": "monochromator_scan_uid"},
+                        ], 
+                        value = [
+                            "sample_name",
+                            "monochromator_scan_uid",
+                        ],
+                        id="groupby_dropdown",
+                        multi=True
+                        ),
+                    ]),
+                    dbc.Col([
+                        dbc.Label("Sort by"),
+                        html.Div([
+                            dcc.Dropdown(
+                                options = [
+                                    {"label": "alphabetical", "value": "default"},
+                                    {"label": "time", "value": "time"},
+                                ],
+                                value = "scan_name",
+                                id="sort_dropdown",
+                                ),
+                            dbc.Checkbox(
+                                id="reverse_sort_checkbox",
+                                label="reverse",
+                                value=False,
+                            ),
+                        ])
+                    ]),
+                    dbc.Col(
+                        dbc.Button("apply", id="apply_btn"),
+                        # align="end",
+                        width=2,
+                    ),
+                ], align="start", class_name="mb-3"),
+            ], id="search_input_panel", body=True, class_name="mb-2"),
             dbc.Row([
                 dbc.Col(dbc.Spinner(html.Div(id="accordion_loc"), color="primary")),
                 dbc.Col([
@@ -107,7 +111,7 @@ app.layout = dbc.Container([
                             ],
                             body=True
                         ),
-                    style={"padding-bottom": "10px"}),
+                    class_name="mb-2"),
                     # dbc.Row(dbc.Button("plot", id="plot_btn"), style={"padding-bottom": "10px"}),
                     # dbc.Row(dbc.Button("clear figure", id="clear_btn"), style={"padding-bottom": "10px"}),
                     dbc.Row([
@@ -219,7 +223,7 @@ def update_filters(add_filter_click, delete_filter_click, current_filter_id_dict
     Input("xas_polynom_order_input", "value"),
     prevent_initial_callback=True,
 )
-def update_normalization_scheme(
+def update_stored_normalization_scheme(
     e0_input,
     pre_edge_start_input, 
     pre_edge_stop_input,
@@ -241,6 +245,34 @@ def update_normalization_scheme(
         nvict=0,  # for some reason this is the only pre_edge keyword that doesn't default to None
     )
     return larch_pre_edge_kwargs
+
+
+@app.callback(
+    Output("xas_e0_input", "value"),
+    Output("xas_pre_edge_start_input", "value"),
+    Output("xas_pre_edge_stop_input", "value"),
+    Output("xas_post_edge_start_input", "value"),
+    Output("xas_post_edge_stop_input", "value"),
+    Output("xas_polynom_order_input", "value"),
+    Input("plot_btn", "n_clicks"),
+    State("xas_e0_input", "value"),
+    State("xas_pre_edge_start_input", "value"),
+    State("xas_pre_edge_stop_input", "value"),
+    State("xas_post_edge_start_input", "value"),
+    State("xas_post_edge_stop_input", "value"),
+    State("xas_polynom_order_input", "value"),
+)
+def update_normalization_scheme_panel(
+    plot_click,
+    e0_value,
+    pre_edge_start_value,
+    pre_edge_stop_value,
+    post_edge_start_value,
+    post_edge_stop_value,
+    polynom_order_value,
+    ):
+    
+    return
 
 
 # TODO implement plot undo button using stored previous data
@@ -271,6 +303,7 @@ def update_plot(
     larch_normalization_kwargs,
     xas_normalization_selection,
     ):
+    t1 = time.time()
     fig = go.Figure(current_fig)
     updated_previous_data = fig.data
     
@@ -281,8 +314,10 @@ def update_plot(
         if selected_channels is not None:
             for id_dict in compress(selected_scan_id_dicts, selected_scans):
                 uid = id_dict["uid"]
-                scan_id = SANDBOX_READER[uid].metadata["scan_id"]
-                df = SANDBOX_READER[uid].read()
+                scan_id = ISS_SANDBOX[uid].metadata["scan_id"]
+                df = ISS_SANDBOX[uid].read()
+                # scan_id = SANDBOX_READER[uid].metadata["scan_id"]
+                # df = SANDBOX_READER[uid].read()
                 calc_mus(df)
 
                 for ch in selected_channels:
@@ -300,7 +335,8 @@ def update_plot(
                     # check spectrum isn't already plotted
                     if mu_label not in [trace.name for trace in fig.data]:
                         fig.add_scatter(x=df["energy"], y=mu_plot, name=mu_label)
-
+    t2 = time.time()
+    print(t2 - t1)
     return fig, updated_previous_data
         
 
@@ -357,5 +393,5 @@ def select_all_scans_in_group(select_all_chk):
 
 if __name__ == "__main__":
     ISS_SANDBOX = tiled_io.get_iss_sandbox()
-    SANDBOX_READER = tiled_io.TiledReader(ISS_SANDBOX)
+    # SANDBOX_READER = tiled_io.TiledReader(ISS_SANDBOX)
     app.run_server(debug=True)
