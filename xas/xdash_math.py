@@ -61,13 +61,13 @@ class LarchCalculator:
         if return_norm_parameters:
             norm_parameters = dict(
                 e0=norm_larch_group.e0,
-                step=norm_larch_group.step,
-                pre1=norm_larch_group.pre1,
-                pre2=norm_larch_group.pre2,
-                norm1=norm_larch_group.norm1,
-                norm2=norm_larch_group.norm2,
-                nnorm=norm_larch_group.nnorm,
-                nvict=norm_larch_group.nvict,
+                step=norm_larch_group.edge_step,
+                pre1=norm_larch_group.pre_edge_details.pre1,
+                pre2=norm_larch_group.pre_edge_details.pre2,
+                norm1=norm_larch_group.pre_edge_details.norm1,
+                norm2=norm_larch_group.pre_edge_details.norm2,
+                nnorm=norm_larch_group.pre_edge_details.nnorm,
+                nvict=norm_larch_group.pre_edge_details.nvict,
             )
             return mu_out, norm_parameters
         else:

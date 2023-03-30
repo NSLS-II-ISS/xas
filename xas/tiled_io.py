@@ -3,11 +3,60 @@ from tiled.client.node import Node
 from tiled.queries import Key
 from tiled.client.cache import Cache
 
-from collections import UserDict
+import pandas as pd
 
-# Outlining TiledReader object
-# may be absolete? https://blueskyproject.io/tiled/tutorials/caching.html
-#
+from collections import UserDict, namedtuple
+
+from xdash_math import LarchCalculator, calc_mus
+
+
+class DataManager:
+    def __init__(self, source_node: Node):
+        self.source_node = source_node
+        self.processed_data = {}
+        
+        self.data_types = ("xas", "xes", "rixs")
+
+
+    def _process_data(self, uid, channel):
+        data = self.source_node[uid].read()
+        metadata = self.source_node[uid].metadata
+        # data_type = metadata["type"]
+        dtype = "xas"  # set to xas for now until md is labeled in tiled
+        
+        if dtype in self.data_types:
+            if dtype == "xas":
+                calc_mus(data)
+                ProcessedData = namedtuple("ProcessedData", ["data", "parameters"])
+                energy = data["energy"]
+                mu_in = data[channel]
+
+                norm_result = pd.DataFrame()
+                norm_result["energy"] = energy
+                norm_result["mu_norm"], norm_parameters = LarchCalculator.normalize(energy, 
+                                                                                    mu_in, 
+                                                                                    flatten_output=False, 
+                                                                                    return_norm_parameters=True)
+                
+                norm_result["mu_flat"] = LarchCalculator.normalize(energy, mu_in, larch_pre_edge_kwargs=norm_parameters)
+                return ProcessedData(norm_result, norm_parameters)
+        else:
+            raise ValueError("unsupported data type")
+
+
+    def get_raw_data(self, uid):
+        return self.source_node[uid].read()
+    
+    def get_processed_data(self, uid, channel):
+        if uid in self.processed_data.keys():
+            if channel in self.processed_data[uid].keys():
+                return self.processed_data[uid][channel]
+            else:
+                self.processed_data[uid][channel] = self._process_data(uid, channel)
+        else:
+            self._process_data(uid, channel)
+
+
 # def PROCESS_MY_DATASET(data):
 #     data_type = 'xas'
 
@@ -25,7 +74,7 @@ from collections import UserDict
 # mapping_of_processing = {'xas' : function_for_xas_processing}
 
 
-# class StoredTiledEntry(UserDict):
+# class StoredEntry(UserDict):
 #     def __init__(self, client_obj):
 #         super().__init__()
 #         self.client_obj = client_obj
@@ -58,24 +107,22 @@ from collections import UserDict
 #     # def process(self):
 
 
-# class TiledReader(UserDict):
-#     """Custom dictionary for accessing data from a source tiled client node.
-#     When data is pulled from the node then it will be saved in the `TiledReader.data` 
-#     attribute and pulled from there in the future."""
+# class DataReader(UserDict):
+#     _raw_data_keys = ["binned", "raw"]
 
 #     def __init__(self, source_node: Node):
 #         super().__init__()
-#         # self.data = {}
 #         self.source_node = source_node
 
 #     def __setitem__(self, *args):
-#         raise RuntimeError("Cannot set uid values using TiledReader")
+#         raise RuntimeError("Cannot set values using DataReader")
     
 #     def __getitem__(self, uid: str):
+#         if 
 #         if uid in self.data.keys():
 #             return self.data[uid]
 #         elif uid in self.source_node.keys():
-#             self.data[uid] = StoredTiledEntry(self.source_node[uid])
+#             self.data[uid] = StoredEntry(self.source_node[uid])
 #             return self.data[uid]
 #         else:
 #             raise KeyError("Could not find uid in locally stored data or source node")
@@ -141,39 +188,3 @@ def get_df_for_uid(node, uid):
     dfc = singleton_node[singleton_node.keys()[0]]
     return dfc.read()
 
-
-class StoredTiledEntry:
-    def __init__(self, client_obj):
-        self.source_type = type(client_obj)
-        self.data = client_obj.read()
-        self.metadata = client_obj.metadata
-        # self.processed_data = {}
-
-    def read(self):
-        """implemented to closer mimic tiled client object funcionality"""
-        return self.data
-    
-    def __repr__(self):
-        return f"Stored data and metadata from {self.source_type}"
-
-
-class TiledReader(UserDict):
-    """Custom dictionary for accessing data from a source tiled client node.
-    When data is pulled from the node it will also be saved in the `TiledReader.data` 
-    attribute and pulled from there in the future."""
-
-    def __init__(self, source_node: Node):
-        super().__init__()
-        self.source_node = source_node
-
-    def __setitem__(self, *args):
-        raise RuntimeError("Cannot set uid values using TiledReader")
-    
-    def __getitem__(self, uid: str):
-        if uid in self.data.keys():
-            return self.data[uid]
-        elif uid in self.source_node.keys():
-            self.data[uid] = StoredTiledEntry(self.source_node[uid])
-            return self.data[uid]
-        else:
-            raise KeyError("Could not find uid in locally stored data or source node")

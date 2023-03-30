@@ -6,11 +6,11 @@ import plotly.graph_objects as go
 from itertools import compress  # basically numpy bool array casting using python iterables
 
 from xas import tiled_io
+from xas.xdash_math import calc_mus, LarchCalculator
 from xas.tiled_io import filter_node_by_metadata_key, filter_node_for_proposal, sort_nodes_by_metadata_key
 from xas.analysis import check_scan
 
 from app_components import build_proposal_accordion, build_filter_input, visualization_tab, normalization_scheme_panel
-from app_math import calc_mus, LarchCalculator
 
 import time
 
