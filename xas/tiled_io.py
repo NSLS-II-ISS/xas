@@ -7,7 +7,11 @@ import pandas as pd
 
 from collections import UserDict, namedtuple
 
-from xdash_math import LarchCalculator, calc_mus
+from xas.xdash_math import LarchCalculator, calc_mus
+
+
+ProcessedData = namedtuple("ProcessedData", ["data", "parameters"])
+ProcessedData.__doc__ = """Contains processed data paired with processing parameters"""
 
 
 class DataManager:
@@ -27,34 +31,41 @@ class DataManager:
         if dtype in self.data_types:
             if dtype == "xas":
                 calc_mus(data)
-                ProcessedData = namedtuple("ProcessedData", ["data", "parameters"])
+                
                 energy = data["energy"]
                 mu_in = data[channel]
 
                 norm_result = pd.DataFrame()
                 norm_result["energy"] = energy
-                norm_result["mu_norm"], norm_parameters = LarchCalculator.normalize(energy, 
-                                                                                    mu_in, 
-                                                                                    flatten_output=False, 
-                                                                                    return_norm_parameters=True)
+                norm_result["norm"], norm_parameters = LarchCalculator.normalize(energy, 
+                                                                                  mu_in, 
+                                                                                  flatten_output=False, 
+                                                                                  return_norm_parameters=True)
                 
-                norm_result["mu_flat"] = LarchCalculator.normalize(energy, mu_in, larch_pre_edge_kwargs=norm_parameters)
+                norm_result["flat"] = LarchCalculator.normalize(energy, mu_in, **norm_parameters)
                 return ProcessedData(norm_result, norm_parameters)
         else:
             raise ValueError("unsupported data type")
 
 
     def get_raw_data(self, uid):
-        return self.source_node[uid].read()
+        # bad, fix later
+        df = self.source_node[uid].read()
+        calc_mus(df)
+        return df
     
+    def get_metadata(self, uid):
+        return self.source_node[uid].metadata
+    
+    # TODO: probably add separate method for get_processing_parameters
     def get_processed_data(self, uid, channel):
         if uid in self.processed_data.keys():
-            if channel in self.processed_data[uid].keys():
-                return self.processed_data[uid][channel]
-            else:
+            if channel not in self.processed_data[uid].keys():
                 self.processed_data[uid][channel] = self._process_data(uid, channel)
         else:
-            self._process_data(uid, channel)
+            self.processed_data[uid] = dict()
+            self.processed_data[uid][channel] = self._process_data(uid, channel)
+        return self.processed_data[uid][channel]
 
 
 # def PROCESS_MY_DATASET(data):
