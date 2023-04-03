@@ -35,7 +35,7 @@ def _solve_omega_func(omega, bragg, xyz, dz):
     _, _, z_cr_rot = _rotate_xyz(omega, bragg, xyz)
     return z_cr_rot - dz
 
-def _compute_rotated_rowland_circle_geometry(x_cr_main, y_cr_main, x_det, y_det, bragg_deg, dz):
+def _compute_rotated_rowland_circle_geometry(x_cr_main, y_cr_main, x_det, y_det, bragg_deg, dz, output_omega=False):
 
     # dz = -dz # quirk of this coordinate system
     xyz_main_cr = np.array([x_cr_main, y_cr_main, 0])
@@ -46,13 +46,14 @@ def _compute_rotated_rowland_circle_geometry(x_cr_main, y_cr_main, x_det, y_det,
 
     roll_cr_rot = 90 - np.rad2deg(np.arctan(np.abs((y_det - y_cr_rot) / (x_det - x_cr_rot))))/2
     yaw_cr_rot = np.rad2deg(np.arctan(np.abs((z_cr_rot) / (x_det - x_cr_rot))))
-
+    if output_omega:
+        return x_cr_rot, y_cr_rot, roll_cr_rot, yaw_cr_rot, omega
     return x_cr_rot, y_cr_rot, roll_cr_rot, yaw_cr_rot
 
-def compute_rotated_rowland_circle_geometry(x_src, y_src, R, bragg, dz):
+def compute_rotated_rowland_circle_geometry(x_src, y_src, R, bragg, dz, output_omega=False):
     x_cr_main, y_cr_main, x_det, y_det = compute_rowland_circle_geometry(x_src, y_src, R, bragg, 0)
-    x_cr_rot, y_cr_rot, roll_cr_rot, yaw_cr_rot = _compute_rotated_rowland_circle_geometry(x_cr_main, y_cr_main, x_det, y_det, bragg, dz)
-    return x_cr_rot, y_cr_rot, roll_cr_rot, yaw_cr_rot
+    output = _compute_rotated_rowland_circle_geometry(x_cr_main, y_cr_main, x_det, y_det, bragg, dz, output_omega=output_omega)
+    return output
 
 #
 # bragg = 90
