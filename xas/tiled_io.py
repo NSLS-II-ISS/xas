@@ -10,10 +10,6 @@ from collections import UserDict, namedtuple
 from xas.xdash_math import LarchCalculator, calc_mus
 
 
-ProcessedData = namedtuple("ProcessedData", ["data", "parameters"])
-ProcessedData.__doc__ = """Contains processed data paired with processing parameters"""
-
-
 class DataManager:
     def __init__(self, source_node: Node):
         self.source_node = source_node
@@ -22,14 +18,17 @@ class DataManager:
         self.data_types = ("xas", "xes", "rixs")
 
 
-    def _process_data(self, uid, channel):
+    def _process_data(self, uid, channel, params=None):
+        if params is None:
+            params = dict()
+
         data = self.source_node[uid].read()
         metadata = self.source_node[uid].metadata
         # data_type = metadata["type"]
         dtype = "xas"  # set to xas for now until md is labeled in tiled
         
-        if dtype in self.data_types:
-            if dtype == "xas":
+        if dtype.lower() in self.data_types:
+            if dtype.lower() == "xas":
                 calc_mus(data)
                 
                 energy = data["energy"]
@@ -40,10 +39,11 @@ class DataManager:
                 norm_result["norm"], norm_parameters = LarchCalculator.normalize(energy, 
                                                                                   mu_in, 
                                                                                   flatten_output=False, 
-                                                                                  return_norm_parameters=True)
+                                                                                  return_norm_parameters=True,
+                                                                                  **params)
                 
                 norm_result["flat"] = LarchCalculator.normalize(energy, mu_in, **norm_parameters)
-                return ProcessedData(norm_result, norm_parameters)
+                return {"data": norm_result, "parameters": norm_parameters}
         else:
             raise ValueError("unsupported data type")
 
@@ -57,88 +57,25 @@ class DataManager:
     def get_metadata(self, uid):
         return self.source_node[uid].metadata
     
-    # TODO: probably add separate method for get_processing_parameters
-    def get_processed_data(self, uid, channel):
+    def get_processed_data(self, uid, channel, processing_parameters=None):
+        if uid in self.processed_data.keys():
+            # check if channel has not yet been calculated or if the processing parameters are new
+            if channel not in self.processed_data[uid].keys() or processing_parameters != self.get_processing_parameters(uid, channel):
+                self.processed_data[uid][channel] = self._process_data(uid, channel, params=processing_parameters)
+        else:
+            self.processed_data[uid] = dict()
+            self.processed_data[uid][channel] = self._process_data(uid, channel, params=processing_parameters)
+        return self.processed_data[uid][channel]["data"]
+    
+    def get_processing_parameters(self, uid, channel):
         if uid in self.processed_data.keys():
             if channel not in self.processed_data[uid].keys():
                 self.processed_data[uid][channel] = self._process_data(uid, channel)
         else:
             self.processed_data[uid] = dict()
             self.processed_data[uid][channel] = self._process_data(uid, channel)
-        return self.processed_data[uid][channel]
-
-
-# def PROCESS_MY_DATASET(data):
-#     data_type = 'xas'
-
-#     if data_type == 'xas':
-#         default_kwargs = {.....}
-#         processed_data = larch_normalize_this_somehow(data, **default_kwargs) # ideally at some point AIML people will take care of kwargs and whatnot
-
-
-#     return processed_data,
-
-# def function_for_xas_processing():
-#     pass
-
-
-# mapping_of_processing = {'xas' : function_for_xas_processing}
-
-
-# class StoredEntry(UserDict):
-#     def __init__(self, client_obj):
-#         super().__init__()
-#         self.client_obj = client_obj
-#         # self.source_type = type(client_obj)
-#         # self.data = client_obj.read()
-#         # self.metadata = client_obj.metadata
-
-#     # def read(self):
-#     #     """implemented to closer mimic tiled client object funcionality"""
-#     #     return self.data
-    
-#     def __repr__(self):
-#         return f"Stored data and metadata from {self.source_type}"
-
-#     def __getitem__(self, kind):
-#         if kind in self.data.keys():
-#             return self.data[kind]
-#         else:
-#             if kind == 'binned':
-#                 data = self.client_obj.read()
-#                 metadata = self.client_obj.metadata
-
-#             elif kind == 'processed':
-#                 data, metadata = PROCESS_MY_DATASET(self.data['binned'])
-#                 self.data[kind] = {'data': data, 'metadata': metadata}
-#             else:
-#                 raise KeyError('NOT IMPLEMENTED')
-#                 # see if you have it
-
-#     # def process(self):
-
-
-# class DataReader(UserDict):
-#     _raw_data_keys = ["binned", "raw"]
-
-#     def __init__(self, source_node: Node):
-#         super().__init__()
-#         self.source_node = source_node
-
-#     def __setitem__(self, *args):
-#         raise RuntimeError("Cannot set values using DataReader")
-    
-#     def __getitem__(self, uid: str):
-#         if 
-#         if uid in self.data.keys():
-#             return self.data[uid]
-#         elif uid in self.source_node.keys():
-#             self.data[uid] = StoredEntry(self.source_node[uid])
-#             return self.data[uid]
-#         else:
-#             raise KeyError("Could not find uid in locally stored data or source node")
-
-        
+        params = self.processed_data[uid][channel]["parameters"]
+        return params
 
 
 def get_iss_sandbox():
