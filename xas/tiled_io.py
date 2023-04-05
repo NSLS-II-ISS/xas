@@ -10,6 +10,10 @@ from collections import UserDict, namedtuple
 from xas.xdash_math import LarchCalculator, calc_mus
 
 
+_LABEL_DICT = {'mu': 'mu',
+               'normalized': 'mu norm',
+               'flattened': 'mu flat'}
+
 class DataManager:
     def __init__(self, source_node: Node):
         self.source_node = source_node
@@ -25,7 +29,7 @@ class DataManager:
         data = self.source_node[uid].read()
         metadata = self.source_node[uid].metadata
         # data_type = metadata["type"]
-        dtype = "xas"  # set to xas for now until md is labeled in tiled
+        type = "xas"  # set to xas for now until md is labeled in tiled
         
         if dtype.lower() in self.data_types:
             if dtype.lower() == "xas":
@@ -47,15 +51,30 @@ class DataManager:
         else:
             raise ValueError("unsupported data type")
 
+    def get_metadata(self, uid):
+        return self.source_node[uid].metadata
+
+    def get_data(self, uid, channel, kind='mu', processing_parameters=None):
+        energy = self.get_raw_data(uid)["energy"]
+        if kind == "mu":
+            mu = self.get_raw_data(uid)[channel]
+        elif kind == "normalized":
+            mu = self.get_processed_data(uid, channel, processing_parameters=processing_parameters)["norm"]
+        elif kind == "flattened":
+            mu = self.get_processed_data(uid, channel, processing_parameters=processing_parameters)["flat"]
+        return energy, mu
+
+    def get_plotting_data(self, uid, channel, kind='mu', processing_parameters=None):
+        energy, mu = self.get_data(uid, channel, kind=kind, processing_parameters=processing_parameters)
+        scan_id = self.get_metadata(uid)["scan_id"]
+        label = f"{channel} {kind} {scan_id}" if kind != 'mu' else f"{channel} {scan_id}"
+        return energy, mu, label
 
     def get_raw_data(self, uid):
         # bad, fix later
         df = self.source_node[uid].read()
         calc_mus(df)
         return df
-    
-    def get_metadata(self, uid):
-        return self.source_node[uid].metadata
     
     def get_processed_data(self, uid, channel, processing_parameters=None):
         if uid in self.processed_data.keys():
