@@ -375,6 +375,15 @@ xs_channel_comb_dict = {'xs_roi01' : ['xs_ch01_roi01',
                         }
 
 
+pil100k_channel_list = [
+    'pil100k_roi1',
+    'pil100k_roi2',
+    'pil100k_roi3',
+    'pil100k_roi4'
+]
+pil100k_channel_comb_dict = {'xes' : ['pil100k_roi1',
+                                        'pil100k_roi2'],
+                            }
 
 def stepscan_remove_offsets(hdr, fill=True):
     try:
@@ -383,7 +392,7 @@ def stepscan_remove_offsets(hdr, fill=True):
         df = hdr.table()
 
     for channel_name, _ in stepscan_channel_dict.items():
-        if channel_name.startswith('apb'):
+        if (channel_name in df.columns) and channel_name.startswith('apb'):
             offset = hdr.descriptors[0]["configuration"]['apb_ave']['data'][channel_name.replace("_mean", "_offset")]
             df[channel_name] = df[channel_name] - offset
     return df
@@ -404,6 +413,19 @@ def combine_xspress3_channels(df):
         aug_df = pd.DataFrame(aug_df)
         cols = [c for c in df.columns if c not in xs_channel_list]
         cols = cols + list(xs_channel_comb_dict.keys()) + xs_channel_list
+        df = pd.concat((df, aug_df), axis=1)
+        df = df[cols]
+    return df
+
+
+def combine_pil100k_channels(df):
+    if pil100k_channel_list[0] in df.columns:
+        aug_df = {}
+        for k, chs in pil100k_channel_comb_dict.items():
+            aug_df[k] = np.sum(df[chs].values, axis=1)
+        aug_df = pd.DataFrame(aug_df)
+        cols = [c for c in df.columns if c not in pil100k_channel_list]
+        cols = cols + list(pil100k_channel_comb_dict.keys()) + pil100k_channel_list
         df = pd.concat((df, aug_df), axis=1)
         df = df[cols]
     return df

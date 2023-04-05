@@ -2,8 +2,8 @@
 from .bin import bin
 from .file_io import (load_dataset_from_files, create_file_header, validate_file_exists, validate_path_exists,
                       save_interpolated_df_as_file, save_binned_df_as_file, find_e0, save_stepscan_as_file,
-                      stepscan_remove_offsets, stepscan_normalize_xs, combine_xspress3_channels, filter_df_by_valid_keys,
-                      save_primary_df_as_file, save_extended_data_as_file, dump_tiff_images)
+                      stepscan_remove_offsets, stepscan_normalize_xs, combine_xspress3_channels, combine_pil100k_channels,
+                      filter_df_by_valid_keys, save_primary_df_as_file, save_extended_data_as_file, dump_tiff_images)
 from .db_io import load_apb_dataset_from_db, translate_apb_dataset, load_apb_trig_dataset_from_db, load_xs3_dataset_from_db, load_pil100k_dataset_from_db
 from .interpolate import interpolate
 
@@ -160,6 +160,7 @@ def get_processed_df_from_uid(uid, db, logger=None, draw_func_interp=None, draw_
         return
 
     processed_df = combine_xspress3_channels(processed_df)
+    processed_df = combine_pil100k_channels(processed_df)
 
     primary_df, extended_data = split_df_data_into_primary_and_extended(processed_df)
 

@@ -17,18 +17,18 @@ class APBBinFileHandler(ISSHandlerBaseShiftRoot):
     def __init__(self, fpath):
         fpath = self.shift_root(fpath)
         # It's a text config file, which we don't store in the resources yet, parsing for now
-        fpath_txt = f'{os.path.splitext(fpath)[0]}.txt'
-
-        with open(fpath_txt, 'r') as fp:
-            content = fp.readlines()
-            content = [x.strip() for x in content]
-
-        _ = int(content[0].split(':')[1])
-        Gains = [int(x) for x in content[1].split(':')[1].split(',')]
-        Offsets = [int(x) for x in content[2].split(':')[1].split(',')]
-        FAdiv = float(content[3].split(':')[1])
-        FArate = float(content[4].split(':')[1])
-        trigger_timestamp = float(content[5].split(':')[1].strip().replace(',', '.'))
+        # fpath_txt = f'{os.path.splitext(fpath)[0]}.txt'
+        #
+        # with open(fpath_txt, 'r') as fp:
+        #     content = fp.readlines()
+        #     content = [x.strip() for x in content]
+        #
+        # _ = int(content[0].split(':')[1])
+        # Gains = [int(x) for x in content[1].split(':')[1].split(',')]
+        # Offsets = [int(x) for x in content[2].split(':')[1].split(',')]
+        # FAdiv = float(content[3].split(':')[1])
+        # FArate = float(content[4].split(':')[1])
+        # trigger_timestamp = float(content[5].split(':')[1].strip().replace(',', '.'))
 
         raw_data = np.fromfile(fpath, dtype=np.int32)
 

@@ -996,5 +996,59 @@ plt.plot(energy_out[e_out_mask], uu[:, i_cmp])
 
 plt.subplot(224)
 plt.plot(energy_in[e_in_mask], vv[:, i_cmp])
+#########
 
+
+
+
+print(f'with APB and SHUTTER: {np.mean([1.6482348442077637, 1.7039844989776611, 1.6537742614746094, 1.7817823886871338, 1.7271864414215088])}')
+print(f'with APB: {np.mean([1.213865041732788, 1.268347978591919, 1.3224411010742188, 1.2643957138061523, 1.3515892028808594])}')
+print(f'without APB: {np.mean([1.0586943626403809, 1.1041831970214844, 1.0835952758789062, 1.1153781414031982, 1.138744592666626])}')
+
+
+######
+
+from xas.db_io import load_apb_dataset_from_db, load_apb_trig_dataset_from_db
+
+
+
+
+def plot_trace_for_uid(uid, offset=0):
+    hdr = db[uid]
+    t_apb = hdr.table(stream_name='apb_stream', fill=True).apb_stream[1]
+    t_trig = hdr.table(stream_name='apb_trigger_pil100k', fill=True).apb_trigger_pil100k[1]
+
+    t_min = t_apb[:, 0].min()
+
+    apb_trace = t_apb[:, 6] / 1e6
+    apb_trace -= np.percentile(apb_trace, 1)
+    apb_trace /= np.percentile(apb_trace, 99)
+
+
+    # plt.plot(t_apb[:, 0], t_apb[:, 5] / 1e6)
+    plt.plot(t_apb[:, 0] - t_min, apb_trace - offset, 'k-')
+    plt.plot(t_trig[:, 0] - t_min, t_trig[:, 1] - offset, 'r-')
+
+uids = ['452dc667-f81a-4daf-be60-e6e7d486211d',
+        '2c5c0b8f-01e9-4e22-8748-d582dc75e8c0',
+        'd178dd6b-531a-4780-8fa4-101a7b8569b8',
+        '262acc5b-2941-4284-b01e-ba7bcb4a2122',
+        '3572f520-1777-417e-a0b6-685ff8267761',
+        '3a8af009-5213-40e7-9340-0de79b34551d',
+        '87ec51b5-3848-4dfe-ba27-320418258ffe',
+        '4e00831c-9163-4715-9f32-e413ec1b889a',
+        'b4090950-b187-4416-b611-ca0d3ec8c8c7',
+        'e23bcf19-d8c0-4fac-997f-d0f7dfe1296b'
+        ]
+
+y_shift = 1.25
+plt.figure(1, clear=True)
+for i, uid in enumerate(uids):
+    plot_trace_for_uid(uid, offset=i*y_shift)
+    plt.text(0.2, -i*y_shift + y_shift*0.25, f'({i+1}) {uid}', ha='center', va='center')
+
+# plt.legend()
+plt.xlim(0, 1)
+
+plot_trace_for_uid(-1, 0)
 
