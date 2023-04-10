@@ -1,4 +1,4 @@
-from tiled.client import from_uri
+from tiled.client import from_uri, from_profile
 from tiled.client.node import Node
 from tiled.queries import Key
 from tiled.client.cache import Cache
@@ -29,10 +29,10 @@ class DataManager:
         data = self.source_node[uid].read()
         metadata = self.source_node[uid].metadata
         # data_type = metadata["type"]
-        type = "xas"  # set to xas for now until md is labeled in tiled
+        data_type = "xas"  # set to xas for now until md is labeled in tiled
         
-        if dtype.lower() in self.data_types:
-            if dtype.lower() == "xas":
+        if data_type.lower() in self.data_types:
+            if data_type.lower() == "xas":
                 calc_mus(data)
                 
                 energy = data["energy"]
@@ -100,7 +100,11 @@ class DataManager:
 def get_iss_sandbox():
     username=input("BNL Username: ")
     # cache maximum of 2GB in RAM
-    tiled_catalog = from_uri("https://localhost:8008", verify=False, username=username, cache=Cache.in_memory(2e9))
+    try:
+        tiled_catalog = from_profile('nsls2', verify=False, username=username, cache=Cache.in_memory(2e9))
+    except:
+        tiled_catalog = from_uri("https://localhost:8008", verify=False, username=username, cache=Cache.in_memory(2e9))
+    # tiled_catalog = from_uri("https://localhost:8008", verify=False, username=username, cache=Cache.in_memory(2e9))
     iss_sandbox_node = tiled_catalog["iss"]["sandbox"]
     return iss_sandbox_node
 
