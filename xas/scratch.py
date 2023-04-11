@@ -1153,14 +1153,50 @@ def acquisition_sequence():
 
     apb_trig_stream.put(1)
     ttime.sleep(0.5) # small delay to ensure that streaming of trigger is commenced before pulsing begins
-    apb_trig_acquire.put(1)
+    apb_trig_acquire.put(2)
 
-    ttime.sleep(3) # let it run for a bit
+    ttime.sleep(1) # let it run for a bit
 
     apb_fa_stream.put(0)
     apb_trig_stream.put(0)
     apb_trig_acquire.put(0)
     ttime.sleep(0.5) # small delay to ensure that files finish writing
+
+# def acquisition_sequence():
+#     ttime.sleep(0.2) # small delay before start to let the file PVs to write
+#
+#     apb_trig_acquire.put(1)  #Set Pulser acquire state to “FA”
+#
+#     ttime.sleep(0.2) # small delay before start set Pulser acquire state to “FA”
+#
+#     apb_trig_stream.put(1)   #Enable Pulser streaming to file.  Nothing will happen until FA streaming starts
+#
+#     ttime.sleep(0.2) # small delay before start set Pulser streaming to “Enable”
+#     apb_fa_stream.put(1)  #Start the FA streaming.  This will immediately start the Pulser streaming as well.
+#
+#     ttime.sleep(3) # let it run for a bit
+#
+#     apb_fa_stream.put(0)
+#     apb_trig_stream.put(0)
+#     apb_trig_acquire.put(0)
+#     ttime.sleep(0.5) # small delay to ensure that files finish writing
+
+# def acquisition_sequence():
+#     ttime.sleep(0.2) # small delay before start to let the file PVs to write
+#
+#     apb_trig_stream.put(1) #Enable Pulser Streaming.  Pulser is still OFF.
+#     ttime.sleep(0.2) # small delay to ensure that streaming is Enabled.
+#     apb_trig_acquire.put(2)  #Turn Pulser ON. Pulser transitions will be streamed to file.
+#
+#     ttime.sleep(0.2) # small delay to ensure that streaming is running.
+#     apb_fa_stream.put(1) #Turn FA streaming ON
+#
+#     ttime.sleep(3) # let it run for a bit
+#
+#     apb_fa_stream.put(0)
+#     apb_trig_stream.put(0)
+#     apb_trig_acquire.put(0)
+#     ttime.sleep(0.5) # small delay to ensure that files finish writing
 
 
 # data readout
@@ -1201,7 +1237,7 @@ def get_data(fname_fa_bin, fname_trig):
 
 
 # def acquire_data(n=3):
-n = 20
+n = 1
 plt.figure(1, clear=True)
 for i in range(n):
     fname_fa_bin, fname_trig = set_filenames(i + 1)
