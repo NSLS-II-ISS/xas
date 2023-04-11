@@ -1021,25 +1021,17 @@ def plot_trace_for_uid(uid, offset=0):
     t_min = t_apb[:, 0].min()
 
     apb_trace = t_apb[:, 6] / 1e6
-    apb_trace -= np.percentile(apb_trace, 1)
-    apb_trace /= np.percentile(apb_trace, 99)
+    apb_trace2 = t_apb[:, 5] / 1e6
+    # apb_trace -= np.percentile(apb_trace, 1)
+    # apb_trace /= np.percentile(apb_trace, 99)
 
 
     # plt.plot(t_apb[:, 0], t_apb[:, 5] / 1e6)
-    plt.plot(t_apb[:, 0] - t_min, apb_trace - offset, 'k-')
-    plt.plot(t_trig[:, 0] - t_min, t_trig[:, 1] - offset, 'r-')
+    plt.plot(t_apb[:, 0] - t_min, apb_trace - offset, '-')
+    plt.plot(t_apb[:, 0] - t_min, apb_trace2 - offset, '-')
+    # plt.plot(t_trig[:, 0] - t_min, t_trig[:, 1] - offset, 'r-')
 
-uids = ['452dc667-f81a-4daf-be60-e6e7d486211d',
-        '2c5c0b8f-01e9-4e22-8748-d582dc75e8c0',
-        'd178dd6b-531a-4780-8fa4-101a7b8569b8',
-        '262acc5b-2941-4284-b01e-ba7bcb4a2122',
-        '3572f520-1777-417e-a0b6-685ff8267761',
-        '3a8af009-5213-40e7-9340-0de79b34551d',
-        '87ec51b5-3848-4dfe-ba27-320418258ffe',
-        '4e00831c-9163-4715-9f32-e413ec1b889a',
-        'b4090950-b187-4416-b611-ca0d3ec8c8c7',
-        'e23bcf19-d8c0-4fac-997f-d0f7dfe1296b'
-        ]
+
 
 y_shift = 1.25
 plt.figure(1, clear=True)
@@ -1052,3 +1044,174 @@ plt.xlim(0, 1)
 
 plot_trace_for_uid(-1, 0)
 
+############
+
+uids = ['452dc667-f81a-4daf-be60-e6e7d486211d',
+        '2c5c0b8f-01e9-4e22-8748-d582dc75e8c0',
+        'd178dd6b-531a-4780-8fa4-101a7b8569b8',
+        '262acc5b-2941-4284-b01e-ba7bcb4a2122',
+        '3572f520-1777-417e-a0b6-685ff8267761',
+        '3a8af009-5213-40e7-9340-0de79b34551d',
+        '87ec51b5-3848-4dfe-ba27-320418258ffe',
+        '4e00831c-9163-4715-9f32-e413ec1b889a',
+        'b4090950-b187-4416-b611-ca0d3ec8c8c7',
+        'e23bcf19-d8c0-4fac-997f-d0f7dfe1296b'
+        ]
+# uid = '452dc667-f81a-4daf-be60-e6e7d486211d'
+
+plt.figure(1, clear=True)
+
+for i, uid in enumerate(uids):
+    hdr = db[uid]
+
+    stream_name='apb_trigger_pil100k'
+    data_trig_raw = list(hdr.data(stream_name=stream_name, field=stream_name))[0]
+
+    # from xas.db_io import load_apb_dataset_from_db, load_apb_trig_dataset_from_db
+    df_apb, _, _ = load_apb_dataset_from_db(db, uid)
+
+    derived_timestamps_trig = load_apb_trig_dataset_from_db(db, uid, stream_name=stream_name)
+
+    t_apb = df_apb.timestamp.values
+    s_apb = df_apb.aux2.values
+
+    s_apb -= s_apb.min()
+    s_apb /= s_apb.max()
+
+    plt.plot(data_trig_raw[:, 0] - t_apb.min(), data_trig_raw[:, 1] - i * 1.15)
+    plt.plot(t_apb - t_apb.min(), s_apb - i * 1.15)
+    plt.vlines(derived_timestamps_trig.tolist() - t_apb.min(), 0 - i * 1.15, 1.1 - i * 1.15, colors='k')
+
+
+##########
+
+
+from matplotlib import pyplot as plt
+plt.ion()
+
+
+
+# plt.figure(1, clear=True)
+# for i in range(10):
+#     # df = load_apb_dataset_from_tiled(run)
+#     # plt.plot(df.timestamp, df.i0)
+#     df = read_hhm_encoder_dataset_from_tiled(run)
+#     plt.plot(df.timestamp, df.energy)
+
+
+apb_df = load_apb_dataset_from_tiled(run)
+energy_df = load_hhm_encoder_dataset_from_tiled(run)
+
+apb_dict = translate_dataset(apb_df)
+energy_dict = translate_dataset(energy_df, columns=['energy'])
+
+raw_dict = {**apb_dict, **energy_dict}
+
+dataset = raw_dict
+
+interpolated_dataset = {}
+
+
+
+
+# plt.figure(1, clear=True)
+# for i, (k, ds) in enumerate(raw_dict.items()):
+#     plt.plot(ds.timestamp.values, np.ones(ds.timestamp.values.size) - i)
+
+# imports
+
+from ophyd import EpicsSignal
+import time as ttime
+import numpy as np
+import matplotlib.pyplot as plt
+plt.ion()
+
+# ophyd signals
+apb_fa_filename_bin = EpicsSignal('XF:08IDB-CT{PBA:1}:FA:Stream:Bin:File-SP', name='apb_filename_bin')
+apb_fa_filename_txt = EpicsSignal('XF:08IDB-CT{PBA:1}:FA:Stream:Txt:File-SP', name='apb_filename_txt')
+apb_fa_stream = EpicsSignal('XF:08IDB-CT{PBA:1}:FA:Stream-SP', name='apb_stream')
+
+apb_trig_filename = EpicsSignal('XF:08IDB-CT{PBA:1}:Pulse:2:Filename-SP', name='apb_trig_filename')
+apb_trig_stream = EpicsSignal('XF:08IDB-CT{PBA:1}:Pulse:2:Stream:Mode-SP', name='apb_trig_stream')
+apb_trig_acquire = EpicsSignal('XF:08IDB-CT{PBA:1}:Pulse:2:Mode-SP', name='apb_trig_acquire')
+
+def set_filenames(n):
+    fname = f'/nsls2/data/iss/legacy/raw/apb/2023/04/05/trigger_test2_{n:02d}'
+    fname_fa_bin = fname + '_fa.bin'
+    fname_fa_txt = fname + '_fa.txt'
+    apb_fa_filename_bin.put(fname_fa_bin)
+    apb_fa_filename_txt.put(fname_fa_txt)
+
+    fname_trig = fname + '_trig.bin'
+    apb_trig_filename.put(fname_trig)
+    return fname_fa_bin, fname_trig
+
+def acquisition_sequence():
+    ttime.sleep(0.2) # small delay before start to let the file PVs to write
+    apb_fa_stream.put(1)
+    ttime.sleep(1) # sleep a bit to ensure that streaming actually begins
+
+    apb_trig_stream.put(1)
+    ttime.sleep(0.5) # small delay to ensure that streaming of trigger is commenced before pulsing begins
+    apb_trig_acquire.put(1)
+
+    ttime.sleep(3) # let it run for a bit
+
+    apb_fa_stream.put(0)
+    apb_trig_stream.put(0)
+    apb_trig_acquire.put(0)
+    ttime.sleep(0.5) # small delay to ensure that files finish writing
+
+
+# data readout
+def read_fa_data(fpath):
+    raw_data = np.fromfile(fpath, dtype=np.int32)
+
+    columns = ['timestamp', 'i0', 'it', 'ir', 'iff', 'aux1', 'aux2', 'aux3', 'aux4']
+    num_columns = len(columns) + 1
+    raw_data = raw_data.reshape((raw_data.size // num_columns, num_columns))
+
+    derived_data = np.zeros((raw_data.shape[0], raw_data.shape[1] - 1))
+    derived_data[:, 0] = raw_data[:, -2] + raw_data[:, -1] * 8.0051232 * 1e-9  # Unix timestamp with nanoseconds
+    for i in range(num_columns - 2):
+        derived_data[:, i + 1] = raw_data[:, i]  # ((raw_data[:, i] ) - Offsets[i]) / Gains[i]
+
+    return derived_data
+
+def read_trig_data(fpath):
+    raw_data = np.fromfile(fpath, dtype=np.int32)
+    raw_data = raw_data.reshape((raw_data.size // 3, 3))
+
+    derived_data = np.zeros((raw_data.shape[0], 2))
+    derived_data[:, 0] = raw_data[:, 1] + raw_data[:, 2] * 8.0051232 * 1e-9  # Unix timestamp with nanoseconds
+    derived_data[:, 1] = raw_data[:, 0]
+    return derived_data
+
+def get_data(fname_fa_bin, fname_trig):
+    data_fa = read_fa_data(fname_fa_bin)
+    data_trig = read_trig_data(fname_trig)
+
+    time_fa = data_fa[:, 0]
+    signal_fa = data_fa[:, 6]
+    t_min = time_fa.min()
+
+    time_trig = data_trig[:, 0]
+    signal_trig = data_trig[:, 1]
+    return (time_fa - t_min), signal_fa, (time_trig - t_min), signal_trig
+
+
+# def acquire_data(n=3):
+n = 20
+plt.figure(1, clear=True)
+for i in range(n):
+    fname_fa_bin, fname_trig = set_filenames(i + 1)
+    acquisition_sequence()
+    offset = i * 1.15
+    time_fa, signal_fa, time_trig, signal_trig = get_data(fname_fa_bin, fname_trig)
+    signal_fa_ = (signal_fa - np.percentile(signal_fa, 1)) / (np.percentile(signal_fa, 99) - np.percentile(signal_fa, 1))
+    plt.plot(time_fa, signal_fa_ - offset)
+    plt.plot(time_trig, signal_trig - offset)
+
+
+plt.figure(2)
+plt.plot(time_fa, signal_fa*1e-6)
