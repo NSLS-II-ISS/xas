@@ -1100,6 +1100,9 @@ plt.ion()
 
 
 apb_df = load_apb_dataset_from_tiled(run)
+
+
+
 energy_df = load_hhm_encoder_dataset_from_tiled(run)
 
 apb_dict = translate_dataset(apb_df)
@@ -1109,10 +1112,31 @@ raw_dict = {**apb_dict, **energy_dict}
 
 dataset = raw_dict
 
-interpolated_dataset = {}
+interpolated_dataset = interpolate(dataset)
+
+rebinned_dataset = rebin(interpolated_dataset, run.metadata['start']['e0'])
+
+# interpolated_dataset = {}
+key= 'mufluor'
+df = dataset[key]
+# df['timestamp_bin'] = pd.cut(df['timestamp'], bins=timestamp_edges, labels=timestamp)
+# df_mean = df.groupby('timestamp_bin').mean(numeric_only=False)
+# interpolated_dataset[key] = df_mean[key]
+
+plt.figure(1, clear=True)
+# plt.plot(df['timestamp'], df[key], '.-')
+# plt.plot(interpolated_dataset['timestamp'], interpolated_dataset[key], '.')
+plt.plot(rebinned_dataset['timestamp'], rebinned_dataset[key] - rebinned_dataset['iff'] / rebinned_dataset['i0'], '.-')
+# plt.plot(rebinned_dataset['timestamp'], , '.-')
 
 
+####
 
+plt.figure(1, clear=True)
+plt.plot(apb_df['timestamp'], apb_df['mufluor'])
+# plt.plot(apb_df['timestamp'], apb_df['iff'] / apb_df['i0'])
+
+######
 
 # plt.figure(1, clear=True)
 # for i, (k, ds) in enumerate(raw_dict.items()):
