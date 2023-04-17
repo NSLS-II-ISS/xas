@@ -119,11 +119,13 @@ def filter_node_for_proposal(node, year, cycle, proposal):
     year = str(year)
     cycle = str(cycle)
     proposal = str(proposal)
+    # try:
+    # return node.search(Key('year') == year).search(Key('cycle') == cycle).search(Key('proposal') == proposal)
+    # except:
     return node.search(Key('year') == year).search(Key('cycle') == cycle).search(Key('PROPOSAL') == proposal)
 
-
 def min_value_for_metadata_key(node: Node, key):
-    """Loop over metadata for entries in node and find the minimum value of metadata[key]"""
+    """Loop over entries in node and find the minimum value of metadata[key]"""
     return min([client_obj.metadata[key] for client_obj in node.values_indexer if key in client_obj.metadata.keys()], default=None)
 
 
@@ -145,8 +147,9 @@ def sort_nodes_by_metadata_key(list_of_nodes: list[Node], sort_key, node_labels:
 
 
 def group_node_by_metadata_key(node, key, return_values=False):
-    """Return a list of sub-nodes each of which correspond to a unique value for the specified key"""
-    unique_values = sorted(list(set(v.metadata[key] for v in node.values_indexer)))
+    """Return a list of sub-nodes each of which correspond to a unique value for the specified key.
+    Also effectively removes any entries which do not have values for the specified metadata key."""
+    unique_values = sorted(list(set(v.metadata[key] for v in node.values_indexer if key in v.metadata.keys())))
     grouped_nodes = [node.search(Key(key) == uv) for uv in unique_values]
     if return_values:
         return grouped_nodes, unique_values
