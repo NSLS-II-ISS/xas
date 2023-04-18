@@ -115,7 +115,7 @@ def filter_node_by_metadata_key(node, key, value):
     return node.search(Key(key) == value)
 
 
-def filter_node_for_proposal(node, year, cycle, proposal, cutoff=50):
+def filter_node_for_proposal(node, year, cycle, proposal, cutoff=500):
     year = str(year)
     cycle = str(cycle)
     proposal = str(proposal)
@@ -151,7 +151,10 @@ def sort_nodes_by_metadata_key(list_of_nodes: list[Node], sort_key, node_labels:
 def group_node_by_metadata_key(node, key, return_values=False):
     """Return a list of sub-nodes each of which correspond to a unique value for the specified key.
     Also effectively removes any entries which do not have values for the specified metadata key."""
-    unique_values = sorted(list(set(v.metadata[key] for v in node.values_indexer if key in v.metadata.keys())))
+    # unique_values = sorted(list(set(v.metadata[key] for v in node.values_indexer if key in v.metadata.keys())))
+    # print(len(node))
+    unique_values = sorted(get_unique_values_for_metadata_key(node, key))
+    # print(len(node))
     grouped_nodes = [node.search(Key(key) == uv) for uv in unique_values]
     if return_values:
         return grouped_nodes, unique_values
@@ -165,19 +168,23 @@ def get_df_for_uid(node, uid):
     return dfc.read()
 
 
-def get_unique_values_for_key(node, key):
-    values = []
-    for uid in node:
-        if key in node[uid].metadata.keys():
-            value = node[uid].metadata[key]
-            values.append(value)
-            next_node = node.search(Key(key) != value)
-            if len(next_node) > 0:
-                next_values = get_unique_values_for_key(next_node, key)
-                values.extend(next_values)
-        return values
+def get_unique_values_for_metadata_key(node, key):
+    unique_values = []
+    while len(node) > 0:
+        uid = node.keys()[0]
+        uv = node[uid].metadata[key]
+        unique_values.append(uv)
+        node = node.search(Key(key) != uv)
+    return unique_values
 
-
+# def get_unique_values_for_metadata_key_list(node, key_list):
+#     unique_values = []
+#     while len(node) > 0:
+#         uid = node.keys()[0]
+#         uv = node[uid].metadata[key]
+#         unique_values.append(uv)
+#         node = node.search(Key(key) != uv)
+#     return unique_values
 
 
 
