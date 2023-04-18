@@ -115,14 +115,16 @@ def filter_node_by_metadata_key(node, key, value):
     return node.search(Key(key) == value)
 
 
-def filter_node_for_proposal(node, year, cycle, proposal):
+def filter_node_for_proposal(node, year, cycle, proposal, cutoff=50):
     year = str(year)
     cycle = str(cycle)
     proposal = str(proposal)
     # try:
-    # return node.search(Key('year') == year).search(Key('cycle') == cycle).search(Key('proposal') == proposal)
+    r = node.search(Key('year') == year).search(Key('cycle') == cycle).search(Key('proposal') == proposal)
+    cutoff_scan_id = r[r.keys()[len(r) - cutoff]].metadata['scan_id']
+    return r.search(Key('scan_id') >= cutoff_scan_id)
     # except:
-    return node.search(Key('year') == year).search(Key('cycle') == cycle).search(Key('PROPOSAL') == proposal)
+    # return node.search(Key('year') == year).search(Key('cycle') == cycle).search(Key('PROPOSAL') == proposal)
 
 def min_value_for_metadata_key(node: Node, key):
     """Loop over entries in node and find the minimum value of metadata[key]"""
@@ -161,4 +163,24 @@ def get_df_for_uid(node, uid):
     singleton_node = node.search(Key("uid") == uid)
     dfc = singleton_node[singleton_node.keys()[0]]
     return dfc.read()
+
+
+def get_unique_values_for_key(node, key):
+    values = []
+    for uid in node:
+        if key in node[uid].metadata.keys():
+            value = node[uid].metadata[key]
+            values.append(value)
+            next_node = node.search(Key(key) != value)
+            if len(next_node) > 0:
+                next_values = get_unique_values_for_key(next_node, key)
+                values.extend(next_values)
+        return values
+
+
+
+
+
+
+
 
