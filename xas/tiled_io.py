@@ -1,3 +1,5 @@
+import copy
+
 from tiled.client import from_uri, from_profile
 from tiled.client.node import Node
 from tiled.queries import Key
@@ -6,6 +8,7 @@ from tiled.client.cache import Cache
 import pandas as pd
 
 from collections import UserDict, namedtuple
+import itertools
 
 from xas.xdash_math import LarchCalculator, calc_mus
 
@@ -14,6 +17,7 @@ _LABEL_DICT = {'mu': 'mu',
                'normalized': 'mu norm',
                'flattened': 'mu flat'}
 
+
 class DataManager:
     def __init__(self, source_node: Node):
         self.source_node = source_node
@@ -21,10 +25,12 @@ class DataManager:
         
         self.data_types = ("xas", "xes", "rixs")
 
-
     def _process_data(self, uid, channel, params=None):
         if params is None:
-            params = dict()
+            try:
+                params = self.processed_data[uid][channel]["parameters"]
+            except KeyError:
+                params = dict()
 
         data = self.source_node[uid].read()
         metadata = self.source_node[uid].metadata
@@ -79,7 +85,8 @@ class DataManager:
     def get_processed_data(self, uid, channel, processing_parameters=None):
         if uid in self.processed_data.keys():
             # check if channel has not yet been calculated or if the processing parameters are new
-            if channel not in self.processed_data[uid].keys() or processing_parameters != self.get_processing_parameters(uid, channel):
+            if channel not in self.processed_data[uid].keys():
+            # if channel not in self.processed_data[uid].keys() or processing_parameters != self.get_processing_parameters(uid, channel):
                 self.processed_data[uid][channel] = self._process_data(uid, channel, params=processing_parameters)
         else:
             self.processed_data[uid] = dict()
@@ -95,6 +102,12 @@ class DataManager:
             self.processed_data[uid][channel] = self._process_data(uid, channel)
         params = self.processed_data[uid][channel]["parameters"]
         return params
+
+    def set_processing_parameters(self, uid, channel, params):
+        # if uid not in self.processed_data.keys():
+        #     self.processed_data[uid] = dict()
+        #     self.processed_data[uid][channel] = dict()
+        self.processed_data[uid][channel]["parameters"] = params
 
 
 def get_iss_sandbox():
@@ -125,6 +138,7 @@ def filter_node_for_proposal(node, year, cycle, proposal, cutoff=500):
     return r.search(Key('scan_id') >= cutoff_scan_id)
     # except:
     # return node.search(Key('year') == year).search(Key('cycle') == cycle).search(Key('PROPOSAL') == proposal)
+
 
 def min_value_for_metadata_key(node: Node, key):
     """Loop over entries in node and find the minimum value of metadata[key]"""
@@ -177,17 +191,18 @@ def get_unique_values_for_metadata_key(node, key):
         node = node.search(Key(key) != uv)
     return unique_values
 
-# def get_unique_values_for_metadata_key_list(node, key_list):
-#     unique_values = []
-#     while len(node) > 0:
-#         uid = node.keys()[0]
-#         uv = node[uid].metadata[key]
-#         unique_values.append(uv)
-#         node = node.search(Key(key) != uv)
-#     return unique_values
 
-
-
-
-
+def build_scan_tree(node: Node, grouping_keys: list[str]):
+    df_rows = []
+    unique_values = [get_unique_values_for_metadata_key(node, k) for k in grouping_keys]
+    for unique_value_combination in itertools.product(*unique_values):
+        sub_node = copy.copy(node)
+        sub_dict = {}
+        for key, value in zip(grouping_keys, unique_value_combination):
+            sub_node = sub_node.search(Key(key) == value)
+            sub_dict[key] = value
+        sub_dict['node'] = sub_node
+        if len(sub_node) > 0:
+            df_rows.append(sub_dict)
+    return pd.DataFrame(df_rows)
 

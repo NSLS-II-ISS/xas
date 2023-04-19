@@ -1086,6 +1086,26 @@ for i, uid in enumerate(uids):
 ##########
 
 
+unique_samples = get_unique_values_for_metadata_key(node, 'sample_name')
+unique_scans = get_unique_values_for_metadata_key(node, 'scan_name')
+# unique_quality = get_unique_values_for_metadata_key(node, 'scan_quality')
+
+denis_tree = {}
+
+for _sample in unique_samples:
+    denis_tree[_sample] = {}
+    for _scan in unique_scans:
+        denis_tree[_sample][_scan] = {}
+        # for _quality_i, _quality in enumerate(unique_quality):
+        print(_sample, _scan,)
+        _node = node.search(Key('sample_name') == _sample).search(Key('scan_name') == _scan)
+        # _uid_indexes = list(range(len(_uids)))
+        denis_tree[_sample][_scan] = {'node': _node}#, 'index': _uid_indexes, 'checkbox_id': []}
+
+
+
+
+#########
 from matplotlib import pyplot as plt
 plt.ion()
 
