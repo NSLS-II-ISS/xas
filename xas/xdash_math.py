@@ -28,9 +28,33 @@ class LarchCalculator:
     #             self.output_group = larch.Group()
 
     @staticmethod
-    def _intepret_params(params: dict, function_kwargs: list[str]):
-        return {kwarg: (params[kwarg] if kwarg in params else None) for kwarg in function_kwargs}
-        
+    def _intepret_normalization_params(params: dict):
+        larch_pre_edge_kwargs = {
+            "e0": params["e0"] if "e0" in params else None,
+            "step": params["step"] if "step" in params else None,
+            "pre1": params["pre1"] if "pre1" in params else None,
+            "pre2": params["pre2"] if "pre2" in params else None,
+            "norm1": params["norm1"] if "norm1" in params else None,
+            "norm2": params["norm2"] if "norm2" in params else None,
+            "nnorm": params["nnorm"] if "nnorm" in params else None,
+            "nvict": params["nvict"] if "nvict" in params else 0,
+        }
+        return larch_pre_edge_kwargs
+
+    @staticmethod
+    # incomplete list of autobk kwargs, more can be added later
+    def _intepret_autobk_params(params: dict):
+        larch_autobk_kwargs = {
+            "kmin": params["kmin"] if "kmin" in params else 0,
+            "kmax": params["kmax"] if "kmax" in params else None,
+            "clamp_lo": params["clamp_lo"] if "clamp_lo" in params else 1,
+            "clamp_hi": params["clamp_hi"] if "clamp_hi" in params else 1,
+            "rbkg": params["rbkg"] if "rbkg" in params else 1,
+            "kweight": params["kweight"] if "kweight" in params else 1,
+            "win": params["win"] if "win" in params else "hanning",
+        }
+        return larch_autobk_kwargs
+
     @staticmethod
     def custom_flatten(larch_group: larch.Group):
         step_index = int(np.argwhere(larch_group.energy > larch_group.e0)[0])
@@ -52,9 +76,7 @@ class LarchCalculator:
         normalization and flattening, in addition to the fitted pre-edge and
         post-edge curves."""
 
-        larch_pre_edge_kwargs = LarchCalculator._intepret_params(params, [
-            "e0", "step", "pre1", "pre2", "norm1", "norm2", "nnorm", "nvict"
-        ])
+        larch_pre_edge_kwargs = LarchCalculator._intepret_normalization_params(params)
 
         energy = np.array(energy)
         mu = np.array(mu)
@@ -92,10 +114,7 @@ class LarchCalculator:
     ):
         """Wrapper around `larch.xafs.autobk` function"""
 
-        # incomplete list of autobk kwargs, more can be added later
-        larch_autobk_kwargs = LarchCalculator._intepret_params(params, [
-            "kmin", "kmax", "clamp_lo", "clamp_hi", "rbkg", "kweight", "wing"
-        ])
+        larch_autobk_kwargs = LarchCalculator._intepret_autobk_params(params)
 
         energy = np.array(energy)
         mu = np.array(mu)
@@ -109,14 +128,15 @@ class LarchCalculator:
         if return_autobk_params:
             autobk_params = dict(
                 # there are other autobk params but these are all we care about for xdash gui
-                kmin=larch_group_out.kmin,
-                kmax=larch_group_out.kmax,
-                clamp_lo=larch_group_out.clamp_lo,
-                clamp_hi=larch_group_out.clamp_hi,
-                rbkg=larch_group_out.rbkg,
-                kweight=larch_group_out.kweight,
-                win=larch_group_out.win,
+                kmin=larch_group_out.autobk_details.kmin,
+                kmax=larch_group_out.autobk_details.kmax,
+                # clamp_lo=larch_group_out.clamp_lo,
+                # clamp_hi=larch_group_out.clamp_hi,
+                # rbkg=larch_group_out.rbkg,
+                # kweight=larch_group_out.kweight,
+                # win=larch_group_out.win,
             )
             return k_out, chi_out, autobk_params
         else:
             return k_out, chi_out
+        
