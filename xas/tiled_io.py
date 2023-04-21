@@ -39,21 +39,33 @@ class DataManager:
         
         if data_type.lower() in self.data_types:
             if data_type.lower() == "xas":
-                calc_mus(data)
+                # calc_mus(data)
                 
                 energy = data["energy"]
                 mu_in = data[channel]
 
-                norm_result = pd.DataFrame()
-                norm_result["energy"] = energy
-                norm_result["norm"], norm_parameters = LarchCalculator.normalize(energy, 
-                                                                                  mu_in, 
-                                                                                  flatten_output=False, 
-                                                                                  return_norm_parameters=True,
-                                                                                  **params)
+                processed_result = dict()
+                processed_result["energy"] = energy
+                processed_result["norm"], pre_edge_curve, post_edge_curve, norm_parameters = LarchCalculator.normalize(energy, 
+                                                                                                                       mu_in, 
+                                                                                                                       flatten_output=False, 
+                                                                                                                       return_norm_parameters=True,
+                                                                                                                       **params)
                 
-                norm_result["flat"] = LarchCalculator.normalize(energy, mu_in, **norm_parameters)
-                return {"data": norm_result, "parameters": norm_parameters}
+                processed_result["flat"], _, _ = LarchCalculator.normalize(energy, mu_in, **norm_parameters)
+                processed_result["pre_edge"] = pre_edge_curve
+                processed_result["post_edge"] = post_edge_curve
+
+                processed_result["k"], processed_result["chi"], autobk_params = LarchCalculator.auto_background(energy, 
+                                                                                                                mu_in, 
+                                                                                                                return_autobk_params=True, 
+                                                                                                                **params)
+                
+                processing_params = dict()
+                processing_params.update(norm_parameters)
+                processing_params.update(autobk_params)
+
+                return {"data": processed_result, "parameters": processing_params}
         else:
             raise ValueError("unsupported data type")
 
@@ -82,11 +94,18 @@ class DataManager:
         calc_mus(df)
         return df
     
+    # def _create_entry_if_not_present(self, uid, channel):
+    #     if uid not in self.processed_data.keys():
+    #         self.processed_data[uid] = dict()
+    #         self.processed_data[uid][channel] = dict()
+    #     elif channel not in self.processed_data[uid].keys():
+    #         self.processed_data[uid][channel] = dict()
+    
     def get_processed_data(self, uid, channel, processing_parameters=None):
         if uid in self.processed_data.keys():
             # check if channel has not yet been calculated or if the processing parameters are new
-            if channel not in self.processed_data[uid].keys():
-            # if channel not in self.processed_data[uid].keys() or processing_parameters != self.get_processing_parameters(uid, channel):
+            # if channel not in self.processed_data[uid].keys():
+            if channel not in self.processed_data[uid].keys() or processing_parameters != self.get_processing_parameters(uid, channel):
                 self.processed_data[uid][channel] = self._process_data(uid, channel, params=processing_parameters)
         else:
             self.processed_data[uid] = dict()
@@ -102,12 +121,6 @@ class DataManager:
             self.processed_data[uid][channel] = self._process_data(uid, channel)
         params = self.processed_data[uid][channel]["parameters"]
         return params
-
-    def set_processing_parameters(self, uid, channel, params):
-        # if uid not in self.processed_data.keys():
-        #     self.processed_data[uid] = dict()
-        #     self.processed_data[uid][channel] = dict()
-        self.processed_data[uid][channel]["parameters"] = params
 
 
 def get_iss_sandbox():
@@ -192,8 +205,8 @@ def get_unique_values_for_metadata_key(node, key):
     return unique_values
 
 
-def build_scan_tree(node: Node, grouping_keys: list[str]):
-    df_rows = []
+def build_scan_tree_table(node: Node, grouping_keys: list[str]):
+    table_rows = []
     unique_values = [get_unique_values_for_metadata_key(node, k) for k in grouping_keys]
     for unique_value_combination in itertools.product(*unique_values):
         sub_node = copy.copy(node)
@@ -203,6 +216,6 @@ def build_scan_tree(node: Node, grouping_keys: list[str]):
             sub_dict[key] = value
         sub_dict['node'] = sub_node
         if len(sub_node) > 0:
-            df_rows.append(sub_dict)
-    return pd.DataFrame(df_rows)
+            table_rows.append(sub_dict)
+    return pd.DataFrame(table_rows)
 
