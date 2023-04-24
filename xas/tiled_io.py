@@ -11,6 +11,7 @@ from collections import UserDict, namedtuple
 import itertools
 
 from xas.xdash_math import LarchCalculator, calc_mus
+import uuid
 
 
 _LABEL_DICT = {'mu': 'mu',
@@ -121,7 +122,19 @@ class DataManager:
             self.processed_data[uid][channel] = self._process_data(uid, channel)
         params = self.processed_data[uid][channel]["parameters"]
         return params
-
+    
+    def create_user_group_in_metadata(self, 
+                                      uids: list[str], 
+                                      group_name: str,
+                                      channels_of_interest: list[str]):
+        for uid in uids:
+            md = dict(self.get_metadata(uid))
+            group_uid = str(uuid.uuid4())
+            md.update({"user_group_name": group_name, 
+                       "user_group_uid": group_uid,
+                       "user_group_channels": channels_of_interest,})
+            self.source_node[uid].update_metadata(md)
+            
 
 def get_iss_sandbox():
     username=input("BNL Username: ")
@@ -141,7 +154,7 @@ def filter_node_by_metadata_key(node, key, value):
     return node.search(Key(key) == value)
 
 
-def filter_node_for_proposal(node, year, cycle, proposal, cutoff=500):
+def filter_node_for_proposal(node, year, cycle, proposal, cutoff=10):
     year = str(year)
     cycle = str(cycle)
     proposal = str(proposal)
