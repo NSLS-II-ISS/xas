@@ -43,7 +43,7 @@ def _compute_rotated_rowland_circle_geometry(x_cr_main, y_cr_main, x_det, y_det,
     omega = fsolve(_solve_omega_func, omega0, args=(bragg_deg, xyz_main_cr, dz))
 
     x_cr_rot, y_cr_rot, z_cr_rot = _rotate_xyz(omega, bragg_deg, xyz_main_cr)
-
+    # roll_cr_rot = bragg_deg + np.rad2deg(np.arcsin(np.abs(y_cr_rot / np.abs(x_cr_main))))
     roll_cr_rot = 90 - np.rad2deg(np.arctan(np.abs((y_det - y_cr_rot) / (x_det - x_cr_rot))))/2
     yaw_cr_rot = np.rad2deg(np.arctan(np.abs((z_cr_rot) / (x_det - x_cr_rot))))
     if output_omega:
@@ -55,7 +55,7 @@ def compute_rotated_rowland_circle_geometry(x_src, y_src, R, bragg, dz, output_o
     output = _compute_rotated_rowland_circle_geometry(x_cr_main, y_cr_main, x_det, y_det, bragg, dz, output_omega=output_omega)
     return output
 
-#
+# compute_rotated_rowland_circle_geometry(0, 0, 1000, 85, 139.5)
 # bragg = 90
 # R = 1000
 # det_dR = 0
