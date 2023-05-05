@@ -1,7 +1,8 @@
+import larch
 import numpy as np
 import pandas as pd
-import larch
-from larch.xafs import pre_edge, autobk
+from larch.xafs import autobk, pre_edge
+
 
 def calc_mus(df: pd.DataFrame):
     """Shorthand function to calculate mut, muf, and mur in dataframe using
@@ -13,11 +14,13 @@ def calc_mus(df: pd.DataFrame):
 
 class LarchCalculator:
     """Container for wrappers around larch functionality"""
+
     def __init__(self) -> None:
         pass
+
     # def __init__(
-    #     self, 
-    #     input_group: larch.Group=None, 
+    #     self,
+    #     input_group: larch.Group=None,
     #     output_group: larch.Group=None,
     #     store_results=True,
     #     ) -> None:
@@ -72,7 +75,7 @@ class LarchCalculator:
         return_norm_parameters=False,
         **params,
     ):
-        """Wrapper around `larch.xafs.pre_edge`. By default returns mu after 
+        """Wrapper around `larch.xafs.pre_edge`. By default returns mu after
         normalization and flattening, in addition to the fitted pre-edge and
         post-edge curves."""
 
@@ -84,12 +87,12 @@ class LarchCalculator:
         norm_larch_group = larch.Group(energy=energy)
         pre_edge(raw_larch_group, group=norm_larch_group, **larch_pre_edge_kwargs)
         LarchCalculator.custom_flatten(norm_larch_group)
-        
+
         if flatten_output:
             mu_out = norm_larch_group.flat
         else:
             mu_out = norm_larch_group.norm
-        
+
         if return_norm_parameters:
             norm_parameters = dict(
                 e0=norm_larch_group.e0,
@@ -104,7 +107,7 @@ class LarchCalculator:
             return mu_out, norm_larch_group.pre_edge, norm_larch_group.post_edge, norm_parameters
         else:
             return mu_out, norm_larch_group.pre_edge, norm_larch_group.post_edge
-        
+
     @staticmethod
     def auto_background(
         energy,
@@ -124,7 +127,7 @@ class LarchCalculator:
 
         k_out = larch_group_out.k
         chi_out = larch_group_out.chi
-        
+
         if return_autobk_params:
             autobk_params = dict(
                 # there are other autobk params but these are all we care about for xdash gui
@@ -139,4 +142,3 @@ class LarchCalculator:
             return k_out, chi_out, autobk_params
         else:
             return k_out, chi_out
-        

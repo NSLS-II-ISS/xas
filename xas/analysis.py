@@ -2,13 +2,14 @@ import matplotlib
 
 matplotlib.use("TkAgg")
 
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-from scipy import stats
-from xas.file_io import load_binned_df_from_file, save_binned_df_as_file
 import os
 
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+from xas.file_io import load_binned_df_from_file, save_binned_df_as_file
 
 GAIN_DICT = {
     "i0": ["ch1_amp_gain"],
@@ -78,15 +79,15 @@ def check_mu_values(df: pd.DataFrame, good_amp_currents: dict):
     """
 
     valid_values = {"mut": False, "mur": False, "muf": False}
-    if good_amp_currents['i0'] and good_amp_currents['it']:
+    if good_amp_currents["i0"] and good_amp_currents["it"]:
         mut = -np.log(df["it"] / df["i0"])
-        valid_values['mut'] = np.all(np.isfinite(mut))
-    if good_amp_currents['it'] and good_amp_currents['ir']:
+        valid_values["mut"] = np.all(np.isfinite(mut))
+    if good_amp_currents["it"] and good_amp_currents["ir"]:
         mur = -np.log(df["ir"] / df["it"])
-        valid_values['mur'] = np.all(np.isfinite(mur))
-    if good_amp_currents['i0'] and good_amp_currents['iff']:
+        valid_values["mur"] = np.all(np.isfinite(mur))
+    if good_amp_currents["i0"] and good_amp_currents["iff"]:
         muf = df["iff"] / df["i0"]
-        valid_values['muf'] = np.all(np.isfinite(muf))
+        valid_values["muf"] = np.all(np.isfinite(muf))
     return valid_values
 
 
@@ -103,40 +104,36 @@ def check_scan(df: pd.DataFrame, md: dict):
     unsaturated_currents = check_saturation(df_mV)
     good_amp_currents = check_amplitude(df_mV)
     valid_mu = check_mu_values(df_mV, good_amp_currents)
-    mu_good = {mu: 'good' for mu in ["mut", "muf", "mur"]}  # default all False
+    mu_good = {mu: "good" for mu in ["mut", "muf", "mur"]}  # default all False
     if good_amp_currents["i0"] and unsaturated_currents["i0"]:
         if unsaturated_currents["it"]:
-            mu_good["mut"] = 'good' if valid_mu["mut"] else 'invalid_values'
+            mu_good["mut"] = "good" if valid_mu["mut"] else "invalid_values"
         else:
-            mu_good["mut"] = 'saturated'
+            mu_good["mut"] = "saturated"
         if unsaturated_currents["iff"]:
-            mu_good["muf"] = 'good' if valid_mu["muf"] else 'invalid_values'
+            mu_good["muf"] = "good" if valid_mu["muf"] else "invalid_values"
         else:
-            mu_good["muf"] = 'saturated'
+            mu_good["muf"] = "saturated"
     else:
-        mu_good["mut"] = 'low_amplitude' if not good_amp_currents["i0"] else 'saturated'
-        mu_good["muf"] = 'low_amplitude' if not good_amp_currents["i0"] else 'saturated'
+        mu_good["mut"] = "low_amplitude" if not good_amp_currents["i0"] else "saturated"
+        mu_good["muf"] = "low_amplitude" if not good_amp_currents["i0"] else "saturated"
 
-    if (
-        good_amp_currents["it"]
-        and unsaturated_currents["it"]
-        and unsaturated_currents["ir"]
-    ):
-        mu_good["mur"] = 'good' if valid_mu["mur"] else 'invalid_values'
+    if good_amp_currents["it"] and unsaturated_currents["it"] and unsaturated_currents["ir"]:
+        mu_good["mur"] = "good" if valid_mu["mur"] else "invalid_values"
     else:
         if not good_amp_currents["it"]:
-            mu_good["mur"] = 'low_amplitude'
+            mu_good["mur"] = "low_amplitude"
         if (not unsaturated_currents["it"]) or (not unsaturated_currents["ir"]):
-            mu_good["mur"] = 'saturated'
+            mu_good["mur"] = "saturated"
     return mu_good
 
 
 def check_scan_from_file(filename, md):
-
     # stable function for loading data from beamline file
     df, _ = load_binned_df_from_file(filename)
 
     return check_scan(df, md)
+
 
 def standardize_energy_grid(dfs: list[pd.DataFrame], energy_key="energy", master_idx=0):
     """

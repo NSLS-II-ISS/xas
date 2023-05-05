@@ -1,135 +1,182 @@
-import dash
-from dash import html, dcc, Input, Output, State, ALL, MATCH
-import dash_bootstrap_components as dbc
-
-import plotly.graph_objects as go
+import time
 from itertools import compress  # basically numpy bool array casting using python iterables
 
+import dash
+import dash_bootstrap_components as dbc
+import plotly.graph_objects as go
+from dash import ALL, MATCH, Input, Output, State, dcc, html
+
+from app_components import (
+    build_filter_input,
+    build_proposal_accordion,
+    normalization_scheme_panel,
+    visualization_tab,
+)
 from xas import tiled_io
-from xas.xdash_math import calc_mus, LarchCalculator
-from xas.tiled_io import filter_node_by_metadata_key, filter_node_for_proposal, sort_nodes_by_metadata_key
 from xas.analysis import check_scan
-
-from app_components import build_proposal_accordion, build_filter_input, visualization_tab, normalization_scheme_panel
-
-import time
+from xas.tiled_io import filter_node_by_metadata_key, filter_node_for_proposal, sort_nodes_by_metadata_key
+from xas.xdash_math import LarchCalculator, calc_mus
 
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 app.title = "new ISS app"
 
 
-app.layout = dbc.Container([
-    html.H1("XDash",
+app.layout = dbc.Container(
+    [
+        html.H1(
+            "XDash",
             style={
                 "textAlign": "center",
                 "font-size": "400%",
-                }),
-    dbc.Row([
-        dbc.Col([
-            dbc.Card([
-                dbc.Row(dbc.Col(html.Div("Search by proposal"))),
-                dbc.Row([
-                    dbc.Col(dbc.Input(id="year_input", placeholder="year")),
-                    dbc.Col(dbc.Input(id="cycle_input", placeholder="cycle")),
-                    dbc.Col(dbc.Input(id="proposal_input", placeholder="proposal")),
-                    dbc.Col(
-                        dbc.Button("search", id="search_btn", n_clicks=0, style={"width": "100%"}),
-                        width=2,
-                        # style={"text-align": "right"},
-                        ),
-                ]),
-                dbc.Row([
-                    html.Div(id="filters_loc"),
-                    dbc.Col(
-                        dbc.Button("add filter",
-                                id="add_filter_btn", 
-                                color="link", 
-                                size="sm"),
-                        width=2,
-                    ),
-                ], align="start",
-                ),
-                dbc.Row([
-                    dbc.Col([
-                        dbc.Label("Group by"),
-                        dcc.Dropdown(
-                        options = [
-                            {"label": "sample", "value": "sample_name"},
-                            {"label": "scan", "value": "monochromator_scan_uid"},
-                        ], 
-                        value = [
-                            "sample_name",
-                            "monochromator_scan_uid",
-                        ],
-                        id="groupby_dropdown",
-                        multi=True
-                        ),
-                    ]),
-                    dbc.Col([
-                        dbc.Label("Sort by"),
-                        html.Div([
-                            dcc.Dropdown(
-                                options = [
-                                    {"label": "alphabetical", "value": "default"},
-                                    {"label": "time", "value": "time"},
-                                ],
-                                value = "scan_name",
-                                id="sort_dropdown",
+            },
+        ),
+        dbc.Row(
+            [
+                dbc.Col(
+                    [
+                        dbc.Card(
+                            [
+                                dbc.Row(dbc.Col(html.Div("Search by proposal"))),
+                                dbc.Row(
+                                    [
+                                        dbc.Col(dbc.Input(id="year_input", placeholder="year")),
+                                        dbc.Col(dbc.Input(id="cycle_input", placeholder="cycle")),
+                                        dbc.Col(dbc.Input(id="proposal_input", placeholder="proposal")),
+                                        dbc.Col(
+                                            dbc.Button(
+                                                "search", id="search_btn", n_clicks=0, style={"width": "100%"}
+                                            ),
+                                            width=2,
+                                            # style={"text-align": "right"},
+                                        ),
+                                    ]
                                 ),
-                            dbc.Checkbox(
-                                id="reverse_sort_checkbox",
-                                label="reverse",
-                                value=False,
-                            ),
-                        ])
-                    ]),
-                    dbc.Col(
-                        dbc.Button("apply", id="apply_btn"),
-                        # align="end",
-                        width=2,
-                    ),
-                ], align="start", class_name="mb-3"),
-            ], id="search_input_panel", body=True, class_name="mb-2"),
-            dbc.Row([
-                dbc.Col(dbc.Spinner(html.Div(id="accordion_loc"), color="primary")),
-                dbc.Col([
-                    dbc.Row(
-                        dbc.Card([
-                            dbc.Checklist(
-                                options=[
-                                    {"label": "mut", "value": "mut"},
-                                    {"label": "muf", "value": "muf"},
-                                    {"label": "mur", "value": "mur"},
-                                ],
-                                id="channel_checklist",
-                            ),
-                            dbc.Button("see more", 
-                                        color="link",
-                                        size="sm",
-                                        n_clicks=0,
-                                        id="change_visible_channels_btn"),
+                                dbc.Row(
+                                    [
+                                        html.Div(id="filters_loc"),
+                                        dbc.Col(
+                                            dbc.Button("add filter", id="add_filter_btn", color="link", size="sm"),
+                                            width=2,
+                                        ),
+                                    ],
+                                    align="start",
+                                ),
+                                dbc.Row(
+                                    [
+                                        dbc.Col(
+                                            [
+                                                dbc.Label("Group by"),
+                                                dcc.Dropdown(
+                                                    options=[
+                                                        {"label": "sample", "value": "sample_name"},
+                                                        {"label": "scan", "value": "monochromator_scan_uid"},
+                                                    ],
+                                                    value=[
+                                                        "sample_name",
+                                                        "monochromator_scan_uid",
+                                                    ],
+                                                    id="groupby_dropdown",
+                                                    multi=True,
+                                                ),
+                                            ]
+                                        ),
+                                        dbc.Col(
+                                            [
+                                                dbc.Label("Sort by"),
+                                                html.Div(
+                                                    [
+                                                        dcc.Dropdown(
+                                                            options=[
+                                                                {"label": "alphabetical", "value": "default"},
+                                                                {"label": "time", "value": "time"},
+                                                            ],
+                                                            value="scan_name",
+                                                            id="sort_dropdown",
+                                                        ),
+                                                        dbc.Checkbox(
+                                                            id="reverse_sort_checkbox",
+                                                            label="reverse",
+                                                            value=False,
+                                                        ),
+                                                    ]
+                                                ),
+                                            ]
+                                        ),
+                                        dbc.Col(
+                                            dbc.Button("apply", id="apply_btn"),
+                                            # align="end",
+                                            width=2,
+                                        ),
+                                    ],
+                                    align="start",
+                                    class_name="mb-3",
+                                ),
                             ],
-                            body=True
+                            id="search_input_panel",
+                            body=True,
+                            class_name="mb-2",
                         ),
-                    class_name="mb-2"),
-                    # dbc.Row(dbc.Button("plot", id="plot_btn"), style={"padding-bottom": "10px"}),
-                    # dbc.Row(dbc.Button("clear figure", id="clear_btn"), style={"padding-bottom": "10px"}),
-                    dbc.Row([
-                        dcc.Store(id="xas_normalization_scheme"),
-                        normalization_scheme_panel,
-                    ])
-                ], style={"max-height": "700px", "overflow-y": "auto"}),
-            ]),
-        ], width=4),
-        dbc.Col([
-            dbc.Tabs([
-                visualization_tab,
-            ]),
-        ], width=8),
+                        dbc.Row(
+                            [
+                                dbc.Col(dbc.Spinner(html.Div(id="accordion_loc"), color="primary")),
+                                dbc.Col(
+                                    [
+                                        dbc.Row(
+                                            dbc.Card(
+                                                [
+                                                    dbc.Checklist(
+                                                        options=[
+                                                            {"label": "mut", "value": "mut"},
+                                                            {"label": "muf", "value": "muf"},
+                                                            {"label": "mur", "value": "mur"},
+                                                        ],
+                                                        id="channel_checklist",
+                                                    ),
+                                                    dbc.Button(
+                                                        "see more",
+                                                        color="link",
+                                                        size="sm",
+                                                        n_clicks=0,
+                                                        id="change_visible_channels_btn",
+                                                    ),
+                                                ],
+                                                body=True,
+                                            ),
+                                            class_name="mb-2",
+                                        ),
+                                        # dbc.Row(dbc.Button("plot", id="plot_btn"), style={"padding-bottom": "10px"}),
+                                        # dbc.Row(dbc.Button("clear figure", id="clear_btn"), style={"padding-bottom": "10px"}),
+                                        dbc.Row(
+                                            [
+                                                dcc.Store(id="xas_normalization_scheme"),
+                                                normalization_scheme_panel,
+                                            ]
+                                        ),
+                                    ],
+                                    style={"max-height": "700px", "overflow-y": "auto"},
+                                ),
+                            ]
+                        ),
+                    ],
+                    width=4,
+                ),
+                dbc.Col(
+                    [
+                        dbc.Tabs(
+                            [
+                                visualization_tab,
+                            ]
+                        ),
+                    ],
+                    width=8,
+                ),
+            ],
+            style={"max-height": "800px", "overflow-y": "visible"},
+        ),
+        dbc.Row(html.Div("test text")),
     ],
-    style={"max-height": "800px", "overflow-y": "visible"}),
-    dbc.Row(html.Div("test text"))
-], fluid=True)
+    fluid=True,
+)
 
 
 @app.callback(
@@ -146,19 +193,19 @@ app.layout = dbc.Container([
     State({"type": "filter_value_input", "index": ALL}, "value"),
 )
 def show_proposal_accordion(
-    n_search_clicks, 
-    n_apply_clicks, 
-    groupby_dropdown_choice, 
+    n_search_clicks,
+    n_apply_clicks,
+    groupby_dropdown_choice,
     sort_dropdown_choice,
     reverse_sort_checked,
-    year, 
-    cycle, 
-    proposal, 
-    other_filter_keys, 
+    year,
+    cycle,
+    proposal,
+    other_filter_keys,
     other_filter_values,
-    ):
+):
     proposal_node = filter_node_for_proposal(ISS_SANDBOX, year, cycle, proposal)
-    
+
     if other_filter_keys and other_filter_values:
         for key, value in zip(other_filter_keys, other_filter_values):
             if key and value:
@@ -167,12 +214,17 @@ def show_proposal_accordion(
     if n_search_clicks == 0:
         return
     if not groupby_dropdown_choice:  # check if empty or None
-        groupby_dropdown_choice = ("sample_name", "monochromator_scan_uid", )
+        groupby_dropdown_choice = (
+            "sample_name",
+            "monochromator_scan_uid",
+        )
 
-    return build_proposal_accordion(proposal_node, 
-                                    groupby_keys=groupby_dropdown_choice, 
-                                    sort_key=sort_dropdown_choice,
-                                    reverse_order=reverse_sort_checked)
+    return build_proposal_accordion(
+        proposal_node,
+        groupby_keys=groupby_dropdown_choice,
+        sort_key=sort_dropdown_choice,
+        reverse_order=reverse_sort_checked,
+    )
 
 
 @app.callback(
@@ -185,18 +237,17 @@ def show_proposal_accordion(
     prevent_initial_callback=True,
 )
 def update_filters(add_filter_click, delete_filter_click, current_filter_id_dicts, current_filters):
-
     updated_id_dicts = current_filter_id_dicts
     updated_filters = current_filters
-    
+
     if dash.ctx.triggered_id == "add_filter_btn":
         if current_filters is None:
             new_filter = build_filter_input(filter_index=0)
             updated_filters = [new_filter]
-        else: 
+        else:
             new_filter = build_filter_input(filter_index=len(current_filters))
             updated_filters.append(new_filter)
-    
+
     # TODO fix index updating
     if isinstance(dash.ctx.triggered_id, dict):
         if dash.ctx.triggered_id["type"] == "filter_delete_btn":
@@ -208,7 +259,7 @@ def update_filters(add_filter_click, delete_filter_click, current_filter_id_dict
             for new_index, id_dict in enumerate(updated_id_dicts):
                 print(new_index)
                 id_dict.update({"index": new_index})
-                
+
     print(updated_id_dicts)
     return updated_filters, updated_id_dicts
 
@@ -225,12 +276,12 @@ def update_filters(add_filter_click, delete_filter_click, current_filter_id_dict
 )
 def update_stored_normalization_scheme(
     e0_input,
-    pre_edge_start_input, 
+    pre_edge_start_input,
     pre_edge_stop_input,
     post_edge_start_input,
     post_edge_stop_input,
     post_edge_polynom_order_input,
-    ):
+):
     """Returns dict of `larch.xafs.pre_edge` keyword-argument pairs
     to be stored as json in a `dcc.Store` object"""
     larch_pre_edge_kwargs = dict(
@@ -270,8 +321,7 @@ def update_normalization_scheme_panel(
     post_edge_start_value,
     post_edge_stop_value,
     polynom_order_value,
-    ):
-    
+):
     return
 
 
@@ -286,10 +336,8 @@ def update_normalization_scheme_panel(
     State("spectrum_plot", "figure"),
     State("previous_plot_data", "data"),
     State("channel_checklist", "value"),
-
     State("xas_normalization_scheme", "data"),
     State("xas_normalization_radioitems", "value"),
-    
     prevent_initial_call=True,
 )
 def update_plot(
@@ -297,16 +345,16 @@ def update_plot(
     clear_click,
     selected_scans,
     selected_scan_id_dicts,
-    current_fig, 
+    current_fig,
     previous_data,
     selected_channels,
     larch_normalization_kwargs,
     xas_normalization_selection,
-    ):
+):
     t1 = time.time()
     fig = go.Figure(current_fig)
     updated_previous_data = fig.data
-    
+
     if dash.ctx.triggered_id == "clear_btn":
         fig.data = ()
 
@@ -321,15 +369,18 @@ def update_plot(
                 calc_mus(df)
 
                 for ch in selected_channels:
-                    
                     mu_label = f"{scan_id} {ch}"
                     if xas_normalization_selection == "mu":
                         mu_plot = df[ch]
                     elif xas_normalization_selection == "normalized":
-                        mu_plot = LarchCalculator.normalize(df["energy"], df[ch], flatten_output=False, **larch_normalization_kwargs)
+                        mu_plot = LarchCalculator.normalize(
+                            df["energy"], df[ch], flatten_output=False, **larch_normalization_kwargs
+                        )
                         mu_label += " norm"
                     elif xas_normalization_selection == "flattened":
-                        mu_plot = LarchCalculator.normalize(df["energy"], df[ch], flatten_output=True, **larch_normalization_kwargs)
+                        mu_plot = LarchCalculator.normalize(
+                            df["energy"], df[ch], flatten_output=True, **larch_normalization_kwargs
+                        )
                         mu_label += " flat"
 
                     # check spectrum isn't already plotted
@@ -338,7 +389,7 @@ def update_plot(
     t2 = time.time()
     print(t2 - t1)
     return fig, updated_previous_data
-        
+
 
 @app.callback(
     Output("channel_checklist", "options"),
@@ -363,7 +414,7 @@ def change_visible_channels(n_channel_clicks, selected_scans, scan_id_dicts, cur
 
             # flatten into set of all unique column names
             other_channels = set.union(*selected_scan_df_cols)
-            
+
             channel_btn_text = "see less"
             new_options = [{"label": ch, "value": ch} for ch in sorted(other_channels)]
 
@@ -371,11 +422,11 @@ def change_visible_channels(n_channel_clicks, selected_scans, scan_id_dicts, cur
             new_options = []
 
         channel_options = default_options + new_options
-    
+
     else:
         channel_options = default_options
         channel_btn_text = "see more"
-    
+
     return channel_options, channel_btn_text
 
 
