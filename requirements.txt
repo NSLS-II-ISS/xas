@@ -1,1 +1,22 @@
-# List required packages in this file, one per line.
+caproto
+databroker
+h5py
+# isstools
+kkcalc
+lmfit
+matplotlib
+numexpr
+numpy
+opencv-python
+ophyd
+pandas
+pexpect
+pillow
+pyfai
+pyqt5
+scipy
+scikit-learn
+tiled[client]
+xarray
+xraydb
+xraylarch
