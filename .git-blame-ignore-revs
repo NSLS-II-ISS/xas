@@ -1,0 +1,3 @@
+# .git-blame-ignore-revs
+# Ran black and isort on the xas repo source
+46f805cd598060070147c938b47295844c4e9292
