@@ -17,6 +17,7 @@ pyqt5
 scipy
 scikit-learn
 tiled[client]
+wxpython!=4.2.0  # issue with attrdict
 xarray
 xraydb
 xraylarch

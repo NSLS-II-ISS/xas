@@ -43,7 +43,6 @@ jobs:
           # versions. Explicitly upgrade them because they often create
           # installation problems if out of date.
           python -m pip install --upgrade pip setuptools numpy
-          python -m pip install --upgrade attrdict3  # needed by wxpython
 
           pip install .
           pip install -r requirements-dev.txt
