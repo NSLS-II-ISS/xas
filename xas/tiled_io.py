@@ -1,7 +1,6 @@
 import copy
 import itertools
 import uuid
-from collections import UserDict, namedtuple
 
 import pandas as pd
 from tiled.client import from_profile, from_uri
@@ -29,7 +28,8 @@ class DataManager:
                 params = dict()
 
         data = self.source_node[uid].read()
-        metadata = self.source_node[uid].metadata
+        # xas/tiled_io.py:32:9: F841 local variable 'metadata' is assigned to but never used
+        metadata = self.source_node[uid].metadata  # noqa F841
         # data_type = metadata["type"]
         data_type = "xas"  # set to xas for now until md is labeled in tiled
 
@@ -141,11 +141,12 @@ def get_iss_sandbox():
     # cache maximum of 2GB in RAM
     try:
         tiled_catalog = from_profile("nsls2", verify=False, username=username, cache=Cache.in_memory(2e9))
-    except:
+    except Exception:
         tiled_catalog = from_uri(
             "https://localhost:8008", verify=False, username=username, cache=Cache.in_memory(2e9)
         )
-    # tiled_catalog = from_uri("https://localhost:8008", verify=False, username=username, cache=Cache.in_memory(2e9))
+    # tiled_catalog = from_uri("https://localhost:8008", verify=False,
+    #                          username=username, cache=Cache.in_memory(2e9))
     iss_sandbox_node = tiled_catalog["iss"]["sandbox"]
     return iss_sandbox_node
 

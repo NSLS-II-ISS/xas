@@ -1,10 +1,10 @@
 import pickle
 
 import numpy as np
-import pandas as pd
+import pandas as pd  # noqa F401
 from larch import Group as xafsgroup
 from larch import Interpreter
-from larch.xafs import autobk, mback, pre_edge, xftf
+from larch.xafs import autobk, mback, pre_edge, xftf  # noqa F401
 from PyQt5 import QtCore
 
 
@@ -64,7 +64,7 @@ class XASDataSet:
                     self.extract_chi()
                     self.kmin_ft = 3
                     self.kmax_ft = self.kmax - 1
-                except:
+                except Exception:
                     self.kmax = 8
                     self.kmin = 3
                     self.kmax_ft = 8

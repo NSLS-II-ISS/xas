@@ -1,6 +1,7 @@
 import kkcalc
 import kkcalc.data
 import kkcalc.kk
+import matplotlib.pyplot as plt
 import numpy as np
 import pyFAI as pyFAI
 
@@ -144,6 +145,7 @@ for i in range(255114, 255313 + 1):
 
 from xas.file_io import load_binned_df_and_extended_data_from_file, save_extended_data_as_file
 
+# FIXME: consider moving it to the `if __name__ == "__main__":` block
 folder = "/nsls2/data/iss/legacy/processed/2022/2/300011/"
 fname_base = "Ir sample 1 scan AXS wide 600 um data"
 
@@ -462,6 +464,7 @@ def process_scattering_dataset(ds, dist=40, center_ver=93, center_hor=440, plott
         plt.plot(ds.q, anomalous_scat[1, :])
 
 
+# FIXME: consider moving it to the `if __name__ == "__main__":` block
 process_scattering_dataset(x[0])
 # bla = kk_calculate_real_from_array(energies, iff, 'Ir')
 #

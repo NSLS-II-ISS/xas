@@ -1,15 +1,15 @@
 import json
-from code import interact
+from code import interact  # noqa F401
 
-import matplotlib
+import matplotlib  # noqa F401
 
 # matplotlib.use('TkAgg')  # something wrong with my (Charlie's) system Qt
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from scipy import linalg
-from scipy.ndimage import center_of_mass, rotate
-from sklearn.covariance import MinCovDet
+from scipy.ndimage import center_of_mass, rotate  # noqa F401
+from sklearn.covariance import MinCovDet  # noqa F401
 
 from .fitting import fit_gaussian_with_estimation
 
@@ -51,7 +51,7 @@ def get_image_array(data):
     try:
         det_image = data["pil100k_image"]
         image_array = np.array(list(det_image)).squeeze()
-    except:
+    except Exception:
         det_image = data["data_vars"]["pil100k_image"]["data"]
         image_array = np.array(det_image).squeeze()
     return image_array
@@ -74,7 +74,7 @@ def crop_roi(image_stack, roi):
 def get_calib_energies(data):
     try:
         energies = list(data["hhm_energy"])
-    except:
+    except Exception:
         energies = data["data_vars"]["hhm_energy"]["data"]
     return energies
 
@@ -169,11 +169,13 @@ def plot_calibration_diagnostics(
     plt.plot(np.polyval(p_xe, x_pix), intensity_total, "k.-")
     plt.plot(np.polyval(p_xe, x_pix), intensity_total_fit, "r-")
 
+    # TODO: flake8 complains about undefined `fwhms` var. Fix it.
     energy_hi = np.polyval(p_xe, np.array(x_pix_centers) - np.array(fwhms) / 2)
     energy_lo = np.polyval(p_xe, np.array(x_pix_centers) + np.array(fwhms) / 2)
     fwhms_energy = energy_hi - energy_lo
 
     plt.subplot(224)
+    # TODO: flake8 complains about undefined `energies` var. Fix it.
     plt.plot(energies, fwhms_energy, "k.-")
 
 
@@ -242,6 +244,7 @@ def test_calibration(calib_image_stack_roi, calib_energies, polynom_xy, polynom_
     fwhm_array = np.zeros(calib_image_stack_roi.shape[0])
 
     for i, im2d in enumerate(calib_image_stack_roi):
+        # FIXME: xas/xes_calibration.py:247:37: F821 undefined name 'reduce_image'
         energy_centers, intensity = reduce_image(im2d, polynom_xy, polynom_xe, plot_spectrum=False)
         ax1.plot(energy_centers, intensity, c="k")
 
@@ -262,7 +265,7 @@ def test_calibration(calib_image_stack_roi, calib_energies, polynom_xy, polynom_
     return ax1, ax2
 
 
-### testing/attempts
+# testing/attempts
 
 # def reduce_image(image2d_crop, p_xy, p_xe, plot_spectrum=False):
 #     x_grid, y_grid = np.meshgrid(np.arange(image2d_crop.shape[1]), np.arange(image2d_crop.shape[0]))
@@ -270,7 +273,10 @@ def test_calibration(calib_image_stack_roi, calib_energies, polynom_xy, polynom_
 #     image_array = image2d_crop.ravel()
 #     energy_array = pixel2energy(x_array, y_array, p_xy, p_xe)
 #
-#     energy_edges, energy_step = np.linspace(energy_array.min() - 1e-6, energy_array.max() + 1e-6, image2d_crop.shape[1] + 1, retstep=True)
+#     energy_edges, energy_step = np.linspace(energy_array.min() - 1e-6,
+#                                             energy_array.max() + 1e-6,
+#                                             image2d_crop.shape[1] + 1,
+#                                             retstep=True)
 #     energy_centers = energy_edges[:-1] + energy_step/2
 #     inds = np.digitize(energy_array, energy_edges)
 #     inds -= 1  # For Denis
@@ -336,7 +342,7 @@ if __name__ == "__main__":
         try:
             with open(md_file) as metadata:
                 md = json.load(metadata)[1]
-        except:
+        except Exception:
             with open(md_file) as metadata:
                 md = json.load(metadata)
         return data, md
@@ -350,7 +356,7 @@ if __name__ == "__main__":
 
         try:
             roi = get_roi(md)
-        except:
+        except Exception:
             roi = {"x": 100, "dx": 250, "y": 80, "dy": 20}
 
         pix_array = get_image_array(data)

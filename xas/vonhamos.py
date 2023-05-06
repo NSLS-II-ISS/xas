@@ -1,16 +1,15 @@
 import os
-import time as ttime
 
-import matplotlib.patches as patches
+import matplotlib.patches as patches  # noqa F401
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from scipy import linalg
-from scipy.ndimage import center_of_mass, rotate
-from sklearn.covariance import MinCovDet
+from scipy.ndimage import center_of_mass, rotate  # noqa F401
+from sklearn.covariance import MinCovDet  # noqa F401
 
-from xas.file_io import load_binned_df_from_file, load_extended_data_from_file, write_df_to_file
-from xas.fitting import Nominal2ActualConverter, fit_gaussian, fit_gaussian_with_estimation
+from xas.file_io import load_binned_df_from_file, load_extended_data_from_file, write_df_to_file  # noqa F401
+from xas.fitting import Nominal2ActualConverter, fit_gaussian, fit_gaussian_with_estimation  # noqa F401
 
 DET2KEY = {"Pilatus 100k": "pil100k"}
 
@@ -54,7 +53,7 @@ def get_image_array(extended_data):
         image_array = np.array(list(det_image)).squeeze()
         if image_array.ndim == 2:  # this is to handle "over-squeezing"
             image_array = image_array[None, :, :]
-    except:
+    except Exception:
         det_image = extended_data["data_vars"]["pil100k_image"]["data"]
         image_array = np.array(det_image).squeeze()
     return image_array
@@ -77,7 +76,7 @@ def crop_roi(image_stack, roi):
 def get_calib_energies(data):
     try:
         energies = list(data["hhm_energy"])
-    except:
+    except Exception:
         energies = data["data_vars"]["hhm_energy"]["data"]
     return energies
 
@@ -149,6 +148,7 @@ def run_calibration(image_stack_roi, energies, n_poly=2, output_diagnostics=Fals
         return p_xy, p_xe
 
 
+# NOTE: is it the same func used in xas/xes_calibration.py?
 def plot_calibration_diagnostics(
     image_total, x_pix, intensity_total, intensity_total_fit, x_pix_centers, p_xy, p_xe
 ):
@@ -172,11 +172,13 @@ def plot_calibration_diagnostics(
     plt.plot(np.polyval(p_xe, x_pix), intensity_total, "k.-")
     plt.plot(np.polyval(p_xe, x_pix), intensity_total_fit, "r-")
 
+    # FIXME: xas/vonhamos.py:174:69: F821 undefined name 'fwhms'
     energy_hi = np.polyval(p_xe, np.array(x_pix_centers) - np.array(fwhms) / 2)
     energy_lo = np.polyval(p_xe, np.array(x_pix_centers) + np.array(fwhms) / 2)
     fwhms_energy = energy_hi - energy_lo
 
     plt.subplot(224)
+    # FIXME: xas/vonhamos.py:179:14: F821 undefined name 'energies'
     plt.plot(energies, fwhms_energy, "k.-")
 
 
@@ -249,7 +251,7 @@ def apply_calibration_for_roi(
         and (not enforce_roi)
     ):
         do_trivial_calibration = True
-        reason += f"- ROI coordinates mismatch between the data scan and the calibration scan\n"
+        reason += "- ROI coordinates mismatch between the data scan and the calibration scan\n"
 
     if do_trivial_calibration:
         print(f"Could not apply energy calibration to {roi}. Reason(s):\n{reason}")
@@ -269,7 +271,7 @@ def apply_calibration_for_roi(
     intensity = np.array(intensity)
     energy = np.polyval(p_xe, x_pix)
 
-    vh_roi_data = {f"energy": energy, f"{DET2KEY[detector]}": intensity}
+    vh_roi_data = {"energy": energy, f"{DET2KEY[detector]}": intensity}
     return vh_roi_data, roi_dict
 
 
@@ -333,7 +335,7 @@ def process_von_hamos_scan(
 def make_vh_dfs(df, vh_data_dict):
     try:
         hhm_energy = df["energy"].values
-    except:
+    except Exception:
         hhm_energy = None
     i0 = df["i0"].values
     vh_dfs = []
@@ -394,6 +396,7 @@ def process_von_hamos_scan_legacy(
     # if ('spectrometer_scan_kind' in hdr.start.keys()) and (hdr.start['spectrometer_scan_kind'] == 'calibration'):
     #     vh_scan = VonHamosCalibration(df, extended_data)
     # else:
+    # FIXME: xas/vonhamos.py:399:15: F821 undefined name 'VonHamosScan'
     vh_scan = VonHamosScan(df, extended_data)
 
     if roi == "auto":
@@ -424,6 +427,7 @@ def process_von_hamos_scan_legacy(
 
     if save_dat:
         if vh_scan.kind == "xes":
+            # FIXME: xas/vonhamos.py:429:26: F821 undefined name 'save_vh_scan_to_file'
             file_paths = save_vh_scan_to_file(path_to_file, vh_scan, comments)
         else:
             file_paths = []
@@ -542,7 +546,9 @@ def process_von_hamos_scan_legacy(
 #
 #             c = fit_linear_surf(y_bkg, x_bkg, data_bkg.T)
 #
-#             A_fit = np.hstack((y_mesh.ravel()[:, None], x_mesh.ravel()[:, None], np.ones((y_mesh.ravel().size, 1))))
+#             A_fit = np.hstack((y_mesh.ravel()[:, None],
+#                                x_mesh.ravel()[:, None],
+#                                np.ones((y_mesh.ravel().size, 1))))
 #             self.images_bkg = (A_fit @ c).reshape(self.images.shape)
 #             self.images_no_bkg = self.images - self.images_bkg
 #

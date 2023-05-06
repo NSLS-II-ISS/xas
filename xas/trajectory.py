@@ -1,25 +1,26 @@
 # Temperature-conversion program using PyQt
-import math
-import time as ttime
+# import time as ttime
 from collections import defaultdict
-from ftplib import FTP
+
+# from ftplib import FTP
 from subprocess import call
 
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
-import pkg_resources
+
+# import pandas as pd
 import scipy.integrate
-from isstools.dialogs.BasicDialogs import question_message_box
 
 # import pexpect
-from pexpect import pxssh
-from PyQt5 import QtCore
+# from pexpect import pxssh
+# from PyQt5 import QtCore
 from scipy import interpolate
 
 from xas.bin import xas_energy_grid
 
 from . import xray
+
+# from isstools.dialogs.BasicDialogs import question_message_box
 
 
 # Function to return a default
@@ -53,7 +54,8 @@ def stitch_two_points(t_orig, e1, v1, e2, v2, frac=0.5):
     J = np.ones(n) * q
     J[0] = 0.5 * q
     J[-1] = 0.5 * q
-    O = np.ones((n, n)) * q
+    # xas/trajectory.py:56:5: E741 ambiguous variable name 'O'
+    O = np.ones((n, n)) * q  # noqa E741
     A = np.tril(O) - np.diag(np.diag(O)) * 0.5
     A[:, 0] = 0.5 * q
     A[0, 0] = 0
@@ -115,7 +117,8 @@ class TrajectoryCreator:
             e = np.zeros(t.shape)
             t_sel = (t >= t_pre) & (t <= (t_pre + t_xanes))
             e_velocity = (e_postedge_lo - e_preedge_hi) / (t[t_sel][-1] - t[t_sel][0])
-            e_offset = e_preedge_hi - e_velocity * t_pre
+            # xas/trajectory.py:118:13: F841 local variable 'e_offset' is assigned to but never used
+            e_offset = e_preedge_hi - e_velocity * t_pre  # noqa F841
             # e[t_sel] = e_velocity * t[t_sel] + e_offset
             e[t_sel] = np.linspace(e_preedge_hi, e_postedge_lo, int(np.sum(t_sel)))
 
@@ -188,6 +191,7 @@ class TrajectoryCreator:
             # dfgbdsfgbsd
             # # stich padding an preedge
             t_stich1 = np.linspace(t_padding_lo, t_preedge_lo, np.round((t_preedge_lo - t_padding_lo) / t_step))
+            # FIXME: xas/trajectory.py:191:24: F821 undefined name 'stich_two_points'
             e_stich1 = stich_two_points(
                 t_stich1,
                 e_padding_lo,
@@ -213,6 +217,7 @@ class TrajectoryCreator:
 
             # # stich preedge and xanes
             t_stich2 = np.linspace(t_preedge_hi, t_edge_lo, np.round((t_edge_lo - t_preedge_hi) / t_step * 10))
+            # FIXME: xas/trajectory.py:216:24: F821 undefined name 'stich_two_points'
             e_stich2 = stich_two_points(t_stich2, e_preedge_hi, velocity_preedge, e_edge_lo, velocity_edge)
             e_stich2 = stich_two_points(
                 t_stich2,
@@ -327,7 +332,9 @@ class TrajectoryCreator:
         #
         #
         #     time1 = np.linspace(0, (preedge_dur * total_time), 2 * len(x1))
-        #     time_int = np.linspace((preedge_dur * total_time) + (time1[1] - time1[0]), (preedge_dur * total_time) + (edge_dur * total_time), 2 * xedge_num)
+        #     time_int = np.linspace((preedge_dur * total_time) + (time1[1] - time1[0]),
+        #                            (preedge_dur * total_time) + (edge_dur * total_time),
+        #                            2 * xedge_num)
         #     time2 = np.linspace(time_int[-1] + (time_int[1] - time_int[0]), total_time, 2 * len(x2))
         #     self.time = np.concatenate((time1, time_int, time2))
         #
@@ -362,10 +369,12 @@ class TrajectoryCreator:
         #     while abs((pos2[-1] - pos2[0]) - (postedge_hi - postedge_lo)) > 0.5:
         #         accel2_1 = m_factor * (postedge_hi - postedge_lo) * (np.sin(x2) + 1) / 1000
         #         acc_factor = m_factor * (postedge_hi - postedge_lo) * (np.sin(x2) + 1) / 1000
-        #         accel2_2 = - acc_factor * (((vel_int[0] * len(acc_factor) / 2) + sum(acc_factor)) / sum(acc_factor))
+        #         # FIXME: xas/trajectory.py:372:116: E501 line too long (118 > 115 characters)
+        #         accel2_2 = - acc_factor * (((vel_int[0] * len(acc_factor) / 2) + sum(acc_factor)) / sum(acc_factor))  # noqa E501
         #
         #         time_adj = np.diff(time2)[0]/np.diff(time_int)[0]
-        #         vel2_1 = scipy.integrate.cumtrapz(accel2_1 * (1 / (x2_num/2)), initial = 0) + time_adj * vel_int[-1]
+        #         # FIXME: xas/trajectory.py:375:116: E501 line too long (118 > 115 characters)
+        #         vel2_1 = scipy.integrate.cumtrapz(accel2_1 * (1 / (x2_num/2)), initial = 0) + time_adj * vel_int[-1]  # noqa E501
         #         vel2_2 = scipy.integrate.cumtrapz(accel2_2 * (1 / (x2_num/2)), initial = 0) + vel2_1[-1]
         #         vel2 = np.concatenate((vel2_1, vel2_2))
         #         pos2 = scipy.integrate.cumtrapz(vel2, initial = 0) + pos_int[-1] + (pos_int[-1] - pos_int[-2])
@@ -472,7 +481,8 @@ class TrajectoryCreator:
 
         if hasattr(self, "energy_grid"):
             e = self.energy_grid
-            t = self.time_grid
+            # xas/trajectory.py:484:13: F841 local variable 't' is assigned to but never used
+            t = self.time_grid  # noqa F841
 
         if e is not None:
             try:
@@ -484,7 +494,7 @@ class TrajectoryCreator:
 
                 self.e_bin = e_bin
                 self.time_per_bin = npt / self.servocycle
-            except:
+            except Exception:
                 self.e_bin = [0, 1]
                 self.time_per_bin = [np.nan, np.nan]
         else:
@@ -620,6 +630,21 @@ class TrajectoryCreator:
         # self.push_plot_traj.setEnabled(True)
         print("Trajectory saved! [{}]".format(filename))
 
+
+# FIXME:
+# xas/trajectory.py:616:116: E501 line too long (122 > 115 characters)
+# xas/trajectory.py:662:116: E501 line too long (136 > 115 characters)
+# xas/trajectory.py:663:116: E501 line too long (135 > 115 characters)
+# xas/trajectory.py:664:116: E501 line too long (118 > 115 characters)
+# xas/trajectory.py:674:116: E501 line too long (143 > 115 characters)
+# xas/trajectory.py:765:116: E501 line too long (116 > 115 characters)
+# xas/trajectory.py:767:116: E501 line too long (161 > 115 characters)
+# xas/trajectory.py:783:116: E501 line too long (134 > 115 characters)
+# xas/trajectory.py:785:116: E501 line too long (123 > 115 characters)
+# xas/trajectory.py:822:116: E501 line too long (126 > 115 characters)
+# xas/trajectory.py:838:116: E501 line too long (174 > 115 characters)
+# xas/trajectory.py:842:116: E501 line too long (146 > 115 characters)
+# xas/trajectory.py:899:116: E501 line too long (121 > 115 characters)
 
 # class trajectory_manager():
 #     def __init__(self, hhm, **kwargs):
