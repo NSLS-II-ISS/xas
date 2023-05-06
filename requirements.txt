@@ -1,4 +1,3 @@
-attrdict
 caproto
 databroker
 h5py
