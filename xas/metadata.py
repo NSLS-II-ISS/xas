@@ -9,7 +9,7 @@ metadata_dict = OrderedDict({
 'nslsii_energy':                {'kind' : 'attribute',                                                              'human_readable_key': 'Facility.current'},
 'year':                         {'kind' : 'auto',                                                                   'human_readable_key': 'Facility.year'},
 'cycle':                        {'kind' : 'auto',                                                                   'human_readable_key': 'Facility.cycle'},
-'PROPOSAL':                     {'kind' : 'auto',                                                                   'human_readable_key': 'Facility.GUP'},
+'proposal':                     {'kind' : 'auto',                                                                   'human_readable_key': 'Facility.GUP'},
 'SAF':                          {'kind' : 'auto',                                                                   'human_readable_key': 'Facility.SAF'},
 'PI':                           {'kind' : 'auto',                                                                   'human_readable_key': 'Experimenter.name'},
 'beamline_id':                  {'kind' : 'auto',                                                                   'human_readable_key': 'Beamline.name'},

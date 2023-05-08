@@ -56,7 +56,8 @@ def process_interpolate_bin_from_uid(uid, db, draw_func_interp = None, draw_func
     # dfgd
     try:
         if cloud_dispatcher is not None:
-            year, cycle, proposal = hdr.start['year'], hdr.start['cycle'], hdr.start['PROPOSAL']
+            # year, cycle, proposal = hdr.start['year'], hdr.start['cycle'], hdr.start['PROPOSAL']
+            year, cycle, proposal = hdr.start['year'], hdr.start['cycle'], hdr.start['proposal']
             for f in file_list:
                 cloud_dispatcher.load_to_dropbox(f, year=year, cycle=cycle, proposal=proposal)
                 logger.info(f'({ttime.ctime()}) Sending data to the cloud successful for {path_to_file}')
