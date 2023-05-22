@@ -108,11 +108,11 @@ for i in range(1, 10):
 metadata_dict = {**metadata_dict, **_ghs_selected_gas_dict, **_ghs_mfc_dict, **_rga_dict}
 
 ghs_selected_gas_key_match = {
-    'ghs_selected_gas_a': {0: 'None'},
-    'ghs_selected_gas_b': {0: 'None'},
-    'ghs_selected_gas_c': {0: 'None'},
-    'ghs_selected_gas_d': {0: 'None'},
-    'ghs_selected_gas_e': {0: 'None', 1: 'Ar', 2: 'CO2', 3: 'N2', 4: 'He'}}
+    'ghs_selected_gas_a': {0: 'None',   1: 'Phosphine',     2: 'Arsine'},
+    'ghs_selected_gas_b': {0: 'None',   1: 'None',          2: 'Nitric Oxide'},
+    'ghs_selected_gas_c': {0: 'None',   1: 'Methane',       2: 'Ethylene'},
+    'ghs_selected_gas_d': {0: 'None',   1: 'None',          2: 'Hydrogen',      3: 'Ammonia'},
+    'ghs_selected_gas_e': {0: 'None',   1: 'Ar',            2: 'CO2',           3: 'N2',        4: 'He'}}
 
 key_match = {k : v['human_readable_key'] for k, v in metadata_dict.items()}
 
