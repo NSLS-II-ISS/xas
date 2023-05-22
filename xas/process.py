@@ -63,7 +63,7 @@ def process_interpolate_bin_from_uid(uid, db, draw_func_interp = None, draw_func
                 logger.info(f'({ttime.ctime()}) Sending data to the cloud successful for {path_to_file}')
     except Exception as e:
         logger.info(f'({ttime.ctime()}) Sending data to the cloud failed for {path_to_file}')
-        raise e
+        # raise e
 
 
 

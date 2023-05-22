@@ -1295,3 +1295,23 @@ for i in range(n):
 
 plt.figure(2)
 plt.plot(time_fa, signal_fa*1e-6)
+
+processed_scans = list(range(352382, 354132))
+uids = list(db.v2.search({'proposal': '311347'}))
+
+# scan_md = [[db[uid].start['time'], db[uid].start['scan_id']] for uid in uids]
+# scan_ids = [db[uid].start['scan_id'] for uid in uids]
+
+for uid in uids:
+# for i in range(352381, 352382):
+#     try:
+    hdr = db[uid]
+    if hdr.start['scan_id'] not in processed_scans:
+        try:
+            process_interpolate_bin(hdr.stop, db)
+        except Exception as e:
+            print(e)
+
+
+
+

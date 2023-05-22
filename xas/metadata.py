@@ -10,7 +10,7 @@ metadata_dict = OrderedDict({
 'year':                         {'kind' : 'auto',                                                                   'human_readable_key': 'Facility.year'},
 'cycle':                        {'kind' : 'auto',                                                                   'human_readable_key': 'Facility.cycle'},
 'proposal':                     {'kind' : 'auto',                                                                   'human_readable_key': 'Facility.GUP'},
-'SAF':                          {'kind' : 'auto',                                                                   'human_readable_key': 'Facility.SAF'},
+'saf':                          {'kind' : 'auto',                                                                   'human_readable_key': 'Facility.SAF'},
 'PI':                           {'kind' : 'auto',                                                                   'human_readable_key': 'Experimenter.name'},
 'beamline_id':                  {'kind' : 'auto',                                                                   'human_readable_key': 'Beamline.name'},
 'beamline_source':              {'kind' : 'fixed_value', 'value' : 'damping wiggler',                               'human_readable_key': 'Beamline.x-ray_source'},
