@@ -1,5 +1,5 @@
 import numpy as np
-from .file_io import load_binned_df_from_file
+from xas.file_io import load_binned_df_from_file
 # from isstools.xasproject.xasproject import XASDataSet
 from xas.xasproject import XASDataSet
 # from xas.trajectory import read_trajectory_limits
@@ -7,7 +7,7 @@ from lmfit import Parameters, minimize, fit_report
 import time as ttime
 import xraydb
 from xas import xray
-from .db_io import get_fly_uids_for_proposal
+from xas.db_io import get_fly_uids_for_proposal
 import pandas as pd
 from scipy.interpolate import CubicSpline
 
@@ -129,7 +129,7 @@ def compute_energy_shift_and_broadening_between_spectra(energy, mu, energy_ref, 
 
 
 
-def get_energy_offset(uid, db, db_proc, dE=25, plot_fun=None, attempts=5, sleep_time=1, full_return=False):
+def get_energy_offset_(uid, db, db_proc, dE=25, plot_fun=None, attempts=5, sleep_time=1, full_return=False):
     start = db[uid].start
     fname_raw = start['interp_filename']
     if fname_raw.endswith('.raw'):
@@ -173,8 +173,55 @@ def get_energy_offset(uid, db, db_proc, dE=25, plot_fun=None, attempts=5, sleep_
         else:
             return e0, e_cor
 
+def get_energy_offset(uid, db, db_proc, dE=25, plot_fun=None, attempts=5, sleep_time=1, full_return=False):
+    start = db[uid].start
+    fname_raw = start['interp_filename']
+    if fname_raw.endswith('.raw'):
+        fname_bin = fname_raw[:-4] + '.dat'
 
+        for i in range(attempts):
+            try:
+                df, file_hdr = load_binned_df_from_file(fname_bin)
+                scan_uid = [line for i, line in enumerate(file_hdr.split('\n# ')) if line.startswith('Scan.uid')][0].split(': ')[1]
+                print(f"Computing energy shift for {os.path.split(fname_bin)[1]} (uid: '{scan_uid}')")
+                # print('bla')
+                break
+            except:
+                print(f'[Energy Calibration] Attempt to read data {i + 1}')
+                ttime.sleep(sleep_time)
+                df = None
 
+        try:
+            energy = df['energy'].values
+            _mu = -np.log(df['ir'] / df['it']).values
+            ds = XASDataSet(mu=_mu, energy=energy)
+            mu = ds.flat
+
+            element = start['element']
+            edge = start['edge']
+            e0 = float(start['e0'])
+            # energy_ref, mu_ref = get_foil_spectrum(element, edge, db_proc)
+            energy_ref, mu_ref = db_proc.foil_spectrum(element, edge)
+            mask = (energy_ref >= (e0 - dE)) & (energy_ref <= (e0 + dE))
+
+            energy_shift_coarse = energy_ref[np.argmin(np.abs(mu_ref - 0.5))] - energy[np.argmin(np.abs(mu - 0.5))]
+            energy += energy_shift_coarse
+            energy_ref_roi = energy_ref[mask]
+            mu_ref_roi = mu_ref[mask]
+            shift, mu_fit = compute_shift_between_spectra(energy, mu, energy_ref_roi, mu_ref_roi)
+            e_cor = e0 + shift - energy_shift_coarse
+            if plot_fun is not None:
+                # mu = np.interp(energy_ref_roi, energy, mu)
+                plot_fun(energy_ref_roi, mu_ref_roi, mu_fit)
+
+        except Exception as e:
+            print(f'[Energy Calibration] Error: {e}')
+            e0, e_cor, energy_ref_roi, mu_ref_roi, mu_fit = None, None, None, None, None
+
+        if full_return:
+            return e0, e_cor, energy_ref_roi, mu_ref_roi, mu_fit
+        else:
+            return e0, e_cor
 
         # return e0, shift, energy_ref_roi, mu_ref_roi, mu
         # return energy, mu_ref
