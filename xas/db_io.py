@@ -122,7 +122,7 @@ def load_xs3_dataset_from_db(db, uid, apb_trig_timestamps):
 
     for j, chan_roi in enumerate(chan_roi_names):
         # this_spectrum = np.zeros(n_spectra)
-        this_spectrum = t[chan_roi][1][:n_spectra]
+        this_spectrum = t[chan_roi][1][:n_spectra]/100000
         # for i in range(n_spectra):
         # this_spectrum[i] = t[i+1][chan_roi]
         # this_spectrum[i] = t[chan_roi][i + 1]

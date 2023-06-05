@@ -76,7 +76,8 @@ def normalize_peak(y_orig):
 
 _pilatus_roi_colors = {1: 'tab:blue',
                        2: 'tab:orange',
-                       3: 'tab:green'}
+                       3: 'tab:green',
+                       4: 'tab:purple'}
 
 def analyze_elastic_fly_scan(db, uid, rois=None, plot_func=None):
     fname_bin = db[uid].start['interp_filename'][:-3] + 'dat'
