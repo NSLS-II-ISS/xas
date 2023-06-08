@@ -35,12 +35,22 @@ def _solve_omega_func(omega, bragg, xyz, dz):
     _, _, z_cr_rot = _rotate_xyz(omega, bragg, xyz)
     return z_cr_rot - dz
 
+def _compute_omega(R, bragg, dz):
+    x_cr, _, _, _ = compute_rowland_circle_geometry(0, 0, R, bragg, 0)
+    omega = np.arcsin(dz / (np.abs(x_cr) * np.sin(np.deg2rad(bragg))))
+    return np.rad2deg(omega)
+
+def _compute_omega_from_x_cr(x_cr, bragg, dz):
+    omega = np.arcsin(dz / (np.abs(x_cr) * np.sin(np.deg2rad(bragg))))
+    return np.rad2deg(omega)
+
 def _compute_rotated_rowland_circle_geometry(x_cr_main, y_cr_main, x_det, y_det, bragg_deg, dz, output_omega=False):
 
     # dz = -dz # quirk of this coordinate system
     xyz_main_cr = np.array([x_cr_main, y_cr_main, 0])
-    omega0 = dz / 10 # heuristic that seems to work OK
-    omega = fsolve(_solve_omega_func, omega0, args=(bragg_deg, xyz_main_cr, dz))
+    # omega0 = dz / 10 # heuristic that seems to work OK
+    # omega = fsolve(_solve_omega_func, omega0, args=(bragg_deg, xyz_main_cr, dz))
+    omega = _compute_omega_from_x_cr(x_cr_main, bragg_deg, dz)
 
     x_cr_rot, y_cr_rot, z_cr_rot = _rotate_xyz(omega, bragg_deg, xyz_main_cr)
     roll_cr_rot = bragg_deg + np.rad2deg(np.arcsin(np.abs(y_cr_rot / np.abs(x_cr_main))))
@@ -63,6 +73,124 @@ def compute_rotated_rowland_circle_geometry(x_src, y_src, R, bragg, dz, output_o
 # # _compute_rotated_rowland_circle_geometry(x_cr_main, y_cr_main, x_det, y_det, bragg, 139.5)
 #
 # compute_rotated_rowland_circle_geometry(0, 0, R, bragg, 139.5)
+
+
+
+from mpl_toolkits import mplot3d
+import numpy as np
+import matplotlib.pyplot as plt
+
+def plot_crystal_geometry(ax, xyz_src, xyz_cr, xyz_det, xyz_rcc, xyz_rc, xyz_cr_ana):
+    ax.plot(*xyz_src, 'k.')
+    # ax.plot(*xyz_cr, 'b.')
+    ax.plot(*xyz_det, 'r.')
+    # ax.plot(*xyz_rcc, 'k.', alpha=0.5)
+    ax.plot(*xyz_rc, 'k-', alpha=0.5)
+    plt.plot(*xyz_cr_ana, 'b-')
+
+# def compute_omega(R, bragg_deg, dz):
+#     bragg = np.deg2rad(bragg_deg)
+#
+#     SC1 = R * np.cos(np.pi / 2 - bragg)
+#     omega_prime = np.arccos(dz / SC1)
+#     C0C1 =
+
+
+
+
+def visualize_rowland_circle_geometry(R, bragg, det_dR=0, fignum=1, dz=139.5, r=50):
+    x_src, y_src, z_src = 0, 0, 0
+    x_cr_main, y_cr_main, x_det, y_det = compute_rowland_circle_geometry(x_src, y_src, R, bragg, det_dR)
+    z_cr_main = 0
+    z_det = 0
+
+    phi_cr = np.arange(0, 360)
+    x_cr_ana_main = np.zeros(phi_cr.size)
+    y_cr_ana_main = r * np.sin(np.deg2rad(phi_cr))
+    z_cr_ana_main = r * np.cos(np.deg2rad(phi_cr))
+    rmat_cr_ana = Rotation.from_euler('z', [90-bragg], degrees=True).as_matrix().squeeze()
+    # print(rmat_cr_ana)
+    xyz_cr_ana_main = rmat_cr_ana @ np.array([x_cr_ana_main, y_cr_ana_main, z_cr_ana_main])
+    xyz_cr_ana_main[0] += x_cr_main
+
+    x_rcc_main = -R / 2 * np.cos(np.deg2rad(90 - bragg))
+    y_rcc_main = R / 2 * np.sin(np.deg2rad(90 - bragg))
+    z_rcc_main = 0
+
+    phi_rc = np.arange(0, 360)
+    x_rc_main = R / 2 * np.cos(np.deg2rad(phi_rc)) + x_rcc_main
+    y_rc_main = R / 2 * np.sin(np.deg2rad(phi_rc)) + y_rcc_main
+    z_rc_main = np.zeros(phi_rc.size)
+
+    def compute_aux_geometry(_dz):
+        x_cr_aux, y_cr_aux, roll_cr_aux, yaw_cr_aux, omega_aux = compute_rotated_rowland_circle_geometry(x_src, y_src, R, bragg, _dz, output_omega=True)
+        z_cr_aux = _dz
+        xyz_rcc_aux = _rotate_xyz(omega_aux, bragg, np.array([x_rcc_main, y_rcc_main, z_rcc_main]))
+        xyz_rc_aux = _rotate_xyz(omega_aux, bragg, np.array([x_rc_main, y_rc_main, z_rc_main]))
+        xyz_cr_ana_aux = _rotate_xyz(omega_aux, bragg, xyz_cr_ana_main)
+        return x_cr_aux, y_cr_aux, z_cr_aux, roll_cr_aux, yaw_cr_aux, omega_aux, xyz_rcc_aux, xyz_rc_aux, xyz_cr_ana_aux
+
+    x_cr_aux2, y_cr_aux2, z_cr_aux2, roll_cr_aux2, yaw_cr_aux2, omega_aux2, xyz_rcc_aux2, xyz_rc_aux2, xyz_cr_ana_aux2 = compute_aux_geometry(-dz)
+    x_cr_aux3, y_cr_aux3, z_cr_aux3, roll_cr_aux3, yaw_cr_aux3, omega_aux3, xyz_rcc_aux3, xyz_rc_aux3, xyz_cr_ana_aux3 = compute_aux_geometry(dz)
+    x_cr_aux4, y_cr_aux4, z_cr_aux4, roll_cr_aux4, yaw_cr_aux4, omega_aux4, xyz_rcc_aux4, xyz_rc_aux4, xyz_cr_ana_aux4 = compute_aux_geometry(-2 * dz)
+    x_cr_aux5, y_cr_aux5, z_cr_aux5, roll_cr_aux5, yaw_cr_aux5, omega_aux5, xyz_rcc_aux5, xyz_rc_aux5, xyz_cr_ana_aux5 = compute_aux_geometry(2 * dz)
+
+    print(f'{omega_aux2=}, omega={compute_omega(R, bragg, -dz)}, d={omega_aux2 - compute_omega(R, bragg, -dz)}')
+    print('')
+
+    print(f'MAIN CRYSTAL COORDS: x={x_cr_main : 0.3f}, y={y_cr_main : 0.3f}, z={z_cr_main : 0.3f}')
+    print(f'AUX2 CRYSTAL COORDS: x={x_cr_aux2 : 0.3f}, y={y_cr_aux2 : 0.3f}, z={z_cr_aux2 : 0.3f}')
+    print(f'AUX3 CRYSTAL COORDS: x={x_cr_aux3 : 0.3f}, y={y_cr_aux3 : 0.3f}, z={z_cr_aux3 : 0.3f}')
+    print(f'AUX4 CRYSTAL COORDS: x={x_cr_aux4 : 0.3f}, y={y_cr_aux4 : 0.3f}, z={z_cr_aux4 : 0.3f}')
+    print(f'AUX5 CRYSTAL COORDS: x={x_cr_aux5 : 0.3f}, y={y_cr_aux5 : 0.3f}, z={z_cr_aux5 : 0.3f}')
+
+    fig = plt.figure(fignum, clear=True)
+    ax = plt.axes(projection='3d')
+    plot_crystal_geometry(ax,
+                          (x_src, z_src, y_src),
+                          (x_cr_main, z_cr_main, y_cr_main),
+                          (x_det, z_det, y_det),
+                          (x_rcc_main, z_rcc_main, y_rcc_main),
+                          (x_rc_main, z_rc_main, y_rc_main),
+                          (xyz_cr_ana_main[0], xyz_cr_ana_main[2], xyz_cr_ana_main[1]))
+
+
+    plot_crystal_geometry(ax,
+                          (x_src, z_src, y_src),
+                          (x_cr_aux2, z_cr_aux2, y_cr_aux2),
+                          (x_det, z_det, y_det),
+                          xyz_rcc_aux2[[0, 2, 1]],
+                          (xyz_rc_aux2[0], xyz_rc_aux2[2], xyz_rc_aux2[1]),
+                          (xyz_cr_ana_aux2[0], xyz_cr_ana_aux2[2], xyz_cr_ana_aux2[1]))
+
+    plot_crystal_geometry(ax,
+                          (x_src, z_src, y_src),
+                          (x_cr_aux3, z_cr_aux3, y_cr_aux3),
+                          (x_det, z_det, y_det),
+                          xyz_rcc_aux3[[0, 2, 1]],
+                          (xyz_rc_aux3[0], xyz_rc_aux3[2], xyz_rc_aux3[1]),
+                          (xyz_cr_ana_aux3[0], xyz_cr_ana_aux3[2], xyz_cr_ana_aux3[1]))
+
+    plot_crystal_geometry(ax,
+                          (x_src, z_src, y_src),
+                          (x_cr_aux4, z_cr_aux4, y_cr_aux4),
+                          (x_det, z_det, y_det),
+                          xyz_rcc_aux4[[0, 2, 1]],
+                          (xyz_rc_aux4[0], xyz_rc_aux4[2], xyz_rc_aux4[1]),
+                          (xyz_cr_ana_aux4[0], xyz_cr_ana_aux4[2], xyz_cr_ana_aux4[1]))
+
+    plot_crystal_geometry(ax,
+                          (x_src, z_src, y_src),
+                          (x_cr_aux5, z_cr_aux5, y_cr_aux5),
+                          (x_det, z_det, y_det),
+                          xyz_rcc_aux5[[0, 2, 1]],
+                          (xyz_rc_aux5[0], xyz_rc_aux5[2], xyz_rc_aux5[1]),
+                          (xyz_cr_ana_aux5[0], xyz_cr_ana_aux5[2], xyz_cr_ana_aux5[1]))
+
+    ax.set_xlim(-1200, 200)
+    ax.set_ylim(-700, 700)
+    ax.set_zlim(-700, 700)
+    plt.axis('equal')
 
 
 def normalize_peak(y_orig):
