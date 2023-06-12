@@ -10,6 +10,7 @@ from xas import xray
 from xas.db_io import get_fly_uids_for_proposal
 import pandas as pd
 from scipy.interpolate import CubicSpline
+import os
 
 def get_foil_spectrum(element, edge, db_proc):
     r = db_proc.search({'Sample_name' : f'{element} foil', 'Edge' : edge})
@@ -129,7 +130,8 @@ def compute_energy_shift_and_broadening_between_spectra(energy, mu, energy_ref, 
 
 
 
-def get_energy_offset_(uid, db, db_proc, dE=25, plot_fun=None, attempts=5, sleep_time=1, full_return=False):
+def get_energy_offset_old(uid, db, db_proc, dE=25, plot_fun=None, attempts=5, sleep_time=1, full_return=False):
+    print('running get_energy_offset_old')
     start = db[uid].start
     fname_raw = start['interp_filename']
     if fname_raw.endswith('.raw'):
@@ -174,6 +176,7 @@ def get_energy_offset_(uid, db, db_proc, dE=25, plot_fun=None, attempts=5, sleep
             return e0, e_cor
 
 def get_energy_offset(uid, db, db_proc, dE=25, plot_fun=None, attempts=5, sleep_time=1, full_return=False):
+    print('running get_energy_offset')
     start = db[uid].start
     fname_raw = start['interp_filename']
     if fname_raw.endswith('.raw'):
