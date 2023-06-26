@@ -135,7 +135,7 @@ def visualize_rowland_circle_geometry(R, bragg, det_dR=0, fignum=1, dz=139.5, r=
     x_cr_aux4, y_cr_aux4, z_cr_aux4, roll_cr_aux4, yaw_cr_aux4, omega_aux4, xyz_rcc_aux4, xyz_rc_aux4, xyz_cr_ana_aux4 = compute_aux_geometry(-2 * dz)
     x_cr_aux5, y_cr_aux5, z_cr_aux5, roll_cr_aux5, yaw_cr_aux5, omega_aux5, xyz_rcc_aux5, xyz_rc_aux5, xyz_cr_ana_aux5 = compute_aux_geometry(2 * dz)
 
-    print(f'{omega_aux2=}, omega={compute_omega(R, bragg, -dz)}, d={omega_aux2 - compute_omega(R, bragg, -dz)}')
+    print(f'{omega_aux2=}, omega={_compute_omega(R, bragg, -dz)}, d={omega_aux2 - _compute_omega(R, bragg, -dz)}')
     print('')
 
     print(f'MAIN CRYSTAL COORDS: x={x_cr_main : 0.3f}, y={y_cr_main : 0.3f}, z={z_cr_main : 0.3f}')
