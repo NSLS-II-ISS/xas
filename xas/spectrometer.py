@@ -98,7 +98,7 @@ def plot_crystal_geometry(ax, xyz_src, xyz_cr, xyz_det, xyz_rcc, xyz_rc, xyz_cr_
 
 
 
-def visualize_rowland_circle_geometry(R, bragg, det_dR=0, fignum=1, dz=139.5, r=50):
+def visualize_rowland_circle_geometry(R, bragg, det_dR=0, fignum=1, dz1=139.5, dz2=129.5, r=50):
     x_src, y_src, z_src = 0, 0, 0
     x_cr_main, y_cr_main, x_det, y_det = compute_rowland_circle_geometry(x_src, y_src, R, bragg, det_dR)
     z_cr_main = 0
@@ -130,13 +130,13 @@ def visualize_rowland_circle_geometry(R, bragg, det_dR=0, fignum=1, dz=139.5, r=
         xyz_cr_ana_aux = _rotate_xyz(omega_aux, bragg, xyz_cr_ana_main)
         return x_cr_aux, y_cr_aux, z_cr_aux, roll_cr_aux, yaw_cr_aux, omega_aux, xyz_rcc_aux, xyz_rc_aux, xyz_cr_ana_aux
 
-    x_cr_aux2, y_cr_aux2, z_cr_aux2, roll_cr_aux2, yaw_cr_aux2, omega_aux2, xyz_rcc_aux2, xyz_rc_aux2, xyz_cr_ana_aux2 = compute_aux_geometry(-dz)
-    x_cr_aux3, y_cr_aux3, z_cr_aux3, roll_cr_aux3, yaw_cr_aux3, omega_aux3, xyz_rcc_aux3, xyz_rc_aux3, xyz_cr_ana_aux3 = compute_aux_geometry(dz)
-    x_cr_aux4, y_cr_aux4, z_cr_aux4, roll_cr_aux4, yaw_cr_aux4, omega_aux4, xyz_rcc_aux4, xyz_rc_aux4, xyz_cr_ana_aux4 = compute_aux_geometry(-2 * dz)
-    x_cr_aux5, y_cr_aux5, z_cr_aux5, roll_cr_aux5, yaw_cr_aux5, omega_aux5, xyz_rcc_aux5, xyz_rc_aux5, xyz_cr_ana_aux5 = compute_aux_geometry(2 * dz)
+    x_cr_aux2, y_cr_aux2, z_cr_aux2, roll_cr_aux2, yaw_cr_aux2, omega_aux2, xyz_rcc_aux2, xyz_rc_aux2, xyz_cr_ana_aux2 = compute_aux_geometry(-dz1)
+    x_cr_aux3, y_cr_aux3, z_cr_aux3, roll_cr_aux3, yaw_cr_aux3, omega_aux3, xyz_rcc_aux3, xyz_rc_aux3, xyz_cr_ana_aux3 = compute_aux_geometry(dz1)
+    x_cr_aux4, y_cr_aux4, z_cr_aux4, roll_cr_aux4, yaw_cr_aux4, omega_aux4, xyz_rcc_aux4, xyz_rc_aux4, xyz_cr_ana_aux4 = compute_aux_geometry(-dz1 - dz2)
+    x_cr_aux5, y_cr_aux5, z_cr_aux5, roll_cr_aux5, yaw_cr_aux5, omega_aux5, xyz_rcc_aux5, xyz_rc_aux5, xyz_cr_ana_aux5 = compute_aux_geometry(dz1 + dz2)
 
-    print(f'{omega_aux2=}, omega={_compute_omega(R, bragg, -dz)}, d={omega_aux2 - _compute_omega(R, bragg, -dz)}')
-    print('')
+    # print(f'{omega_aux2=}, omega={_compute_omega(R, bragg, -dz)}, d={omega_aux2 - _compute_omega(R, bragg, -dz)}')
+    # print('')
 
     print(f'MAIN CRYSTAL COORDS: x={x_cr_main : 0.3f}, y={y_cr_main : 0.3f}, z={z_cr_main : 0.3f}')
     print(f'AUX2 CRYSTAL COORDS: x={x_cr_aux2 : 0.3f}, y={y_cr_aux2 : 0.3f}, z={z_cr_aux2 : 0.3f}')
@@ -225,6 +225,9 @@ def analyze_elastic_fly_scan(db, uid, rois=None, plot_func=None):
             roi_color = _pilatus_roi_colors[i]
             roi_label = f'roi{i}'
             plot_func(energy, intensity_cor, intensity_fit, Ecen, fwhm, roi_label=roi_label, roi_color=roi_color, )
+        fwhm_return = fwhm
+    return fwhm
+
 
 
 

@@ -136,7 +136,7 @@ def bin(interpolated_dataset, e0, edge_start=-30, edge_end=50, preedge_spacing=5
                    ret[k] =  [i for i in data_conv]
 
         binned_df = pd.DataFrame(ret)
-    binned_df = binned_df.drop('timestamp', 1)
+    binned_df = binned_df.drop('timestamp', axis=1)
     print(f'({ttime.ctime()}) Binning the data: DONE')
     return binned_df
 

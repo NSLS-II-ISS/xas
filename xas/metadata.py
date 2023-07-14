@@ -87,6 +87,9 @@ metadata_dict = OrderedDict({
 'gc_mfc_h2_rb':                 {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{GC:1-MFC:3}Gas:Flow-I',                'human_readable_key': 'SampleGasCart.MFC.H2.readback'},
 'gc_mfc_exhaust_sp':            {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{GC:1-MFC:4}Gas:Flow-SP',               'human_readable_key': 'SampleGasCart.MFC.exhaust.setpoint'},
 'gc_mfc_exhaust_rb':            {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{GC:1-MFC:4}Gas:Flow-I',                'human_readable_key': 'SampleGasCart.MFC.exhaust.readback'},
+'switch_valve_ghs':             {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{DIODE-Box_B1:1}Out:0-Sel',             'human_readable_key': 'SampleSwitchValve.GHS.readback'},
+'switch_valve_gas_cart':        {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{DIODE-Box_B1:1}Out:1-Sel',             'human_readable_key': 'SampleSwitchValve.GasCart.readback'},
+'switch_valve_intert':          {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{DIODE-Box_B1:1}Out:2-Sel',             'human_readable_key': 'SampleSwitchValve.Inert.readback'},
 })
 
 _ghs_selected_gas_dict = OrderedDict()

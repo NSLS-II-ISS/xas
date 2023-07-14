@@ -381,8 +381,9 @@ pil100k_channel_list = [
     'pil100k_roi3',
     'pil100k_roi4'
 ]
-pil100k_channel_comb_dict = {'xes' : ['pil100k_roi1',
-                                        'pil100k_roi2'],
+pil100k_channel_comb_dict = {'herfd' : ['pil100k_roi2',
+                                        'pil100k_roi3',
+                                        'pil100k_roi4'],
                             }
 
 def stepscan_remove_offsets(hdr, fill=True):
