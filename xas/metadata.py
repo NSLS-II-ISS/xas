@@ -94,7 +94,7 @@ metadata_dict = OrderedDict({
 
 _ghs_selected_gas_dict = OrderedDict()
 for letter in ['a', 'b', 'c', 'd', 'e']:
-    _ghs_selected_gas_dict[f'ghs_selected_gas_{letter}'] = {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-UT{Gas:1}Group:' + f'{letter.upper()}' + '-Sel',                    'human_readable_key': f'SampleGasHandlingSystem.gas_{letter}.name'}
+    _ghs_selected_gas_dict[f'ghs_selected_gas_{letter}'] = {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-UT{Gas:1}Group:' + f'{letter.upper()}' + '-Sel', 'human_readable_key': f'SampleGasHandlingSystem.gas_{letter}.name'}
 
 _ghs_mfc_dict = OrderedDict()
 for i in range(1, 17):
