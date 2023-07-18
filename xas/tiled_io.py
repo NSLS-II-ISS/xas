@@ -154,12 +154,14 @@ def filter_node_by_metadata_key(node, key, value):
     return node.search(Key(key) == value)
 
 
-def filter_node_for_proposal(node, year, cycle, proposal, cutoff=10):
+def filter_node_for_proposal(node, year, cycle, proposal, cutoff=None):
     year = str(year)
     cycle = str(cycle)
     proposal = str(proposal)
     # try:
     r = node.search(Key('year') == year).search(Key('cycle') == cycle).search(Key('proposal') == proposal)
+    if cutoff is None:
+        return r
     cutoff_scan_id = r[r.keys()[len(r) - cutoff]].metadata['scan_id']
     return r.search(Key('scan_id') >= cutoff_scan_id)
     # except:
