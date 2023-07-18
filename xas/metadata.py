@@ -90,6 +90,8 @@ metadata_dict = OrderedDict({
 'switch_valve_ghs':             {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{DIODE-Box_B1:1}Out:0-Sel',             'human_readable_key': 'SampleSwitchValve.GHS.readback'},
 'switch_valve_gas_cart':        {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{DIODE-Box_B1:1}Out:1-Sel',             'human_readable_key': 'SampleSwitchValve.GasCart.readback'},
 'switch_valve_intert':          {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{DIODE-Box_B1:1}Out:2-Sel',             'human_readable_key': 'SampleSwitchValve.Inert.readback'},
+'potentiostat_v':               {'kind' : 'epics_pv',                                                               'human_readable_key': 'Potentiostat.Voltage.readback'},
+'potentiostat_i':               {'kind' : 'epics_pv',                                                               'human_readable_key': 'Potentiostat.Current.readback'},
 })
 
 _ghs_selected_gas_dict = OrderedDict()
