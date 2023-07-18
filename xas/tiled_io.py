@@ -154,12 +154,14 @@ def filter_node_by_metadata_key(node, key, value):
     return node.search(Key(key) == value)
 
 
-def filter_node_for_proposal(node, year, cycle, proposal, cutoff=10):
+def filter_node_for_proposal(node, year, cycle, proposal, cutoff=None):
     year = str(year)
     cycle = str(cycle)
     proposal = str(proposal)
     # try:
     r = node.search(Key('year') == year).search(Key('cycle') == cycle).search(Key('proposal') == proposal)
+    if cutoff is None:
+        return r
     cutoff_scan_id = r[r.keys()[len(r) - cutoff]].metadata['scan_id']
     return r.search(Key('scan_id') >= cutoff_scan_id)
     # except:
@@ -208,27 +210,62 @@ def get_df_for_uid(node, uid):
     return dfc.read()
 
 
-def get_unique_values_for_metadata_key(node, key):
-    unique_values = []
-    while len(node) > 0:
-        uid = node.keys()[0]
-        uv = node[uid].metadata[key]
-        unique_values.append(uv)
-        node = node.search(Key(key) != uv)
-    return unique_values
+# def get_unique_values_for_metadata_key(node, key):
+#     unique_values = []
+#     while len(node) > 0:
+#         uid = node.keys()[0]
+#         uv = node[uid].metadata[key]
+#         unique_values.append(uv)
+#         node = node.search(Key(key) != uv)
+#     return unique_values
+#
+#
+# def build_scan_tree_table(node: Node, grouping_keys: list[str]):
+#     table_rows = []
+#     unique_values = [get_unique_values_for_metadata_key(node, k) for k in grouping_keys]
+#     for unique_value_combination in itertools.product(*unique_values):
+#         sub_node = copy.copy(node)
+#         sub_dict = {}
+#         for key, value in zip(grouping_keys, unique_value_combination):
+#             sub_node = sub_node.search(Key(key) == value)
+#             sub_dict[key] = value
+#         sub_dict['node'] = sub_node
+#         if len(sub_node) > 0:
+#             table_rows.append(sub_dict)
+#     return pd.DataFrame(table_rows)
 
+# def get_unique_values_for_metadata_key(node, key):
+#     unique_values = []
+#     while len(node) > 0:
+#         uid = node.keys()[0]
+#         uv = node[uid].metadata[key]
+#         unique_values.append(uv)
+#         node = node.search(Key(key) != uv)
+#     return unique_values
+
+def get_unique_values_for_metadata_key(node, key):
+    output = node.distinct(key)['metadata'][key]
+    return [d['value'] for d in output]
+
+def _get_unique_value_combinations(node, keys, add_nodes=False):
+    key = keys[0]
+    next_keys = keys[1:]
+    unique_values = get_unique_values_for_metadata_key(node, key)
+    for unique_value in unique_values:
+        sub_dict = {key: unique_value}
+        sub_node = node.search(Key(key) == unique_value)
+        if len(next_keys) == 0:
+            if add_nodes:
+                sub_dict['node'] = sub_node
+            yield sub_dict
+        else:
+            for next_sub_dict in _get_unique_value_combinations(sub_node, next_keys, add_nodes=add_nodes):
+                sub_dict = {**sub_dict, **next_sub_dict}
+                yield sub_dict
+
+def get_unique_value_combinations(node, keys, add_nodes=False):
+    return list(_get_unique_value_combinations(node, keys, add_nodes=add_nodes))
 
 def build_scan_tree_table(node: Node, grouping_keys: list[str]):
-    table_rows = []
-    unique_values = [get_unique_values_for_metadata_key(node, k) for k in grouping_keys]
-    for unique_value_combination in itertools.product(*unique_values):
-        sub_node = copy.copy(node)
-        sub_dict = {}
-        for key, value in zip(grouping_keys, unique_value_combination):
-            sub_node = sub_node.search(Key(key) == value)
-            sub_dict[key] = value
-        sub_dict['node'] = sub_node
-        if len(sub_node) > 0:
-            table_rows.append(sub_dict)
+    table_rows = get_unique_value_combinations(node, grouping_keys, add_nodes=True)
     return pd.DataFrame(table_rows)
-
