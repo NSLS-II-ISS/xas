@@ -193,11 +193,11 @@ def visualize_rowland_circle_geometry(R, bragg, det_dR=0, fignum=1, dz1=139.5, d
     plt.axis('equal')
 
 
-def normalize_peak(y_orig):
+def normalize_peak(y_orig, bkg1=2, bkg2=-2, nmax=1):
     y = y_orig.copy()
-    offset = np.mean(np.hstack((y[:2], y[-2:])))
+    offset = np.mean(np.hstack((y[:bkg1], y[-bkg2:])))
     y -= offset
-    scale = y.max()
+    scale = np.mean(np.sort(y)[-nmax:])
     y /= scale
     return y
 
@@ -238,6 +238,28 @@ def analyze_elastic_scan(db, uid):
     Ecen0, fwhm0 = estimate_center_and_width_of_peak(E, I)
     Ecen, fwhm, I_cor, I_fit, I_fit_raw = fit_gaussian(E, I, Ecen0, fwhm0)
     return Ecen, fwhm, I_cor, I_fit, (I_fit_raw*scale + offset), E
+
+
+def analyze_linewidth_fly_scan(db, uid, rois=None, plot_func=None):
+    fname_bin = db[uid].start['interp_filename'][:-3] + 'dat'
+    df, _ = load_binned_df_from_file(fname_bin)
+    energy = df['energy'].values
+    if rois is None: rois = [1]
+
+    for i in rois:
+        field = f'pil100k_roi{i}'
+        intensity = df[field].values
+        intensity_smooth = savgol_filter(intensity, 5, 3)
+        intensity_smooth = normalize_peak(intensity_smooth, bkg1=5, bkg2=-5, nmax=5)
+        Ecen0, fwhm0 = estimate_center_and_width_of_peak(energy, intensity_smooth)
+        print(f'{field}: {Ecen0=:0.3f}, {fwhm0=:0.3f}')
+        if plot_func is not None:
+            roi_color = _pilatus_roi_colors[i]
+            roi_label = f'roi{i}'
+            plot_func(energy, intensity_smooth, intensity_smooth, Ecen, fwhm, roi_label=roi_label, roi_color=roi_color, )
+        fwhm_return = fwhm
+    return fwhm
+
 
 
 pilatus_mask = np.ones((195, 487), dtype=bool)
