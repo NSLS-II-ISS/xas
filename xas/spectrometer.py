@@ -9,7 +9,7 @@ from matplotlib import pyplot as plt
 from scipy.signal import savgol_filter
 import os
 import time as ttime
-
+from numpy.polynomial import Polynomial
 
 from scipy.spatial.transform import Rotation
 from scipy.optimize import fsolve
@@ -259,6 +259,38 @@ def analyze_linewidth_fly_scan(db, uid, rois=None, plot_func=None):
             plot_func(energy, intensity_smooth, intensity_smooth, Ecen, fwhm, roi_label=roi_label, roi_color=roi_color, )
         fwhm_return = fwhm
     return fwhm
+
+def ingest_epics_motor_fly_scan(db, uid):
+    pass
+
+def fit_polynom_and_estimate_minimum(x, y, deg=3):
+    x = np.array(x)
+    y = np.array(y)
+
+    p = Polynomial.fit(x, y, deg)
+    x_extrema = p.deriv().roots()
+    x_minima = x_extrema[p.deriv().deriv()(x_extrema) > 0]
+    x_minima = x_minima[(x_minima>=x.min()) & (x_minima<=x.max())]
+    if len(x_minima) == 0:
+        x_minimum = x[np.argmin(y)]
+    else:
+        y_minima = p(x_minima)
+        x_minimum = x_minima[np.argmin(y_minima)]
+
+    # plt.figure(2, clear=True)
+    # plt.plot(x, y, 'k.-')
+    # plt.plot(x, p(x), 'r-')
+    # plt.vlines([x_minimum, x_minimum], y.min(), y.max(), colors='m')
+
+    return x_minimum, p(x)
+
+
+def get_optimal_crystal_alignment_position(x, y, plot_func=None):
+
+    x_min, y_fit = fit_polynom_and_estimate_minimum(x, y)
+    if plot_func is not None:
+        plot_func(x, y, x_min, y_fit)
+    return x_min
 
 
 
