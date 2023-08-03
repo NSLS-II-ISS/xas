@@ -1,12 +1,13 @@
 
-from .bin import bin
+from .bin import bin, bin_epics_fly_scan
 from .file_io import (load_dataset_from_files, create_file_header, validate_file_exists, validate_path_exists,
                       save_interpolated_df_as_file, save_binned_df_as_file, find_e0, save_stepscan_as_file,
                       stepscan_remove_offsets, stepscan_normalize_xs, combine_xspress3_channels, combine_pil100k_channels,
                       filter_df_by_valid_keys, save_primary_df_as_file, save_extended_data_as_file, dump_tiff_images)
-from .db_io import load_apb_dataset_from_db, translate_apb_dataset, load_apb_trig_dataset_from_db, load_xs3_dataset_from_db, load_pil100k_dataset_from_db
+from .db_io import load_apb_dataset_from_db, translate_apb_dataset, load_apb_trig_dataset_from_db, load_xs3_dataset_from_db, load_pil100k_dataset_from_db, load_apb_dataset_only_from_db, translate_apb_only_dataset
 from .interpolate import interpolate
-
+from scipy.interpolate import interp1d
+import pandas as pd
 from xas.file_io import _shift_root
 from xas.db_io import update_header_start
 from .xas_logger import get_logger
@@ -157,6 +158,10 @@ def get_processed_df_from_uid(uid, db, logger=None, draw_func_interp=None, draw_
         processed_df = filter_df_by_valid_keys(df)
         # df_processed = combine_xspress3_channels(df)
 
+    elif experiment == 'epics_fly_scan':
+        processed_df = get_processed_df_from_uid_for_epics_fly_scan(db, uid, save_interpolated_file=True,
+                                                                    path_to_file=path_to_file,
+                                                                    comments=comments)
     else:
         return
 
@@ -213,6 +218,86 @@ def process_interpolate_unsorted(uid, db):
      raw_df = load_dataset_from_files(db, uid)
      interpolated_df = interpolate(raw_df, sort=False)
      return interpolated_df
+
+
+
+def get_processed_df_from_uid_for_epics_fly_scan(db, uid, save_interpolated_file=False, path_to_file=None, comments=None):
+    hdr = db[uid]
+    stream_names = hdr.stream_names
+    try:
+        # default detectors
+        # apb_df, energy_df, energy_offset = load_apb_dataset_from_db(db, uid)
+        # raw_dict = translate_apb_dataset(apb_df, energy_df, energy_offset)
+        raw_dict = {}
+
+        for stream_name in stream_names:
+            if stream_name == 'apb_stream':
+                apb_df = load_apb_dataset_only_from_db(db, uid)
+                raw_dict = {**raw_dict, **translate_apb_only_dataset(apb_df)}
+
+            elif stream_name == 'pil100k_stream':
+                apb_trigger_pil100k_timestamps = load_apb_trig_dataset_from_db(db, uid, use_fall=True,
+                                                                               stream_name='apb_trigger_pil100k')
+                pil100k_dict = load_pil100k_dataset_from_db(db, uid, apb_trigger_pil100k_timestamps)
+                raw_dict = {**raw_dict, **pil100k_dict}
+
+            elif stream_name == 'xs_stream':
+                apb_trigger_xs_timestamps = load_apb_trig_dataset_from_db(db, uid, stream_name='apb_trigger_xs')
+                xs3_dict = load_xs3_dataset_from_db(db, uid, apb_trigger_xs_timestamps)
+                raw_dict = {**raw_dict, **xs3_dict}
+
+            elif stream_name.endswith('monitor'):
+                _stream_name = stream_name[:stream_name.index('monitor')-1]
+                df = hdr.table(stream_name)
+                df['timestamp'] = (df.time.values - np.datetime64('1970-01-01T00:00:00Z')) / np.timedelta64(1, 's')
+
+                interpolator_func = interp1d(df['timestamp'].values, df[_stream_name].values, axis=0, kind='quadratic')
+                fine_timestamp = np.linspace(df['timestamp'].min(), df['timestamp'].max(), int((df['timestamp'].max() - df['timestamp'].min()) * 500))
+                motor_pos_fine = interpolator_func(fine_timestamp)
+
+
+
+                monitor_dict = {_stream_name : pd.DataFrame({'timestamp': fine_timestamp,
+                                                               _stream_name: motor_pos_fine})}
+                raw_dict = {**raw_dict, **monitor_dict}
+
+
+        # logger.info(f'({ttime.ctime()}) Loading file successful for UID {uid}')
+    except Exception as e:
+        # logger.info(f'({ttime.ctime()}) Loading file failed for UID {uid}')
+        raise e
+    try:
+        interpolated_df = interpolate(raw_dict, sort=False)
+        if save_interpolated_file:
+            save_interpolated_df_as_file(path_to_file, interpolated_df, comments)
+        # logger.info(f'({ttime.ctime()}) Interpolation successful for {uid}')
+    except Exception as e:
+        # logger.info(f'({ttime.ctime()}) Interpolation failed for {uid}')
+        raise e
+
+    try:
+        stream_name = hdr.start['motor_stream_names'][0]
+        _stream_name = stream_name[:stream_name.index('monitor') - 1]
+        if ('johann' in _stream_name) and (('roll' in _stream_name) or ('yaw' in _stream_name)):
+            step_size = 5
+        else:
+            step_size = 0.1
+        processed_df = bin_epics_fly_scan(interpolated_df, key_base=_stream_name, step_size=step_size)
+        # (path, extension) = os.path.splitext(path_to_file)
+        # path_to_file = path + '.dat'
+        # logger.info(f'({ttime.ctime()}) Binning successful for {uid}')
+
+        # if draw_func_interp is not None:
+        #     draw_func_interp(interpolated_df)
+        # if draw_func_bin is not None:
+        #     draw_func_bin(processed_df, path_to_file)
+
+    except Exception as e:
+        # logger.info(f'({ttime.ctime()}) Binning failed for {uid}')
+        raise e
+
+    return processed_df
+
 
 
 

@@ -141,6 +141,29 @@ def bin(interpolated_dataset, e0, edge_start=-30, edge_end=50, preedge_spacing=5
     return binned_df
 
 
+def bin_epics_fly_scan(interpolated_dataset, key_base=None, step_size=5):
+
+    interpolated_base_grid = interpolated_dataset[key_base].values
+    binned_base_grid = np.linspace(np.min(interpolated_base_grid), np.max(interpolated_base_grid),
+                                    int(((np.max(interpolated_base_grid) - np.min(interpolated_base_grid)) / step_size) + 1) )
+    convo_mat = _generate_convolution_bin_matrix(binned_base_grid, interpolated_base_grid)
+    ret = {key_base : binned_base_grid}
+    for k, v in interpolated_dataset.items():
+        if k != key_base:
+            data_array = v.values
+            if len(data_array[0].shape) == 0:
+               ret[k] =  convo_mat @ data_array
+            else:
+               data_ndarray = np.array([i for i in data_array], dtype = np.float64)
+               data_conv = np.tensordot(convo_mat, data_ndarray, axes=(1, 0))
+               ret[k] =  [i for i in data_conv]
+
+    binned_df = pd.DataFrame(ret)
+    binned_df = binned_df.drop('timestamp', axis=1)
+    print(f'({ttime.ctime()}) Binning the data: DONE')
+    return binned_df
+
+
 # def bin_pilatus_images(interpolated_dataset, db, uid):
 #     pass
 # # make handler return images

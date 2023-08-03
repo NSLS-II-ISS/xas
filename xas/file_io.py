@@ -134,10 +134,15 @@ def create_file_header(hdr):
     return generate_file_header_from_hdr(hdr)
 
 def find_e0(hdr):
-    e0 = -1
-    if 'e0' in hdr.start:
-        e0 = float(hdr.start['e0'])
-    return e0
+    # e0 = -1
+    try:
+        return float(hdr.start['e0'])
+    except:
+        return -1
+    # if 'e0' in hdr.start:
+    #     if hdr.start['e0'] is not None:
+    #         e0 =
+    # return e0
 
 
 def split_df_data_into_primary_and_extended(df_orig):
@@ -266,17 +271,17 @@ def load_binned_df_from_file(filename):
 
     energy_key = None
     for col in df.columns:
-        if ('energy' in col.lower()) or ('e' in col.lower()):
+        if ('energy' in col.lower()):# or ('e' in col.lower()):
             energy_key = col
             break
 
     if energy_key:
         df = df.rename(columns={energy_key: 'energy'})
+        df = df.sort_values('energy')
 
-    if 'energy' not in df.columns:
-        df['energy'] = np.arange(len(df.index))
+    # if 'energy' not in df.columns:
+    #     df['energy'] = np.arange(len(df.index))
 
-    df = df.sort_values('energy')
     return df, header
 
 def read_header(filename):

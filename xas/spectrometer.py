@@ -240,28 +240,90 @@ def analyze_elastic_scan(db, uid):
     return Ecen, fwhm, I_cor, I_fit, (I_fit_raw*scale + offset), E
 
 
-def analyze_linewidth_fly_scan(db, uid, rois=None, plot_func=None):
+# def analyze_linewidth_fly_scan(db, uid, x_key='johann_main_crystal_motor_cr_main_roll', rois=None, plot_func=None):
+#     fname_bin = db[uid].start['interp_filename'][:-3] + 'dat'
+#     df, _ = load_binned_df_from_file(fname_bin)
+#     x = df[x_key].values
+#     if rois is None: rois = [1]
+#
+#     for i in rois:
+#         field = f'pil100k_roi{i}'
+#         y = np.abs(df[field].values / df['i0'].values)
+#         y_smooth = savgol_filter(y, 5, 3)
+#         y_smooth = normalize_peak(y_smooth, bkg1=5, bkg2=-5, nmax=5)
+#         cen, fwhm = estimate_center_and_width_of_peak(x, y_smooth)
+#         print(f'{field}: {cen=:0.3f}, {fwhm=:0.3f}')
+#         if plot_func is not None:
+#             roi_color = _pilatus_roi_colors[i]
+#             roi_label = f'roi{i}'
+#             plot_func(energy, intensity_smooth, intensity_smooth, cen, fwhm, roi_label=roi_label, roi_color=roi_color, )
+#         fwhm_return = fwhm
+#     return fwhm
+
+def analyze_linewidth_fly_scan(db, uid, x_key='johann_main_crystal_motor_cr_main_roll', rois=None, plot_func=None):
     fname_bin = db[uid].start['interp_filename'][:-3] + 'dat'
     df, _ = load_binned_df_from_file(fname_bin)
-    energy = df['energy'].values
+    x = df[x_key].values
     if rois is None: rois = [1]
 
     for i in rois:
         field = f'pil100k_roi{i}'
-        intensity = df[field].values
-        intensity_smooth = savgol_filter(intensity, 5, 3)
-        intensity_smooth = normalize_peak(intensity_smooth, bkg1=5, bkg2=-5, nmax=5)
-        Ecen0, fwhm0 = estimate_center_and_width_of_peak(energy, intensity_smooth)
-        print(f'{field}: {Ecen0=:0.3f}, {fwhm0=:0.3f}')
+        y = np.abs(df[field].values / df['i0'].values)
+
+        y = normalize_peak(y, bkg1=5, bkg2=-5, nmax=5)
+
+        y_max = np.mean(np.sort(y)[-5:])
+        mask = y >= y_max * 0.3
+
+        x_roi = x[mask]
+        y_roi = y[mask]
+
+        y_roi_log = np.log(y_roi)
+        n_order = 7
+        p = Polynomial.fit(x_roi, y_roi_log, n_order)
+
+        y_roi_log_fit = p(x_roi)
+        y_roi_fit = np.exp(y_roi_log_fit)
+
+        y_log_fit = p(x)
+        y_smooth = np.exp(y_log_fit)
+
+        x_extrema = p.deriv().roots()
+        x_maxima = x_extrema[p.deriv().deriv()(x_extrema) < 0]
+        x_maxima = x_maxima[(x_maxima >= x_roi.min()) & (x_maxima <= x_roi.max())]
+
+        x_maximum = np.real(x_maxima[np.argmin(np.abs(x_maxima - x_roi[np.argmax(y_roi)]))])
+        y_maximum = np.exp(p(x_maximum))
+
+        x1, x2 = estimate_hm_positions_of_peak(x_roi, y_roi_fit / y_maximum)
+        cen = x_maximum
+        fwhm = np.abs(x1 - x2)
+        # y_smooth = savgol_filter(y, 5, 3)
+        # y_smooth = normalize_peak(y_smooth, bkg1=5, bkg2=-5, nmax=5)
+        # cen, fwhm = estimate_center_and_width_of_peak(x, y_smooth)
+        print(f'{field}: {cen=:0.3f}, {fwhm=:0.3f}')
+
+        # plt.plot(x, y/y_maximum, '.')
+        # plt.plot(x_roi, y_roi_fit/y_maximum, '-')
+
         if plot_func is not None:
             roi_color = _pilatus_roi_colors[i]
             roi_label = f'roi{i}'
-            plot_func(energy, intensity_smooth, intensity_smooth, Ecen, fwhm, roi_label=roi_label, roi_color=roi_color, )
+            plot_func(energy, intensity_smooth, intensity_smooth, cen, fwhm, roi_label=roi_label, roi_color=roi_color, )
         fwhm_return = fwhm
     return fwhm
 
-def ingest_epics_motor_fly_scan(db, uid):
-    pass
+
+def estimate_hm_positions_of_peak(x, y):
+    x_cen = x[np.argmax(np.abs(y))]
+    y_diff = np.abs(y - 0.5)
+    x_low = x < x_cen
+    x_high = x > x_cen
+    x1 = np.interp(0.5, y[x_low], x[x_low])
+    x2 = np.interp(0.5, y[x_high][::-1], x[x_high][::-1])
+    return x1, x2
+
+
 
 def fit_polynom_and_estimate_minimum(x, y, deg=3):
     x = np.array(x)

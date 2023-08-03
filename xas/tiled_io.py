@@ -137,10 +137,10 @@ class DataManager:
             
 
 def get_iss_sandbox():
-    # username=input("BNL Username: ")
+    username=input("BNL Username: ")
     # cache maximum of 2GB in RAM
     try:
-        tiled_catalog = from_profile('nsls2', cache=Cache.in_memory(2e9))
+        tiled_catalog = from_profile('nsls2', username=username, cache=Cache.in_memory(2e9))
     except:
         tiled_catalog = from_uri("https://localhost:8008", cache=Cache.in_memory(2e9))
     # tiled_catalog = from_uri("https://localhost:8008", verify=False, username=username, cache=Cache.in_memory(2e9))

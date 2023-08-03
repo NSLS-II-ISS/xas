@@ -29,6 +29,23 @@ def load_apb_dataset_from_db(db, uid):
     return apb_dataset, energy_dataset, angle_offset
 
 
+def load_apb_dataset_only_from_db(db, uid):
+    hdr = db[uid]
+    apb_dataset = list(hdr.data(stream_name='apb_stream', field='apb_stream'))[0].copy()
+    apb_dataset = pd.DataFrame(apb_dataset,
+                               columns=['timestamp', 'i0', 'it', 'ir', 'iff', 'aux1', 'aux2', 'aux3', 'aux4'])
+    # apb_dataset = list(hdr.data(stream_name='apb_stream', field='apb_stream'))[0]
+
+
+    ch_offsets = get_ch_properties(hdr.start, 'ch', '_offset')*1e3 #offsets are ib mV but the readings are in uV
+    ch_gains = get_ch_properties(hdr.start, 'ch', '_amp_gain')
+
+    apb_dataset.iloc[:, 1:] -= ch_offsets
+    apb_dataset.iloc[:, 1:] /= 1e6
+    apb_dataset.iloc[:, 1:] /= (10**ch_gains)
+
+    return apb_dataset
+
 
 def get_ch_properties(hdr_start, start, end):
     ch_keys = [key for key in hdr_start.keys() if key.startswith(start) and key.endswith(end)]
@@ -54,6 +71,18 @@ def translate_apb_dataset(apb_dataset, energy_dataset, angle_offset,):
     energy['encoder'] = xray.encoder2energy(enc, 360000, angle_offset)
 
     data_dict['energy'] = energy
+    return data_dict
+
+def translate_apb_only_dataset(apb_dataset):
+    data_dict = {}
+    for column in apb_dataset.columns:
+        if column != 'timestamp':
+            adc = pd.DataFrame()
+            adc['timestamp'] = apb_dataset['timestamp']
+            adc['adc'] = apb_dataset[column]
+
+            data_dict[column] = adc
+
     return data_dict
 
 
