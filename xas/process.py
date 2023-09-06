@@ -1,16 +1,16 @@
 
-from .bin import bin, bin_epics_fly_scan
-from .file_io import (load_dataset_from_files, create_file_header, validate_file_exists, validate_path_exists,
+from xas.bin import bin, bin_epics_fly_scan
+from xas.file_io import (load_dataset_from_files, create_file_header, validate_file_exists, validate_path_exists,
                       save_interpolated_df_as_file, save_binned_df_as_file, find_e0, save_stepscan_as_file,
                       stepscan_remove_offsets, stepscan_normalize_xs, combine_xspress3_channels, combine_pil100k_channels,
                       filter_df_by_valid_keys, save_primary_df_as_file, save_extended_data_as_file, dump_tiff_images)
-from .db_io import load_apb_dataset_from_db, translate_apb_dataset, load_apb_trig_dataset_from_db, load_xs3_dataset_from_db, load_pil100k_dataset_from_db, load_apb_dataset_only_from_db, translate_apb_only_dataset
-from .interpolate import interpolate
+from xas.db_io import load_apb_dataset_from_db, translate_apb_dataset, load_apb_trig_dataset_from_db, load_xs3_dataset_from_db, load_pil100k_dataset_from_db, load_apb_dataset_only_from_db, translate_apb_only_dataset
+from xas.interpolate import interpolate
 from scipy.interpolate import interp1d
 import pandas as pd
 from xas.file_io import _shift_root
 from xas.db_io import update_header_start
-from .xas_logger import get_logger
+from xas.xas_logger import get_logger
 # import matplotlib.pyplot as plt
 # import numpy as np
 import time as ttime
@@ -18,7 +18,7 @@ import os
 # from isscloudtools.slack import slack_upload_image
 # from isscloudtools.cloud_dispatcher import generate_output_figures
 
-from .vonhamos import process_von_hamos_scan #, save_vh_scan_to_file
+from xas.vonhamos import process_von_hamos_scan #, save_vh_scan_to_file
 import gc
 
 def process_interpolate_bin(doc, db, draw_func_interp = None, draw_func_bin = None, cloud_dispatcher = None, print_func=None, dump_to_tiff=False):
@@ -76,7 +76,7 @@ _legacy_experiment_reg = {'fly_energy_scan_pil100k' : 'fly_scan'}
 
 def get_processed_df_from_uid(uid, db, logger=None, draw_func_interp=None, draw_func_bin = None,
                               print_func=None, save_interpolated_file=True,
-                              update_start=None):
+                              update_start=None, return_processed_df=False, load_images=False, **rebin_kwargs):
     if print_func is None:
         print_func = print
     if logger is None:
@@ -110,7 +110,7 @@ def get_processed_df_from_uid(uid, db, logger=None, draw_func_interp=None, draw_
                 if stream_name == 'pil100k_stream':
                     apb_trigger_pil100k_timestamps = load_apb_trig_dataset_from_db(db, uid, use_fall=True,
                                                                                    stream_name='apb_trigger_pil100k')
-                    pil100k_dict = load_pil100k_dataset_from_db(db, uid, apb_trigger_pil100k_timestamps)
+                    pil100k_dict = load_pil100k_dataset_from_db(db, uid, apb_trigger_pil100k_timestamps, load_images=load_images)
                     raw_dict = {**raw_dict, **pil100k_dict}
 
                 elif stream_name == 'xs_stream':
@@ -133,7 +133,7 @@ def get_processed_df_from_uid(uid, db, logger=None, draw_func_interp=None, draw_
 
         try:
             if e0 > 0:
-                processed_df = bin(interpolated_df, e0)
+                processed_df = bin(interpolated_df, e0, **rebin_kwargs)
                 (path, extension) = os.path.splitext(path_to_file)
                 path_to_file = path + '.dat'
                 logger.info(f'({ttime.ctime()}) Binning successful for {path_to_file}')
@@ -161,12 +161,15 @@ def get_processed_df_from_uid(uid, db, logger=None, draw_func_interp=None, draw_
     elif experiment == 'epics_fly_scan':
         processed_df = get_processed_df_from_uid_for_epics_fly_scan(db, uid, save_interpolated_file=True,
                                                                     path_to_file=path_to_file,
-                                                                    comments=comments)
+                                                                    comments=comments, load_images=load_images)
     else:
         return
 
     processed_df = combine_xspress3_channels(processed_df)
     processed_df = combine_pil100k_channels(processed_df)
+
+    if return_processed_df:
+        return processed_df
 
     primary_df, extended_data = split_df_data_into_primary_and_extended(processed_df)
 
@@ -221,7 +224,7 @@ def process_interpolate_unsorted(uid, db):
 
 
 
-def get_processed_df_from_uid_for_epics_fly_scan(db, uid, save_interpolated_file=False, path_to_file=None, comments=None):
+def get_processed_df_from_uid_for_epics_fly_scan(db, uid, save_interpolated_file=False, path_to_file=None, comments=None, load_images=False):
     hdr = db[uid]
     stream_names = hdr.stream_names
     try:
@@ -238,7 +241,7 @@ def get_processed_df_from_uid_for_epics_fly_scan(db, uid, save_interpolated_file
             elif stream_name == 'pil100k_stream':
                 apb_trigger_pil100k_timestamps = load_apb_trig_dataset_from_db(db, uid, use_fall=True,
                                                                                stream_name='apb_trigger_pil100k')
-                pil100k_dict = load_pil100k_dataset_from_db(db, uid, apb_trigger_pil100k_timestamps)
+                pil100k_dict = load_pil100k_dataset_from_db(db, uid, apb_trigger_pil100k_timestamps, load_images=load_images)
                 raw_dict = {**raw_dict, **pil100k_dict}
 
             elif stream_name == 'xs_stream':

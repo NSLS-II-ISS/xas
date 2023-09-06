@@ -1302,8 +1302,8 @@ uids = list(db.v2.search({'proposal': '311347'}))
 # scan_md = [[db[uid].start['time'], db[uid].start['scan_id']] for uid in uids]
 # scan_ids = [db[uid].start['scan_id'] for uid in uids]
 
-for uid in uids:
-# for i in range(352381, 352382):
+# for uid in uids:
+for i in range(389939, 389963):
 #     try:
     hdr = db[uid]
     if hdr.start['scan_id'] not in processed_scans:
@@ -1314,4 +1314,256 @@ for uid in uids:
 
 ############
 
+offset = 0
+def elasic_plot_func(x, y, x_fit, y_fit, Ecen, fwhm, roi_label='', roi_color='k'):
+    global offset
+    plt.plot(x, y - offset, '.', color=roi_color)
+    plt.plot(x_fit, y_fit - offset, '-', color=roi_color)
+    offset += 0.1
 
+motor_pos_elastic = []
+fwhm_elastic = []
+max_elastic = []
+
+plt.figure(1, clear=True)
+offset = 0
+for uid in range(389939, 389963 + 1):
+    _fwhm, _max= analyze_linewidth_fly_scan(db, uid, x_key='energy', rois=[1], plot_func=elasic_plot_func)
+    # _fwhm = analyze_elastic_fly_scan(db, uid, rois=[1], plot_func=elasic_plot_func)
+    fwhm_elastic.append(_fwhm)
+    max_elastic.append(_max)
+    motor_pos_elastic.append(db[uid].start['tweak_motor_position'])
+
+motor_pos_emission = []
+fwhm_emission = []
+max_emission = []
+plt.figure(2, clear=True)
+offset = 0
+for uid in range(389461, 389485 + 1):
+# for uid in range(389456, 389485 + 1):
+    _fwhm, _max = analyze_linewidth_fly_scan(db, uid, rois=[1], plot_func=elasic_plot_func)
+    fwhm_emission.append(_fwhm)
+    max_emission.append(_max)
+    motor_pos_emission.append(db[uid].start['tweak_motor_position'])
+
+
+
+_, ax1 = plt.subplots(1, num=3, clear=True)
+ax2 = ax1.twinx()
+# ax3 = ax1.twinx()
+# ax4 = ax1.twinx()
+
+def my_plot_func(ax=ax1, marker='.', color='k', sign=1):
+    def _bla(x, y, x_min, y_fit):
+        _y = np.array(y) * sign
+        _y_fit = np.array(y_fit) * sign
+        ax.plot(x, _y, color + marker)
+        ax.plot(x, _y_fit, color + '-')
+        ax.vlines([x_min], np.min(_y), np.max(_y), colors=color)
+    return _bla
+
+get_optimal_crystal_alignment_position(motor_pos_elastic, fwhm_elastic, plot_func=my_plot_func(ax=ax1, marker='o', color='b', sign=1))
+get_optimal_crystal_alignment_position(motor_pos_emission, fwhm_emission, plot_func=my_plot_func(ax=ax2, marker='o', color='r', sign=1))
+# get_optimal_crystal_alignment_position(motor_pos_elastic, -np.array(max_elastic), plot_func=my_plot_func(ax=ax3, marker='s', color='b', sign=-1))
+# get_optimal_crystal_alignment_position(motor_pos_emission, -np.array(max_emission), plot_func=my_plot_func(ax=ax4, marker='s', color='r', sign=-1))
+
+
+
+total_img = []
+
+elastic_scan = {}
+for uid in range(389939, 389963):
+    df = get_processed_df_from_uid(uid, db, save_interpolated_file=False, return_processed_df=True)
+
+    hdr, primary_df, extended_data, comments, path_to_file, file_list, data_kind
+    hdr = db[uid]
+    x = hdr.start['tweak_motor_position']
+    t = hdr.table(stream_name='pil100k_stream', fill=True)
+    scan = []
+    for img in t.pil100k_image[1]:
+        scan.append(np.sum(img[85:120, 194:265]))
+        if uid in [389939, 389950, 389962]:
+            total_img.append(img)
+    elastic_scan[x] = scan
+
+bla = np.mean(np.array(total_img), axis=0)
+plt.figure(2, clear=True)
+plt.imshow(bla, vmin=0.04, vmax=0.07)
+
+
+# data['Ecen'] = []
+data['fwhm'] = []
+# data['I_cor'] = []
+# data['I_fit'] = []
+# data['I_fit_raw'] = []
+# data['E_scan'] = []
+for uid in range(389939, 389963):
+    Ecen0, fwhm0 = estimate_center_and_width_of_peak(E, I)
+    Ecen, fwhm, I_cor, I_fit, I_fit_raw = fit_gaussian(E, I, Ecen0, fwhm0)
+    # Ecen, fwhm, I_cor, I_fit, I_fit_raw, E_scan = analyze_elastic_fly_scan(db, uid=uid)
+    # data['Ecen'].append(Ecen)
+    data['fwhm'].append(fwhm)
+    # data['I_cor'].append(I_cor)
+    # data['I_fit'].append(I_fit)
+    # data['I_fit_raw'].append(I_fit_raw)
+    # data['E_scan'].append(E_scan)
+
+
+
+
+
+
+
+#Elastic scan plot
+
+data = {}
+# data['x'] = []
+for uid in range(389939, 389963):
+    hdr = db[uid]
+    x_val = hdr.start['tweak_motor_position']
+    fwhm = analyze_elastic_fly_scan(db, uid=uid)
+    data[x_val] = fwhm
+
+fig, ax = plt.subplots(1,1, figsize=(4,6))
+
+ax.plot(data.keys(), data.values(), '-ro')
+ax.set_xlabel(r'R (mm)', size=12)
+ax.set_ylabel(r'FWHM (eV)', size=12)
+# ax.set_yticks(np.arange(1.52, 1.9, 0.05))
+
+path = '/home/xf08id/Documents/Spectrometer_paper/'
+
+plt.savefig(path + 'elastic.png', bbox_inches='tight', dpi=600)
+
+
+#Emission cuk
+
+#main = 389556, 389485
+#aux2 = 389487, 389539
+#aux3 = 389540, 389593
+
+data_m = {}
+for uid in range(389456, 389485):
+    hdr = db[uid]
+    x_val = hdr.start['tweak_motor_position']
+    fwhm, _ = analyze_linewidth_fly_scan(db, uid=uid)
+    data_m[x_val] = fwhm
+
+data_2 = {}
+for uid in range(389487, 389539):
+    hdr = db[uid]
+    if 'tweak_motor_position' in hdr.start.keys():
+        _x = hdr.start['spectrometer_config']['bragg_registration']['pos_act']['motor_cr_assy_x'][0]
+        x_val = hdr.start['tweak_motor_position']
+        x_val = (x_val/1000) + _x
+        x_key = 'johann_aux2_crystal_motor_cr_aux2_roll'
+        fwhm, _ = analyze_linewidth_fly_scan(db, uid=uid, x_key=x_key)
+        data_2[x_val] = fwhm
+    else:
+        pass
+
+data_3 = {}
+for uid in range(389540, 389593):
+    hdr = db[uid]
+    if 'tweak_motor_position' in hdr.start.keys():
+
+        _x = hdr.start['spectrometer_config']['bragg_registration']['pos_act']['motor_cr_assy_x'][0]
+        x_val = hdr.start['tweak_motor_position']
+        x_val = (x_val/1000) + _x
+        x_key = 'johann_aux3_crystal_motor_cr_aux3_roll'
+        fwhm, _ = analyze_linewidth_fly_scan(db, uid=uid, x_key=x_key)
+        data_3[x_val] = fwhm
+    else:
+        pass
+
+fig, ax = plt.subplots(1,1, figsize=(6,4))
+
+ax.plot(data_m.keys(), data_m.values(), '-ro', label='main')
+ax.plot(data_2.keys(), data_2.values(), '-bo', label='aux2')
+ax.plot(data_3.keys(), data_3.values(), '-go', label='aux3')
+
+ax.set_xlabel(r'R (mm)', size=12)
+ax.set_ylabel(r'FWHM (a.u.)', size=12)
+# ax.set_yticks(np.arange(1.52, 1.9, 0.05))
+ax.legend()
+
+path = '/home/xf08id/Documents/Spectrometer_paper/'
+
+plt.savefig(path + 'emission_cuk.png', bbox_inches='tight', dpi=600)
+
+#herfd main 389700, 389724
+#herfd aux2 389725, 389778
+#herfd aux3 389779, 389832
+#herfd aux4 389834, 389878
+#herfd aux5 389880, 389938
+
+X = []
+for uid in range(389700, 389725):
+    hdr = db[uid]
+    x_val = hdr.start['tweak_motor_position']
+    X.append(x_val)
+    df = get_processed_df_from_uid(uid, db=db)
+    np.savetxt(path + f'Main x {x_val:.3f}.dat', np.column_stack((df[1]['energy'], df[1]['i0'], df[1]['pil100k_roi1'])))
+
+np.savetxt(path + f"Main x value.dat", np.column_stack((X)))
+
+X = []
+for uid in range(389725, 389779):
+    hdr = db[uid]
+    if 'tweak_motor_position' in hdr.start.keys():
+        # _x = hdr.start['spectrometer_config']['bragg_registration']['pos_act']['motor_cr_assy_x'][0]
+        _x = 986.700040041
+        x_val = hdr.start['tweak_motor_position']
+        x_val = (x_val / 1000) + _x
+        X.append(x_val)
+        df = get_processed_df_from_uid(uid, db=db)
+        np.savetxt(path + f'Aux2 x {x_val:.3f}.dat', np.column_stack((df[1]['energy'], df[1]['i0'], df[1]['pil100k_roi1'])))
+    else:
+        pass
+np.savetxt(path + f"Aux2 x value.dat", np.column_stack((X)))
+
+
+X = []
+for uid in range(389779, 389832):
+    hdr = db[uid]
+    if 'tweak_motor_position' in hdr.start.keys():
+        # _x = hdr.start['spectrometer_config']['bragg_registration']['pos_act']['motor_cr_assy_x'][0]
+        _x = 986.700040041
+        x_val = hdr.start['tweak_motor_position']
+        x_val = (x_val / 1000) + _x
+        X.append(x_val)
+        df = get_processed_df_from_uid(uid, db=db)
+        np.savetxt(path + f'Aux3 x {x_val:.3f}.dat', np.column_stack((df[1]['energy'], df[1]['i0'], df[1]['pil100k_roi1'])))
+    else:
+        pass
+np.savetxt(path + f"Aux3 x value.dat", np.column_stack((X)))
+
+X = []
+for uid in range(389834, 389878):
+    hdr = db[uid]
+    if 'tweak_motor_position' in hdr.start.keys():
+        # _x = hdr.start['spectrometer_config']['bragg_registration']['pos_act']['motor_cr_assy_x'][0]
+        _x = 986.700040041
+        x_val = hdr.start['tweak_motor_position']
+        x_val = (x_val / 1000) + _x
+        X.append(x_val)
+        df = get_processed_df_from_uid(uid, db=db)
+        np.savetxt(path + f'Aux4 x {x_val:.3f}.dat', np.column_stack((df[1]['energy'], df[1]['i0'], df[1]['pil100k_roi1'])))
+    else:
+        pass
+np.savetxt(path + f"Aux4 x value.dat", np.column_stack((X)))
+
+X = []
+for uid in range(389880, 389938):
+    hdr = db[uid]
+    if 'tweak_motor_position' in hdr.start.keys():
+        # _x = hdr.start['spectrometer_config']['bragg_registration']['pos_act']['motor_cr_assy_x'][0]
+        _x = 986.700040041
+        x_val = hdr.start['tweak_motor_position']
+        x_val = (x_val / 1000) + _x
+        X.append(x_val)
+        df = get_processed_df_from_uid(uid, db=db)
+        np.savetxt(path + f'Aux5 x {x_val:.3f}.dat', np.column_stack((df[1]['energy'], df[1]['i0'], df[1]['pil100k_roi1'])))
+    else:
+        pass
+np.savetxt(path + f"Aux5 x value.dat", np.column_stack((X)))

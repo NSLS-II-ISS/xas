@@ -193,12 +193,14 @@ def visualize_rowland_circle_geometry(R, bragg, det_dR=0, fignum=1, dz1=139.5, d
     plt.axis('equal')
 
 
-def normalize_peak(y_orig, bkg1=2, bkg2=-2, nmax=1):
+def normalize_peak(y_orig, bkg1=2, bkg2=-2, nmax=1, return_scale=False):
     y = y_orig.copy()
-    offset = np.mean(np.hstack((y[:bkg1], y[-bkg2:])))
+    offset = np.mean(np.hstack((y[:bkg1], y[bkg2:])))
     y -= offset
     scale = np.mean(np.sort(y)[-nmax:])
     y /= scale
+    if return_scale:
+        return y, scale
     return y
 
 
@@ -270,7 +272,7 @@ def analyze_linewidth_fly_scan(db, uid, x_key='johann_main_crystal_motor_cr_main
         field = f'pil100k_roi{i}'
         y = np.abs(df[field].values / df['i0'].values)
 
-        y = normalize_peak(y, bkg1=5, bkg2=-5, nmax=5)
+        y, y_scale = normalize_peak(y, bkg1=5, bkg2=-5, nmax=5, return_scale=True)
 
         y_max = np.mean(np.sort(y)[-5:])
         mask = y >= y_max * 0.3
@@ -287,6 +289,7 @@ def analyze_linewidth_fly_scan(db, uid, x_key='johann_main_crystal_motor_cr_main
 
         y_log_fit = p(x)
         y_smooth = np.exp(y_log_fit)
+        y_smooth_roi = np.exp(y_roi_log_fit)
 
         x_extrema = p.deriv().roots()
         x_maxima = x_extrema[p.deriv().deriv()(x_extrema) < 0]
@@ -309,9 +312,9 @@ def analyze_linewidth_fly_scan(db, uid, x_key='johann_main_crystal_motor_cr_main
         if plot_func is not None:
             roi_color = _pilatus_roi_colors[i]
             roi_label = f'roi{i}'
-            plot_func(energy, intensity_smooth, intensity_smooth, cen, fwhm, roi_label=roi_label, roi_color=roi_color, )
+            plot_func(x, y / y_maximum, x_roi, y_smooth_roi / y_maximum, cen, fwhm, roi_label=roi_label, roi_color=roi_color, )
         fwhm_return = fwhm
-    return fwhm
+    return fwhm, y_maximum * y_scale
 
 
 def estimate_hm_positions_of_peak(x, y):
