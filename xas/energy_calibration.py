@@ -175,6 +175,13 @@ def get_energy_offset_old(uid, db, db_proc, dE=25, plot_fun=None, attempts=5, sl
         else:
             return e0, e_cor
 
+from tiled.queries import Key
+def get_foil_spectrum_from_db_proc(db_proc, element, edge):
+    run = db_proc.v2.search(Key('Element') == element).search(Key('Edge') == edge)[-1]
+    energy = run.primary.data['Energy'].read()
+    mu = run.primary.data['mu_norm'].read()
+    return energy, mu
+
 def get_energy_offset(uid, db, db_proc, dE=25, plot_fun=None, attempts=5, sleep_time=1, full_return=False):
     print('running get_energy_offset')
     start = db[uid].start
@@ -204,7 +211,8 @@ def get_energy_offset(uid, db, db_proc, dE=25, plot_fun=None, attempts=5, sleep_
             edge = start['edge']
             e0 = float(start['e0'])
             # energy_ref, mu_ref = get_foil_spectrum(element, edge, db_proc)
-            energy_ref, mu_ref = db_proc.foil_spectrum(element, edge)
+            # energy_ref, mu_ref = db_proc.foil_spectrum(element, edge)
+            energy_ref, mu_ref = get_foil_spectrum_from_db_proc(db_proc, element, edge)
             mask = (energy_ref >= (e0 - dE)) & (energy_ref <= (e0 + dE))
 
             energy_shift_coarse = energy_ref[np.argmin(np.abs(mu_ref - 0.5))] - energy[np.argmin(np.abs(mu - 0.5))]
