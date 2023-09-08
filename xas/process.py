@@ -3,14 +3,18 @@ from xas.bin import bin, bin_epics_fly_scan
 from xas.file_io import (load_dataset_from_files, create_file_header, validate_file_exists, validate_path_exists,
                       save_interpolated_df_as_file, save_binned_df_as_file, find_e0, save_stepscan_as_file,
                       stepscan_remove_offsets, stepscan_normalize_xs, combine_xspress3_channels, combine_pil100k_channels,
-                      filter_df_by_valid_keys, save_primary_df_as_file, save_extended_data_as_file, dump_tiff_images)
-from xas.db_io import load_apb_dataset_from_db, translate_apb_dataset, load_apb_trig_dataset_from_db, load_xs3_dataset_from_db, load_pil100k_dataset_from_db, load_apb_dataset_only_from_db, translate_apb_only_dataset
-from xas.interpolate import interpolate
-from scipy.interpolate import interp1d
-import pandas as pd
-from xas.file_io import _shift_root
-from xas.db_io import update_header_start
+                      filter_df_by_valid_keys, save_primary_df_as_file, save_extended_data_as_file, dump_tiff_images, _shift_root)
+# from xas.db_io import load_apb_dataset_from_db, translate_apb_dataset, load_apb_trig_dataset_from_db, load_xs3_dataset_from_db, load_pil100k_dataset_from_db, load_apb_dataset_only_from_db, translate_apb_only_dataset
+# from xas.interpolate import interpolate
+# from scipy.interpolate import interp1d
+# import pandas as pd
+# from xas.file_io import
+# from xas.db_io import update_header_start
 from xas.xas_logger import get_logger
+from iss_workflows.processing import get_processed_df_from_run
+from tiled.client import from_profile
+tiled_iss_client = from_profile('iss-local')
+
 # import matplotlib.pyplot as plt
 # import numpy as np
 import time as ttime
@@ -22,7 +26,6 @@ from xas.vonhamos import process_von_hamos_scan #, save_vh_scan_to_file
 import gc
 
 def process_interpolate_bin(doc, db, draw_func_interp = None, draw_func_bin = None, cloud_dispatcher = None, print_func=None, dump_to_tiff=False):
-    # logger = get_logger()
     if 'experiment' in db[doc['run_start']].start.keys():
         uid = doc['run_start']
         process_interpolate_bin_from_uid(uid, db, draw_func_interp=draw_func_interp, draw_func_bin=draw_func_bin, cloud_dispatcher=cloud_dispatcher, print_func=print_func, dump_to_tiff=dump_to_tiff)
@@ -82,91 +85,23 @@ def get_processed_df_from_uid(uid, db, logger=None, draw_func_interp=None, draw_
     if logger is None:
         logger = get_logger()
 
-        # logger = get_logger(print_func=print_func)
     hdr = db[uid]
     if update_start is not None:
         hdr = update_header_start(hdr, update_start)
-    experiment = hdr.start['experiment']
-    if experiment in _legacy_experiment_reg.keys(): experiment = _legacy_experiment_reg[experiment]
+    # experiment = hdr.start['experiment']
+    # if experiment in _legacy_experiment_reg.keys(): experiment = _legacy_experiment_reg[experiment]
     comments = create_file_header(hdr)
     path_to_file = hdr.start['interp_filename']
     path_to_file = _shift_root(path_to_file)
-    validate_path_exists(path_to_file)
-    path_to_file = validate_file_exists(path_to_file, file_type='interp')
-    e0 = find_e0(hdr)
+    (path, extension) = os.path.splitext(path_to_file)
+    path_to_file = path + '.dat'
+    # validate_path_exists(path_to_file)
+    path_to_file = validate_file_exists(path_to_file, file_type='bin')
     data_kind = 'default'
     file_list = []
 
-    if experiment == 'fly_scan':
-
-        # path_to_file = validate_file_exists(path_to_file, file_type='interp')
-        stream_names = hdr.stream_names
-        try:
-            # default detectors
-            apb_df, energy_df, energy_offset = load_apb_dataset_from_db(db, uid)
-            raw_dict = translate_apb_dataset(apb_df, energy_df, energy_offset)
-
-            for stream_name in stream_names:
-                if stream_name == 'pil100k_stream':
-                    apb_trigger_pil100k_timestamps = load_apb_trig_dataset_from_db(db, uid, use_fall=True,
-                                                                                   stream_name='apb_trigger_pil100k')
-                    pil100k_dict = load_pil100k_dataset_from_db(db, uid, apb_trigger_pil100k_timestamps, load_images=load_images)
-                    raw_dict = {**raw_dict, **pil100k_dict}
-
-                elif stream_name == 'xs_stream':
-                    apb_trigger_xs_timestamps = load_apb_trig_dataset_from_db(db, uid, stream_name='apb_trigger_xs')
-                    xs3_dict = load_xs3_dataset_from_db(db, uid, apb_trigger_xs_timestamps)
-                    raw_dict = {**raw_dict, **xs3_dict}
-
-            logger.info(f'({ttime.ctime()}) Loading file successful for UID {uid}/{path_to_file}')
-        except Exception as e:
-            logger.info(f'({ttime.ctime()}) Loading file failed for UID {uid}/{path_to_file}')
-            raise e
-        try:
-            interpolated_df = interpolate(raw_dict)
-            logger.info(f'({ttime.ctime()}) Interpolation successful for {path_to_file}')
-            if save_interpolated_file:
-                save_interpolated_df_as_file(path_to_file, interpolated_df, comments)
-        except Exception as e:
-            logger.info(f'({ttime.ctime()}) Interpolation failed for {path_to_file}')
-            raise e
-
-        try:
-            if e0 > 0:
-                processed_df = bin(interpolated_df, e0, **rebin_kwargs)
-                (path, extension) = os.path.splitext(path_to_file)
-                path_to_file = path + '.dat'
-                logger.info(f'({ttime.ctime()}) Binning successful for {path_to_file}')
-
-                if draw_func_interp is not None:
-                    draw_func_interp(interpolated_df)
-                if draw_func_bin is not None:
-                    draw_func_bin(processed_df, path_to_file)
-            else:
-                print(f'({ttime.ctime()}) Energy E0 is not defined')
-        except Exception as e:
-            logger.info(f'({ttime.ctime()}) Binning failed for {path_to_file}')
-            raise e
-
-        # save_binned_df_as_file(path_to_file, processed_df, comments)
-
-
-    elif (experiment == 'step_scan') or (experiment == 'collect_n_exposures'):
-        # path_to_file = validate_file_exists(path_to_file, file_type='interp')
-        df = stepscan_remove_offsets(hdr)
-        df = stepscan_normalize_xs(df)
-        processed_df = filter_df_by_valid_keys(df)
-        # df_processed = combine_xspress3_channels(df)
-
-    elif experiment == 'epics_fly_scan':
-        processed_df = get_processed_df_from_uid_for_epics_fly_scan(db, uid, save_interpolated_file=True,
-                                                                    path_to_file=path_to_file,
-                                                                    comments=comments, load_images=load_images)
-    else:
-        return
-
-    processed_df = combine_xspress3_channels(processed_df)
-    processed_df = combine_pil100k_channels(processed_df)
+    run = tiled_iss_client[uid]
+    md, processed_df = get_processed_df_from_run(run)
 
     if return_processed_df:
         return processed_df
@@ -204,7 +139,7 @@ def split_df_data_into_primary_and_extended(df_orig):
 
 
 def clear_db_cache(db):
-    db._catalog._entries.cache_clear()
+    # db._catalog._entries.cache_clear()
     gc.collect()
 
 
