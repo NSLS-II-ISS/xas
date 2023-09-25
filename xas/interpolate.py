@@ -13,7 +13,8 @@ def interpolate(dataset, key_base = None, sort=True):
         time_step = []
         for key in dataset.keys():
             all_keys.append(key)
-            time_step.append(np.mean(np.diff(dataset[key].timestamp)))
+            # time_step.append(np.mean(np.diff(dataset[key].timestamp)))
+            time_step.append(np.median(np.diff(dataset[key].timestamp)))
         key_base = all_keys[np.argmax(time_step)]
     timestamps = dataset[key_base].iloc[:,0]
 
