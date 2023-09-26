@@ -91,6 +91,38 @@ class Nominal2ActualConverter:
     def act2nom(self, e_act):
         return np.polyval(self.p_a2n, e_act)
 
+class Nominal2ActualConverterWithLinearInterpolation:
 
+    def __init__(self):
+        self.x_nom = []
+        self.x_act = []
+
+    def append_point(self, x_nom, x_act):
+        if np.any(np.isclose(x_nom, self.x_nom, atol=1e-4)) or np.any(np.isclose(x_act, self.x_act, atol=1e-4)):
+            return
+        self.x_nom.append(x_nom)
+        self.x_act.append(x_act)
+
+    @property
+    def npt(self):
+        return len(self.x_nom)
+
+    def nom2act(self, x_nom):
+        if self.npt == 0:
+            return x_nom
+        elif self.npt == 1:
+            return x_nom - (self.x_nom[0] - self.x_act[0])
+        else:
+            f = interpolate.interp1d(self.x_nom, self.x_act, kind='linear', fill_value='extrapolate')
+            return f(x_nom)
+
+    def act2nom(self, x_act):
+        if self.npt == 0:
+            return x_act
+        elif self.npt == 1:
+            return x_act - (self.x_act[0] - self.x_nom[0])
+        else:
+            f = interpolate.interp1d(self.x_act, self.x_nom, kind='linear', fill_value='extrapolate')
+            return f(x_act)
 
 

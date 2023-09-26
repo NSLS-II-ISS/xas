@@ -1567,3 +1567,39 @@ for uid in range(389880, 389938):
     else:
         pass
 np.savetxt(path + f"Aux5 x value.dat", np.column_stack((X)))
+
+def get_timestamps_for_pbs(uid, db):
+    hdr = db[uid]
+    t_apb = hdr.table(stream_name='apb_stream', fill=True)
+    t_enc = hdr.table(stream_name='pb9_enc1', fill=True)
+    time_enc = t_enc['pb9_enc1'][1][:, 0] + t_enc['pb9_enc1'][1][:, 1]*1e-9
+    time_apb = t_apb['apb_stream'][1][:, 0]
+    return time_apb, time_enc
+
+
+time_apb_sn, time_enc_sn =  get_timestamps_for_pbs('86011010-7b40-4987-abd0-106f8b31a86d', db)
+time_apb_in, time_enc_in =  get_timestamps_for_pbs('a159e8ca-b4ed-4dde-b0ed-a2e6f4875067', db) # Sep 2023
+# time_apb_in, time_enc_in =  get_timestamps_for_pbs('8d45c349', db) # June 2023
+
+plt.figure(1, clear=True)
+plt.plot(time_enc_sn - time_enc_sn[0], '.-')
+plt.plot(time_enc_in - time_enc_in[0], '.-')
+
+
+_, time_enc_in_now =  get_timestamps_for_pbs('a159e8ca-b4ed-4dde-b0ed-a2e6f4875067', db) # Sep 2023
+_, time_enc_in_old = get_timestamps_for_pbs('8d45c349', db) # June 2023
+
+plt.figure(1, clear=True)
+plt.plot(time_enc_in_now - time_enc_in_now[0], '.-')
+plt.plot(time_enc_in_old - time_enc_in_old[0], '.-')
+
+
+
+# _, time_enc_cu_now =  get_timestamps_for_pbs('73761037-9d85-435b-a4a8-bb168baa73a0', db)
+_, time_enc_cu_now =  get_timestamps_for_pbs('e6bbc310-aa06-4f87-8edc-bd1864088a38', db)
+# _, time_enc_cu_now =  get_timestamps_for_pbs('e018c7bb-37ba-4a7d-8d9c-185ad579b7ab', db)
+_, time_enc_cu_old = get_timestamps_for_pbs('3d265b3a', db)
+
+plt.figure(1, clear=True)
+plt.plot(time_enc_cu_now - time_enc_cu_now[0], '.-')
+plt.plot(time_enc_cu_old - time_enc_cu_old[0], '.-')
