@@ -1603,3 +1603,44 @@ _, time_enc_cu_old = get_timestamps_for_pbs('3d265b3a', db)
 plt.figure(1, clear=True)
 plt.plot(time_enc_cu_now - time_enc_cu_now[0], '.-')
 plt.plot(time_enc_cu_old - time_enc_cu_old[0], '.-')
+
+
+R = 500
+
+hkl1 = [1, 1, 1]
+hkl2 = [1, 1, 0]
+cos_alpha = np.dot(hkl1, hkl2)/np.linalg.norm(hkl1)/np.linalg.norm(hkl2)
+alpha = np.arccos(cos_alpha)
+alpha_deg = np.rad2deg(alpha)
+
+bragg_deg = 90 - alpha_deg + 2.15
+print(f'{bragg_deg=}, {alpha_deg=}')
+
+bragg = np.deg2rad(bragg_deg)
+
+# bragg = np.deg2rad(45)
+# alpha = np.deg2rad(45) # 0*np.deg2rad(np.rad2deg(np.arccos(np.sqrt(2/3))))
+crystal_x = R * np.sin(bragg + alpha) * np.sin(bragg - alpha)
+crystal_y = R * np.sin(bragg + alpha) * np.cos(bragg - alpha)
+det_x = 0
+det_y = 2 * R * np.sin(bragg) * np.cos(bragg)
+K_x = R * np.sin(bragg)**2 - R/2
+K_y = R * np.sin(bragg)*np.cos(bragg)
+
+phi = np.deg2rad(np.linspace(0, 360, 361))
+KK_x = R/2 * np.cos(phi) + K_x
+KK_y = R/2 * np.sin(phi) + K_y
+
+plt.figure(1, clear=True)
+plt.plot(0, 0, 'ko')
+
+plt.plot(crystal_x, crystal_y, 'bo')
+plt.plot(det_x, det_y, 'go')
+plt.plot([0, crystal_x, det_x], [0, crystal_y, det_y], 'k-')
+
+plt.plot(K_x, K_y, 'mo')
+plt.plot(KK_x, KK_y, 'm-')
+
+plt.xlim(-500, 1000)
+plt.ylim(-500, 1000)
+plt.axis('equal')

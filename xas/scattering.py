@@ -4,13 +4,13 @@ import numpy as np
 import pyFAI as pyFAI
 import kkcalc, kkcalc.data, kkcalc.kk
 
+from xas.xasproject import XASDataSet
 
 
-
-def get_ai(dist=40, center_ver=93, center_hor=440,
+def get_ai(dist=40, center_ver=37., center_hor=45.,
            pixel1=0.172, pixel2=0.172,
            rot1=0, rot2=0, rot3=np.pi/2,
-           energy=11300):
+           energy=24350):
     wavelength = 12.3984 / energy * 1e-3 * 1e-10
     ai = pyFAI.AzimuthalIntegrator(dist=dist*1e-3,
                                    poni1=center_ver * pixel1 * 1e-3, poni2=center_hor * pixel2 * 1e-3,
@@ -19,24 +19,31 @@ def get_ai(dist=40, center_ver=93, center_hor=440,
                                    wavelength=wavelength)
     return ai
 
-# ai = get_ai()
+ai = get_ai()
 #
-# image = np.array(data['pil100k_image'][0])
-# mask = image < np.percentile(image.ravel(), 5)
-# #
-# # # res = ai.integrate1d_ng(np.array(data_list[0]),
-# # #                         1000,
-# # #                         mask=mask,
-# # #                         unit="2th_deg")
-# # # jupyter.plot1d(res)
-# #
-# res2 = ai.integrate2d_ng(image,
-#                          300, 360,
-#                          mask=mask,
-#                          unit="r_mm")
-#
-# jupyter.plot2d(res2)
+res2 = ai.integrate2d_ng(df.pil100k_image[0],
+                         300, 360, mask=mask,
+                         unit="r_mm")
+fig, ax = plt.subplots(1, clear=True, num=1)
+from pyFAI.gui import jupyter
+jupyter.plot2d(res2, ax=ax)
 
+
+def generate_mask(df, image_key='pil100k_image', log_thresh_lo=None, log_thresh_hi=None, mask_edges=True):
+    img_av = df[image_key].mean()
+    mask = np.zeros(img_av.shape, dtype=bool)
+    mask[np.isnan(np.log(img_av))] = 1
+    if log_thresh_lo is not None: mask[np.log10(img_av) <= log_thresh_lo] = 1
+    if log_thresh_hi is not None: mask[np.log10(img_av) >= log_thresh_hi] = 1
+    if mask_edges:
+        mask[0, :] = 1
+        mask[-1, :] = 1
+        mask[:, 0] = 1
+        mask[:, -1] = 1
+    return mask
+
+mask = generate_mask(df, log_thresh_lo=3.0, log_thresh_hi=5.0)
+plt.figure(1, clear=True); plt.imshow(mask)
 
 
 # hdr = db['928a1184-5ea7-4eb3-aa44-3b5b725ce1b3']# Ir dimer sample
@@ -91,17 +98,17 @@ def process_image(image, nw=5):
 # process_image(image)
 
 
-def integrate_pil100k_image_stack(images_array, energy, dist=40, center_ver=93, center_hor=440, deadtime_cor=False):
+def integrate_pil100k_image_stack(images_array, energy, dist=40, center_ver=93, center_hor=440, deadtime_cor=False, mask=None):
     ai = get_ai(dist=dist, center_ver=center_ver, center_hor=center_hor)
     s = []
-    mask = None
+    # mask = None
     for image in images_array:
         if deadtime_cor:
             image *= np.exp(-image * 25 * 160e-9)
         if mask is None:
             mask = image < np.percentile(image.ravel(), 5)
         res = ai.integrate1d_ng(image,
-                                350,
+                                700,
                                 mask=mask,
                                 unit="2th_deg")
         s.append(res[1])
@@ -118,35 +125,87 @@ def integrate_pil100k_image_stack(images_array, energy, dist=40, center_ver=93, 
 
     return q, sq
 
-#
+# reduced
+df =  get_processed_df_from_uid('abaa4995-9bd1-4a5b-9b2d-4338ea30ab12', db, logger=None, draw_func_interp=None, draw_func_bin=None,
+                                print_func=None, save_interpolated_file=False, return_processed_df=True, load_images=True)
+q, sq = integrate_pil100k_image_stack(df.pil100k_image / (df.i0 / df.i0.median()), df.energy.values, dist=50, center_ver=37, center_hor=45, mask=mask)
+df['sq'] = sq.T.tolist()
+
+df['mu'] = df['iff'] / df['i0']
+
+def flatten_mu(df):
+    ds = XASDataSet(mu=df['mu'], energy=df['energy'])
+    ds.flatten()
+    df['flat'] = ds.flat
+
+flatten_mu(df)
+
+
+
+
+# uids = list(range(12594, 12604))
+uids = [ 'abaa4995-9bd1-4a5b-9b2d-4338ea30ab12',
+         '4989c59b-76a0-46dd-8723-51fd6f1ff6e5',
+         '138e62df-c191-4831-9249-a5d252e8b6e8',
+         '318cec96-5213-4773-baf2-da50cae02f2d',
+         'd6b89a0d-1cf5-4b0b-8695-bc84cb5007e5',
+         'a257ea3f-0087-4fa2-9bdb-ec2b5d2008ce',
+         'afcb00dc-551d-4fc1-b50c-3da84ca85c1c',
+         'd07d25a0-add8-4b1b-acc0-eb26c31f972d',
+         '72ef63d1-77f1-4730-88c0-eb17334ca0b4',
+         '1df48476-96b6-4b66-a1ca-79704b6ba00e']
+
+dfs = []
+sq_list = []
+for uid in uids:
+     df =  get_processed_df_from_uid(uid, db, logger=None, draw_func_interp=None, draw_func_bin=None,
+                                                                                print_func=None, save_interpolated_file=False, return_processed_df=True,
+                                                                                load_images=True)
+     q, _sq = integrate_pil100k_image_stack(df.pil100k_image / (df.i0 / df.i0.median()), df.energy.values, dist=50, center_ver=37, center_hor=45, mask=mask)
+     sq_list.append(_sq)
+     dfs.append(df)
+
+sq_av = np.mean(np.array(sq_list), axis=0)
+
+plt.figure(1, clear=True)
+plt.imshow(sq_av)
+
+plt.figure(2, clear=True)
+plt.contourf(df.energy, q, sq_av, 50)
+
+plt.figure(3, clear=True)
+plt.plot(df.energy, sq_av[260:261, :].T)
+plt.plot(df.energy, sq_av[400:401, :].T)
+# plt.plot(q[250:275], sq_av[250:275, ::50])
+
 # fname_base = 'Ir sample 2 scan AXS wide 600 um'
 
 # reprocess the data
 # process files for sample 2 with AXS wide trajectory
-from xas.process import process_interpolate_bin_from_uid
-# for i in range(255080, 255104+1):
-for i in range(255114, 255313 + 1):
-    print(i)
-    process_interpolate_bin_from_uid(i, db)
+# from xas.process import process_interpolate_bin_from_uid
+# # for i in range(255080, 255104+1):
+# for i in range(255114, 255313 + 1):
+#     print(i)
+#     process_interpolate_bin_from_uid(i, db)
 
-from xas.file_io import load_binned_df_and_extended_data_from_file, save_extended_data_as_file
-folder = '/nsls2/data/iss/legacy/processed/2022/2/300011/'
-fname_base = 'Ir sample 1 scan AXS wide 600 um data'
+# from xas.file_io import load_binned_df_and_extended_data_from_file, save_extended_data_as_file
+# folder = '/nsls2/data/iss/legacy/processed/2022/2/300011/'
+# fname_base = 'Ir sample 1 scan AXS wide 600 um data'
 
 
 
-dist=40
-center_ver=105
-center_hor=438
-for i in range(2, 201):
-    f = f'{folder}{fname_base} {i:04d}-r0003.dat'
-    df_i, ext_data_i, _ = load_binned_df_and_extended_data_from_file(f)
-    q_i, sq_i = integrate_pil100k_image_stack(ext_data_i['pil100k_image'], df_i['energy'], dist=dist, center_ver=center_ver, center_hor=center_hor)
-    int_data_i = {'q' : q_i, 'sq' : sq_i, 'dist' : dist, 'center_ver' : center_ver, 'center_hor' : center_hor}
-    f_int = f'{f[:-4]}_int.dat'
-    save_extended_data_as_file(f_int, int_data_i, data_kind='default', ext_data_path='extended_data')
-
-    # if df is None:
+# dist=40
+# center_ver=105
+# center_hor=438
+# for i in range(2, 201):
+#     f = f'{folder}{fname_base} {i:04d}-r0003.dat'
+#     df_i, ext_data_i, _ = load_binned_df_and_extended_data_from_file(f)
+#     q_i, sq_i = integrate_pil100k_image_stack(ext_data_i['pil100k_image'], df_i['energy'], dist=dist, center_ver=center_ver, center_hor=center_hor)
+#     int_data_i = {'q' : q_i, 'sq' : sq_i, 'dist' : dist, 'center_ver' : center_ver, 'center_hor' : center_hor}
+#     f_int = f'{f[:-4]}_int.dat'
+#     save_extended_data_as_file(f_int, int_data_i, data_kind='default', ext_data_path='extended_data')
+#
+#     # if df is None:
 #         df = df_i
 #         data = ext_data_i['pil100k_image']
 
@@ -370,6 +429,55 @@ def kk_calculate_real_from_array(energy, mu_flat, element, merge_points=None, ad
     return output_data
 
 
+def kkcalc_data_calculate_asf(Stoichiometry):
+    """Sum scattering factor data for a given chemical stoichiometry.
+
+    Parameters
+    ----------
+    Stoichiometry : a list of elemental symbol,number pairs
+
+    Returns
+    -------
+    total_E: 1D numpy array listing the starting photon energies of the segments that the spectrum is broken up into.
+    total_Im_coeffs: nx5 numpy array in which each row lists the polynomial coefficients describing the shape of the spectrum in that segment.
+    """
+    ELEMENT_DATABASE = kkcalc.data.load_Element_Database()
+    logger = kkcalc.data.logger
+    numpy = np
+    logger.info("Calculate material scattering factor data from the given stoichiometry")
+
+    if len(Stoichiometry) is 0:
+        logger.error("No elements described by input.")
+        return None
+    else:
+        # get unique energy points
+        total_E = numpy.array([])
+        for element, n in Stoichiometry:
+            total_E = numpy.concatenate((total_E, ELEMENT_DATABASE[str(element)]['E']))
+        total_E = numpy.unique(total_E)
+        # add weighted asf data sets for KK calculation
+        total_Im_coeffs = numpy.zeros((len(total_E) - 1, 5))
+        counters = numpy.zeros((len(Stoichiometry)), dtype=numpy.int64)
+        for i, E in enumerate(total_E[1:]):
+            sum_Im_coeffs = 0
+            for j in range(len(counters)):
+                sum_Im_coeffs += Stoichiometry[j][1] * ELEMENT_DATABASE[str(Stoichiometry[j][0])]['Im'][counters[j], :]
+                counters[j] += ELEMENT_DATABASE[str(Stoichiometry[j][0])]['E'][counters[j] + 1] == E
+            total_Im_coeffs[i, :] = sum_Im_coeffs
+        return total_E, total_Im_coeffs
+
+Full_E, Imaginary_Spectrum = kkcalc_data_calculate_asf(Stoichiometry)
+
+Stoichiometry = kkcalc.data.ParseChemicalFormula('Pd')
+Relativistic_Correction = kkcalc.kk.calc_relativistic_correction(Stoichiometry)
+Full_E, Imaginary_Spectrum = kkcalc.data.calculate_asf(Stoichiometry)
+_data = np.vstack((df.energy, df.flat)).T
+NearEdge_Data = kkcalc.data.convert_data(_data, FromType='xanes', ToType='asf')
+Full_E, Imaginary_Spectrum = kkcalc.data.merge_spectra(NearEdge_Data, Full_E, Imaginary_Spectrum, merge_points=None, add_background=True, fix_distortions=False)
+Real_Spectrum = kkcalc.kk.KK_PP(Full_E, Full_E, Imaginary_Spectrum, Relativistic_Correction)
+Imaginary_Spectrum_Values = kkcalc.data.coeffs_to_ASF(Full_E, np.vstack((Imaginary_Spectrum, Imaginary_Spectrum[-1])))
+output_data = np.vstack((Full_E, Real_Spectrum, Imaginary_Spectrum_Values)).T
+
 def compute_f_real_imag(energy, mu_flat, element):
     ff_data = kk_calculate_real_from_array(energy, mu_flat, element)
     ff_energy, ff_real, ff_imag = ff_data.T
@@ -425,7 +533,7 @@ def process_scattering_dataset(ds, dist=40, center_ver=93, center_hor=440, plott
         plt.plot(ds.q, anomalous_scat[1, :])
 
 
-process_scattering_dataset(x[0])
+# process_scattering_dataset(x[0])
 # bla = kk_calculate_real_from_array(energies, iff, 'Ir')
 #
 # import xraydb
