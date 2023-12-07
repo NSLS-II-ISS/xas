@@ -76,6 +76,8 @@ metadata_dict = OrderedDict({
 'sample_heater_2_T_rb':         {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{DIODE-Box_B2:5}InCh1:Data-I',          'human_readable_key': 'SampleHeater.temperature2.readback'},
 'sample_heater_2_volt_sp':      {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{DIODE-Box_B1:11}OutCh0:Data-SP',       'human_readable_key': 'SampleHeater.voltage.setpoint'},
 'sample_heater_2_volt_rb' :     {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{DIODE-Box_B1:11}OutCh0:Data-RB',       'human_readable_key': 'SampleHeater.voltage.readback'},
+'sample_cryostat_a_T_rb' :      {'kind' : 'epics_pv', 'pv_str': 'XF:08ID-ES{LS:331-1}:SAMPLE_A',                    'human_readable_key': 'SampleCryostat.temperature.A.readback'},
+'sample_cryostat_b_T_rb' :      {'kind' : 'epics_pv', 'pv_str': 'XF:08ID-ES{LS:331-1}:SAMPLE_B',                    'human_readable_key': 'SampleCryostat.temperature.B.readback'},
 'sample_heater_PID_KP' :        {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{FbPid:01}PID.KP',                      'human_readable_key': 'SampleHeater.PID.P'},
 'sample_heater_PID_KI' :        {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{FbPid:01}PID.KI',                      'human_readable_key': 'SampleHeater.PID.I'},
 'sample_heater_PID_KD' :        {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{FbPid:01}PID.KD',                      'human_readable_key': 'SampleHeater.PID.D'},
