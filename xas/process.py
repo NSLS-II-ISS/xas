@@ -107,10 +107,15 @@ def get_processed_df_from_uid(uid, db, logger=None, draw_func_interp=None, draw_
             raw_dict = translate_apb_dataset(apb_df, energy_df, energy_offset)
 
             for stream_name in stream_names:
-                if stream_name == 'pil100k_stream':
+                if (stream_name == 'pil100k_stream') or (stream_name == 'pil100k2_stream'):
+                    pil100k_stream_name = stream_name
+                    pil100k_name = stream_name.split('_')[0]
+                    apb_trigger_stream_name = f'apb_trigger_{pil100k_name}'
                     apb_trigger_pil100k_timestamps = load_apb_trig_dataset_from_db(db, uid, use_fall=True,
-                                                                                   stream_name='apb_trigger_pil100k')
-                    pil100k_dict = load_pil100k_dataset_from_db(db, uid, apb_trigger_pil100k_timestamps, load_images=load_images)
+                                                                                   stream_name=apb_trigger_stream_name)
+                    pil100k_dict = load_pil100k_dataset_from_db(db, uid, apb_trigger_pil100k_timestamps,
+                                                                pil100k_stream_name=pil100k_stream_name,
+                                                                load_images=load_images)
                     raw_dict = {**raw_dict, **pil100k_dict}
 
                 elif stream_name == 'xs_stream':
@@ -238,10 +243,14 @@ def get_processed_df_from_uid_for_epics_fly_scan(db, uid, save_interpolated_file
                 apb_df = load_apb_dataset_only_from_db(db, uid)
                 raw_dict = {**raw_dict, **translate_apb_only_dataset(apb_df)}
 
-            elif stream_name == 'pil100k_stream':
+            elif (stream_name == 'pil100k_stream') or (stream_name == 'pil100k2_stream'):
+                pil100k_stream_name = stream_name
+                pil100k_name = stream_name.split('_')[0]
+                apb_trigger_stream_name = f'apb_trigger_{pil100k_name}'
                 apb_trigger_pil100k_timestamps = load_apb_trig_dataset_from_db(db, uid, use_fall=True,
-                                                                               stream_name='apb_trigger_pil100k')
-                pil100k_dict = load_pil100k_dataset_from_db(db, uid, apb_trigger_pil100k_timestamps, load_images=load_images)
+                                                                               stream_name=apb_trigger_stream_name)
+                pil100k_dict = load_pil100k_dataset_from_db(db, uid, apb_trigger_pil100k_timestamps,
+                                                            pil100k_stream_name=pil100k_stream_name, load_images=load_images)
                 raw_dict = {**raw_dict, **pil100k_dict}
 
             elif stream_name == 'xs_stream':

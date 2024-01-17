@@ -202,17 +202,18 @@ def _load_pil100k_dataset_from_db_legacy(db, uid, apb_trig_timestamps, input_typ
         return output
 
 
-def _load_pil100k_dataset_from_db(db, uid, apb_trig_timestamps, load_images=False):
+def _load_pil100k_dataset_from_db(db, uid, apb_trig_timestamps, pil100k_stream_name='pil100k_stream', load_images=False):
     hdr = db[uid]
     output = {}
     # t = hdr.table(stream_name='pil100k_stream', fill=True)
-    field_list = ['pil100k_roi1', 'pil100k_roi2', 'pil100k_roi3', 'pil100k_roi4']#, 'pil100k_image']
-    _t = {field : list(hdr.data(stream_name='pil100k_stream', field=field))[0] for field in field_list}
+    pil100k_name = pil100k_stream_name.split('_')[0]
+    field_list = [f'{pil100k_name}_roi{i}' for i in range(1, 5)]#, 'pil100k_image']
+    _t = {field : list(hdr.data(stream_name=pil100k_stream_name, field=field))[0] for field in field_list}
     if load_images:
-        _t['pil100k_image'] = [i for i in list(hdr.data(stream_name='pil100k_stream', field='pil100k_image'))[0]]
+        _t[f'{pil100k_name}_image'] = [i for i in list(hdr.data(stream_name=pil100k_stream_name, field=f'{pil100k_name}_image'))[0]]
     t = pd.DataFrame(_t)
     # n_images = t.shape[0]
-    n_images = min(t['pil100k_roi1'].size, apb_trig_timestamps.size)
+    n_images = min(t[f'{pil100k_name}_roi1'].size, apb_trig_timestamps.size)
     pil100k_timestamps = apb_trig_timestamps[:n_images]
     keys = [k for k in t.keys() if (k != 'time') ]#and (k != 'pil100k_image')]
     t = t[:n_images]
@@ -228,9 +229,9 @@ def _load_pil100k_dataset_from_db(db, uid, apb_trig_timestamps, load_images=Fals
     #
     # return spectra
 
-def load_pil100k_dataset_from_db(db, uid, apb_trig_timestamps, load_images=False):
+def load_pil100k_dataset_from_db(db, uid, apb_trig_timestamps, pil100k_stream_name='pil100k_stream', load_images=False):
     try:
-        return _load_pil100k_dataset_from_db(db, uid, apb_trig_timestamps, load_images=load_images)
+        return _load_pil100k_dataset_from_db(db, uid, apb_trig_timestamps, pil100k_stream_name=pil100k_stream_name, load_images=load_images)
     except Exception as e:
         print(f'Failed to read pilatus data. Reason: {e}')
         print('Attempting to use legacy loader')
