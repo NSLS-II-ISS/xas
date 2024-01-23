@@ -273,7 +273,7 @@ def analyze_linewidth_fly_scan(db, uid, x_key='johann_main_crystal_motor_cr_main
     for i in rois:
         field = f'{field_base}_roi{i}'
         print(field)
-        y = np.abs(df[field].values / df['i0'].values)
+        y = np.abs(df[field].values / (df['i0'] / df['i0'].median()).values)
 
         y, y_scale = normalize_peak(y, bkg1=5, bkg2=-5, nmax=5, return_scale=True)
 
@@ -308,6 +308,7 @@ def analyze_linewidth_fly_scan(db, uid, x_key='johann_main_crystal_motor_cr_main
         # y_smooth = normalize_peak(y_smooth, bkg1=5, bkg2=-5, nmax=5)
         # cen, fwhm = estimate_center_and_width_of_peak(x, y_smooth)
         print(f'{field}: {cen=:0.3f}, {fwhm=:0.3f}')
+        x_com = np.sum(y_smooth_roi * x_roi) / np.sum(y_smooth_roi)
 
         # plt.plot(x, y/y_maximum, '.')
         # plt.plot(x_roi, y_roi_fit/y_maximum, '-')
@@ -317,7 +318,7 @@ def analyze_linewidth_fly_scan(db, uid, x_key='johann_main_crystal_motor_cr_main
             roi_label = f'roi{i}'
             plot_func(x, y / y_maximum, x_roi, y_smooth_roi / y_maximum, cen, fwhm, roi_label=roi_label, roi_color=roi_color, )
         fwhm_return = fwhm
-    return fwhm, y_maximum * y_scale
+    return fwhm, y_maximum * y_scale, x_maximum, x_com
 
 
 def estimate_hm_positions_of_peak(x, y):
