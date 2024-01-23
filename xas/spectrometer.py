@@ -268,8 +268,11 @@ def analyze_linewidth_fly_scan(db, uid, x_key='johann_main_crystal_motor_cr_main
     x = df[x_key].values
     if rois is None: rois = [1]
 
+    field_base = 'pil100k2' if 'pil100k2_roi1' in df.columns else 'pil100k'
+
     for i in rois:
-        field = f'pil100k_roi{i}'
+        field = f'{field_base}_roi{i}'
+        print(field)
         y = np.abs(df[field].values / df['i0'].values)
 
         y, y_scale = normalize_peak(y, bkg1=5, bkg2=-5, nmax=5, return_scale=True)
