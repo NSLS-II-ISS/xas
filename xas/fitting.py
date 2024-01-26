@@ -35,13 +35,17 @@ def estimate_center_and_width_of_peak(E, I):
 
 def estimate_center_and_width_of_peak_update(E, I):
     # updated to not require normalized spectrum
-    E_cen = E[np.argmax(np.abs(I))]
-    x = np.abs(I - 0.5*(I.max() - I.min()))
-    e_low = E < E_cen
-    e_high = E > E_cen
-    x1 = E[e_low][np.argmin(x[e_low])]
-    x2 = E[e_high][np.argmin(x[e_high])]
-    fwhm = np.abs(x1 - x2)
+    I_norm = (I - I.min()) / (I.max() - I.min())
+    E_grid = np.linspace(E.min(), E.max(), E.size * 10)
+    I_grid_norm = np.interp(E_grid, E[np.argsort(E)], I_norm[np.argsort(E)])
+    return estimate_center_and_width_of_peak(E_grid, I_grid_norm)
+    # E_cen = E[np.argmax(np.abs(I))]
+    # x = np.abs(I - 0.5*(I.max() - I.min()))
+    # e_low = E < E_cen
+    # e_high = E > E_cen
+    # x1 = E[e_low][np.argmin(x[e_low])]
+    # x2 = E[e_high][np.argmin(x[e_high])]
+    # fwhm = np.abs(x1 - x2)
     return E_cen, fwhm
 
 

@@ -11,8 +11,11 @@ from scipy.ndimage import center_of_mass, rotate
 from scipy import linalg
 from sklearn.covariance import MinCovDet
 
+PILATUS_KEY = 'Pilatus 100k New'
 
-DET2KEY = {'Pilatus 100k' : 'pil100k'}
+DET2KEY = {'Pilatus 100k' : 'pil100k',
+           'Pilatus 100k New': 'pil100k2'}
+
 
 def percentile_threshold_filter(im2d, pmin=5, pmax=99.5):
     """ set values below percentile equal to 0 """
@@ -41,7 +44,7 @@ def project_pt2line(x_pt, y_pt, p_xy):
     return x_proj, y_proj
 
 
-def get_roi(metadata, roi='roi1', detector='Pilatus 100k'):
+def get_roi(metadata, roi='roi1', detector=PILATUS_KEY):
     rois = metadata['detectors'][detector]['config']['roi']
     roi_ = rois[roi]
     return roi_
@@ -49,12 +52,12 @@ def get_roi(metadata, roi='roi1', detector='Pilatus 100k'):
 
 def get_image_array(extended_data):
     try:
-        det_image = extended_data['pil100k_image']
+        det_image = extended_data['pil100k2_image']
         image_array = np.array(list(det_image)).squeeze()
         if image_array.ndim == 2: # this is to handle "over-squeezing"
             image_array = image_array[None, :, :]
     except:
-        det_image = extended_data['data_vars']['pil100k_image']['data']
+        det_image = extended_data['data_vars']['pil100k2_image']['data']
         image_array = np.array(det_image).squeeze()
     return image_array
 
@@ -142,14 +145,16 @@ def run_calibration(image_stack_roi, energies, n_poly=2, output_diagnostics=Fals
     p_xe = np.polyfit(x_pix_centers, energies, n_poly)
 
     if output_diagnostics:
+        plot_calibration_diagnostics(np.sum(image_stack_roi, axis=0), energies,
+                                     x_pix, intensity_total, intensity_total_fit, x_pix_centers, fwhms, p_xy, p_xe)
         return p_xy, p_xe, x_pix, intensity_total, intensity_total_fit, x_pix_centers
     else:
         return p_xy, p_xe
 
 
-def plot_calibration_diagnostics(image_total,
+def plot_calibration_diagnostics(image_total, energies,
                                  x_pix, intensity_total, intensity_total_fit,
-                                 x_pix_centers, p_xy, p_xe):
+                                 x_pix_centers, fwhms, p_xy, p_xe):
     y_pix_centers = np.polyval(p_xy, x_pix_centers)
     ax1 = plt.subplot(221)
     ax1.imshow(image_total)
@@ -189,7 +194,7 @@ def get_cropped_image_stack(data, roi_coords):
     image_stack = crop_roi(image_stack, roi_coords)
     return image_stack
 
-def process_calibration_for_roi(df, md, roi='roi1', roi_dict=None, detector='Pilatus 100k', output_diagnostics=False):
+def process_calibration_for_roi(df, md, roi='roi1', roi_dict=None, detector=PILATUS_KEY, output_diagnostics=False):
     if roi_dict is None:
         roi_dict = md['detectors'][detector]['config']['roi']
     image_stack = get_cropped_image_stack(df, roi_dict[roi])
@@ -206,13 +211,13 @@ def process_calibration_for_roi_uid(uid, db, **kwargs):
     df = hdr.table(fill=True)
     return process_calibration_for_roi(df, md, **kwargs)
 
-def scan_and_calibration_roi_match(md, uid_calibration, db, roi='roi1', detector='Pilatus 100k'):
+def scan_and_calibration_roi_match(md, uid_calibration, db, roi='roi1', detector=PILATUS_KEY):
     md_calibration = db[uid_calibration].start
     roi_scan = get_roi(md, roi=roi, detector=detector)
     roi_calibration = get_roi(md_calibration, roi=roi, detector=detector)
     return (roi_scan == roi_calibration)
 
-def apply_calibration_for_roi(df, extended_data, md, uid_calibration, db, roi='roi1', roi_dict=None, detector='Pilatus 100k', droi=5):
+def apply_calibration_for_roi(df, extended_data, md, uid_calibration, db, roi='roi1', roi_dict=None, detector=PILATUS_KEY, droi=5):
 
 
     if roi_dict is None:
@@ -259,7 +264,7 @@ def apply_calibration_for_roi(df, extended_data, md, uid_calibration, db, roi='r
 
 
 def process_von_hamos_scan(df, extended_data, comments, hdr, path_to_file, db=None,
-                           detector='Pilatus 100k', roi_keys=None, roi_dict=None,
+                           detector=PILATUS_KEY, roi_keys=None, roi_dict=None,
                            droi=5, save_dat=True):
     comments += f'# Spectrometer.type: von Hamos\n' \
                 f'# Spectrometer.detector: {detector}'
@@ -354,7 +359,7 @@ def save_vh_data_to_file(path_to_file, df, vh_data_dict, comments):
 
 
 
-def process_von_hamos_scan_legacy(df, extended_data, comments, hdr, path_to_file, detector='Pilatus 100k', roi='auto', droi=5, save_dat=True):
+def process_von_hamos_scan_legacy(df, extended_data, comments, hdr, path_to_file, detector=PILATUS_KEY, roi='auto', droi=5, save_dat=True):
 
     # if ('spectrometer_scan_kind' in hdr.start.keys()) and (hdr.start['spectrometer_scan_kind'] == 'calibration'):
     #     vh_scan = VonHamosCalibration(df, extended_data)
