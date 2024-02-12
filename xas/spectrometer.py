@@ -262,7 +262,8 @@ def analyze_elastic_scan(db, uid):
 #         fwhm_return = fwhm
 #     return fwhm
 
-def analyze_linewidth_fly_scan(db, uid, x_key='johann_main_crystal_motor_cr_main_roll', rois=None, plot_func=None):
+def analyze_linewidth_fly_scan(db, uid, x_key='johann_main_crystal_motor_cr_main_roll', rois=None,
+                               plot_func=None, **plot_kwargs):
     fname_bin = db[uid].start['interp_filename'][:-3] + 'dat'
     df, _ = load_binned_df_from_file(fname_bin)
     x = df[x_key].values
@@ -272,7 +273,7 @@ def analyze_linewidth_fly_scan(db, uid, x_key='johann_main_crystal_motor_cr_main
 
     for i in rois:
         field = f'{field_base}_roi{i}'
-        print(field)
+        # print(field)
         y = np.abs(df[field].values / (df['i0'] / df['i0'].median()).values)
 
         y, y_scale = normalize_peak(y, bkg1=5, bkg2=-5, nmax=5, return_scale=True)
@@ -314,9 +315,11 @@ def analyze_linewidth_fly_scan(db, uid, x_key='johann_main_crystal_motor_cr_main
         # plt.plot(x_roi, y_roi_fit/y_maximum, '-')
 
         if plot_func is not None:
-            roi_color = _pilatus_roi_colors[i]
-            roi_label = f'roi{i}'
-            plot_func(x, y / y_maximum, x_roi, y_smooth_roi / y_maximum, cen, fwhm, roi_label=roi_label, roi_color=roi_color, )
+            # roi_color = _pilatus_roi_colors[i]
+            # roi_label = f'roi{i}'
+            plot_func(x, y / y_maximum,
+                      x_fit=x_roi, y_fit=y_smooth_roi / y_maximum,
+                      x_peak=cen, y_peak=1, fwhm=fwhm, x_label=x_key, y_label=field, **plot_kwargs)
         fwhm_return = fwhm
     return fwhm, y_maximum * y_scale, x_maximum, x_com
 
