@@ -349,19 +349,28 @@ def fit_polynom_and_estimate_minimum(x, y, deg=3):
         y_minima = p(x_minima)
         x_minimum = x_minima[np.argmin(y_minima)]
 
+    y_minimum = p(x_minimum)
+    x_grid = np.linspace(x.min(), x.max(), x.size * 10)
+    y_grid = p(x_grid)
     # plt.figure(2, clear=True)
     # plt.plot(x, y, 'k.-')
     # plt.plot(x, p(x), 'r-')
     # plt.vlines([x_minimum, x_minimum], y.min(), y.max(), colors='m')
 
-    return x_minimum, p(x)
+    return x_minimum, y_minimum, x_grid, y_grid
 
 
-def get_optimal_crystal_alignment_position(x, y, plot_func=None):
-
-    x_min, y_fit = fit_polynom_and_estimate_minimum(x, y)
+def get_optimal_crystal_alignment_position(x, y, optimum='minimum', plot_func=None, **plot_kwargs):
+    x = np.array(x)
+    y = np.array(y)
+    if optimum == 'maximum':
+        x_min, y_min, x_fit, y_fit = fit_polynom_and_estimate_minimum(x, -y)
+        y_fit *= -1
+        y_min *= -1
+    else:
+        x_min, y_min, x_fit, y_fit = fit_polynom_and_estimate_minimum(x, y)
     if plot_func is not None:
-        plot_func(x, y, x_min, y_fit)
+        plot_func(x, y, x_fit=x_fit, y_fit=y_fit, x_peak=x_min, y_peak=y_min, curve_index=0, **plot_kwargs)
     return x_min
 
 
