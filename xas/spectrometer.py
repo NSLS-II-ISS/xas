@@ -217,7 +217,7 @@ def analyze_elastic_fly_scan(db, uid, rois=None, plot_func=None):
     if rois is None: rois = [1]
 
     for i in rois:
-        field = f'pil100k_roi{i}'
+        field = f'pil100k2_roi{i}'
         intensity = df[field].values
         intensity = normalize_peak(intensity)
         Ecen0, fwhm0 = estimate_center_and_width_of_peak(energy, intensity)

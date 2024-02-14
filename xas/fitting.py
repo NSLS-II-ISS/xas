@@ -10,7 +10,7 @@ def gaussian(x, amp, cen, sigma, bkg):
 def get_normalized_gaussian_scan(db, uid, return_norm_param=False):
     t = db[uid].table()
     E = t['hhm_energy'].values
-    I = t['pil100k_stats1_total'].values
+    I = t['pil100k2_stats1_total'].values
 #     I_smooth = hampel(I)
 #     I_smooth = I
     offset = np.mean(np.hstack((I[:2], I[-2:])))

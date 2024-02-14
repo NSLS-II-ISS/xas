@@ -1,5 +1,4 @@
-
-
+import matplotlib.pyplot as plt
 import numpy as np
 import pyFAI as pyFAI
 import kkcalc, kkcalc.data, kkcalc.kk
@@ -29,12 +28,11 @@ from pyFAI.gui import jupyter
 jupyter.plot2d(res2, ax=ax)
 
 
-def generate_mask(df, image_key='pil100k_image', log_thresh_lo=None, log_thresh_hi=None, mask_edges=True):
-    img_av = df[image_key].mean()
-    mask = np.zeros(img_av.shape, dtype=bool)
-    mask[np.isnan(np.log(img_av))] = 1
-    if log_thresh_lo is not None: mask[np.log10(img_av) <= log_thresh_lo] = 1
-    if log_thresh_hi is not None: mask[np.log10(img_av) >= log_thresh_hi] = 1
+def _generate_mask(img, log_thresh_lo=None, log_thresh_hi=None, mask_edges=True):
+    mask = np.zeros(img.shape, dtype=bool)
+    mask[np.isnan(np.log(img))] = 1
+    if log_thresh_lo is not None: mask[np.log10(img) <= log_thresh_lo] = 1
+    if log_thresh_hi is not None: mask[np.log10(img) >= log_thresh_hi] = 1
     if mask_edges:
         mask[0, :] = 1
         mask[-1, :] = 1
@@ -42,8 +40,13 @@ def generate_mask(df, image_key='pil100k_image', log_thresh_lo=None, log_thresh_
         mask[:, -1] = 1
     return mask
 
-mask = generate_mask(df, log_thresh_lo=3.0, log_thresh_hi=5.0)
-plt.figure(1, clear=True); plt.imshow(mask)
+def generate_mask(df, image_key='pil100k_image', **kwargs):
+    img = df[image_key].mean()
+    return _generate_mask(img, **kwargs)
+
+
+
+
 
 
 # hdr = db['928a1184-5ea7-4eb3-aa44-3b5b725ce1b3']# Ir dimer sample
@@ -98,8 +101,9 @@ def process_image(image, nw=5):
 # process_image(image)
 
 
-def integrate_pil100k_image_stack(images_array, energy, dist=40, center_ver=93, center_hor=440, deadtime_cor=False, mask=None):
-    ai = get_ai(dist=dist, center_ver=center_ver, center_hor=center_hor)
+def integrate_pil100k_image_stack(images_array, energy, dist=40, center_ver=93, center_hor=440, deadtime_cor=False, mask=None, npts=425,
+                                  **kwargs):
+    ai = get_ai(dist=dist, center_ver=center_ver, center_hor=center_hor, **kwargs)
     s = []
     # mask = None
     for image in images_array:
@@ -108,7 +112,7 @@ def integrate_pil100k_image_stack(images_array, energy, dist=40, center_ver=93, 
         if mask is None:
             mask = image < np.percentile(image.ravel(), 5)
         res = ai.integrate1d_ng(image,
-                                700,
+                                npts,
                                 mask=mask,
                                 unit="2th_deg")
         s.append(res[1])
@@ -126,19 +130,174 @@ def integrate_pil100k_image_stack(images_array, energy, dist=40, center_ver=93, 
     return q, sq
 
 # reduced
-df =  get_processed_df_from_uid('abaa4995-9bd1-4a5b-9b2d-4338ea30ab12', db, logger=None, draw_func_interp=None, draw_func_bin=None,
-                                print_func=None, save_interpolated_file=False, return_processed_df=True, load_images=True)
-q, sq = integrate_pil100k_image_stack(df.pil100k_image / (df.i0 / df.i0.median()), df.energy.values, dist=50, center_ver=37, center_hor=45, mask=mask)
-df['sq'] = sq.T.tolist()
+# df =  get_processed_df_from_uid('abaa4995-9bd1-4a5b-9b2d-4338ea30ab12', db, logger=None, draw_func_interp=None, draw_func_bin=None,
+#                                 print_func=None, save_interpolated_file=False, return_processed_df=True, load_images=True)
 
-df['mu'] = df['iff'] / df['i0']
+from xas.file_io import load_binned_df_and_extended_data_from_file
+# uids_red = ['d6b89a0d-1cf5-4b0b-8695-bc84cb5007e5',
+#             '318cec96-5213-4773-baf2-da50cae02f2d',
+#             '138e62df-c191-4831-9249-a5d252e8b6e8',
+#             '4989c59b-76a0-46dd-8723-51fd6f1ff6e5',
+#             'abaa4995-9bd1-4a5b-9b2d-4338ea30ab12',]
+uids_red = ['b5d1704b-8c99-4f71-884f-14204166ab7b', # oxide
+           '119523cd-0aae-4964-af3d-140458a51bcd',
+           '4f94bb97-166e-4194-b145-bab39479bbf1',
+           '23bfef24-7602-4a65-b761-cd9617152716',
+           '8e71ee10-c9a3-4c49-9c59-11f169ca94d9' ]
 
-def flatten_mu(df):
-    ds = XASDataSet(mu=df['mu'], energy=df['energy'])
+dfs = []
+for uid in uids_red:
+    path_to_file = db[uid].start['interp_filename'][:-3] + 'dat'
+    _df, _ext_data, _ = load_binned_df_and_extended_data_from_file(path_to_file)
+    _df['pil100k_image'] = [i for i in _ext_data['pil100k_image']]
+    dfs.append(_df)
+
+total_image = np.mean(np.array([np.array([i for i in df['pil100k_image']]) for df in dfs]), axis=(0,1))
+plt.figure(1, clear=True); plt.imshow(np.log10(total_image), vmin=3, vmax=4.9)
+
+mask = _generate_mask(total_image, log_thresh_lo=3.05, log_thresh_hi=4.9)
+mask[:70, :70] = 1
+mask[:120, 340:] = 1
+plt.figure(2, clear=True); plt.imshow(mask)
+
+ai = get_ai(center_ver=39., center_hor=45.)
+#
+res2 = ai.integrate2d_ng(total_image,
+                         300, 360, mask=mask,
+                         unit="r_mm")
+fig, ax = plt.subplots(1, clear=True, num=3)
+from pyFAI.gui import jupyter
+jupyter.plot2d(res2, ax=ax)
+
+plt.figure(4, clear=True)
+plt.plot(res2[0].T / (np.mean(res2[0].T[65:75, :], axis=0))[None, :])
+plt.xlim(60, 90)
+plt.ylim(0.6, 1.2)
+
+
+energy_offset = 3.75
+# dist=43
+for df in dfs: #[:1]:
+    df['i0_norm'] = df.i0 / df.i0.median()
+    df['mu'] = df['iff'] / df['i0']
+    q, sq = integrate_pil100k_image_stack(df.pil100k_image / (df['i0_norm']), df.energy.values + energy_offset,
+                                          dist=43, center_ver=39, center_hor=45, mask=mask, npts=425,
+                                          rot1=np.deg2rad(0.00), rot2=np.deg2rad(-0.1))
+    df['sq'] = sq.T.tolist()
+
+energy = df.energy.values + energy_offset
+
+# qind1 = 350
+# qind2 = 370
+
+qind1 = 140
+qind2 = 170
+
+q_max = np.array([q[qind1:qind2][i] for i in np.argmax(sq[qind1:qind2, :], axis=0)])
+peak_max = np.max(sq[qind1:qind2, :], axis=0) / np.mean(sq[qind1:qind2, :], axis=0)
+
+plt.figure(5, clear=True)
+plt.subplot(211)
+plt.plot(sq)
+
+plt.subplot(212)
+plt.plot(q, sq / np.mean(sq[190:200, :], axis=0)[None, :])
+# plt.plot(q_max, peak_max, 'k.-')
+plt.xlim(q[120], q[370])
+# plt.ylim(3000, 15000)
+plt.ylim(0.5, 1.75)
+
+plt.figure(6, clear=True)
+plt.plot(energy, q_max)
+plt.title(q_max.max() - q_max.min())
+
+# fig, ax = plt.subplots(subplot_kw={"projection": "3d"}, clear=True, num=5)
+# ax.plot_surface(np.tile(q[:, None], (1, energy.size)),
+#                 np.tile(energy[None, :], (q.size, 1)),
+#                 sq,
+#                 cmap='coolwarm',
+#                 linewidth=0, antialiased=False)
+#
+# ax.set_xlim(2.5, 4)
+# ax.set_zlim(10000, 15000)
+
+plt.figure(7, clear=True)
+# plt.contourf(energy, q, sq, 50, vmin=5e3, vmax=40e3)
+plt.plot(energy, sq[[153, 220], :].T)
+
+mu = np.mean(np.array([(df['iff'] / df['i0']).values for df in dfs]), axis=0)
+sq = np.mean(np.array([np.array([i for i in df['sq']]) for df in dfs]), axis=0).T
+imgs = np.mean(np.array([np.array([i for i in df['pil100k_image']]) for df in dfs]), axis=0)
+
+def flatten_mu(energy, mu):
+    ds = XASDataSet(mu=mu, energy=energy)
     ds.flatten()
-    df['flat'] = ds.flat
+    return ds.flat
 
-flatten_mu(df)
+mu_flat = flatten_mu(energy, mu)
+
+# energy_mask = ((energy <=11200) & (energy <= 11500)) | ((energy >=11600) & (energy <= 12000))
+energy_mask =  (energy <= 11200) | (energy >=11800)
+energy_norm = energy/np.mean(energy)
+A = np.vstack((energy_norm**0, energy_norm**1, energy_norm**2,
+               mu_flat * energy_norm**0, mu_flat * energy_norm**1, mu_flat * energy_norm**2)).T
+# A = np.vstack((np.ones(energy.size), energy/np.mean(energy), mu_flat)).T
+A_masked = A[energy_mask, :]
+p, _, _, _ = np.linalg.lstsq(A_masked, sq[:, energy_mask].T, rcond=-1)
+
+sq_b = (A @ p).T
+
+plt.figure(8, clear=True)
+plt.subplot(211)
+plt.plot(energy, sq[[155, 230], :].T)
+plt.plot(energy, sq_b[[155, 230], :].T, 'k-')
+
+plt.subplot(212)
+plt.plot(q, p[-1, :])
+plt.hlines([np.median(p[-1, q>=2.5])], 2.5, 5.7, colors='r')
+
+q_sel = (q>=3.4) & (q<=4.44)
+plt.figure(9, clear=True)
+plt.subplot(211)
+plt.plot(energy, sq[q_sel, :].T)
+plt.plot(energy, sq_b[q_sel, :].T, 'k-')
+
+plt.subplot(212)
+plt.plot(energy, sq[q_sel, :].T - sq_b[q_sel, :].T)
+
+f0 = 78
+f1 = xraydb.f1_chantler('Pt', energy)
+f2 = xraydb.f2_chantler('Pt', energy)
+f_lin = f0 + f1
+f_quad = f_lin**2 + f2**2
+
+from scipy.optimize import nnls
+basis = np.vstack((np.ones(energy.size), f_lin, f_quad)).T
+sq_fit = np.zeros(sq.shape)
+
+C = (1 - 0.88 * (energy / np.mean(energy)))
+
+energy_mask = energy <= 11500
+n_sel = [153, 220]
+# p, _, _, _ = np.linalg.lstsq(basis[energy_mask, :], sq[n_sel, :][:, energy_mask].T, rcond=-1)
+p = np.zeros((basis.shape[1], q.size))
+for i in n_sel:
+    p[:, i], _ = nnls(basis[energy_mask, :], sq[i, energy_mask].T * C[energy_mask])
+
+sq_fit = (basis @ p).T
+
+
+# C /= np.mean(C)
+
+plt.figure(12, clear=True)
+plt.plot(energy, sq[[153, 220], :].T * C[:, None])
+plt.plot(energy, sq_fit[[153, 220], :].T, 'k-')
+
+# plt.plot(energy, (f0 + f1))
+# plt.plot(energy, (f0 + f1)**2 + f2**2)
+
+
+
 
 
 
