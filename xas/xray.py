@@ -264,6 +264,9 @@ def generate_emission_energy_grid_from_dict(scan_parameters):
                                                            scan_parameters['revert'])
     return energy_grid, time_grid
 
+def generate_emission_relative_trajectory_from_dict(scan_parameters):
+    return {'positions': [scan_parameters['preline_start'], scan_parameters['mainline_start'], scan_parameters['mainline_end'], scan_parameters['postline_end']],
+            'durations': [scan_parameters['preline_duration'], scan_parameters['mainline_duration'], scan_parameters['postline_duration']]}
 
 def find_best_line_for_edge(element, edge):
     lines = xraydb.xray_lines(element, initial_level=edge)
