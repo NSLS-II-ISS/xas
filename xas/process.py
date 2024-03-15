@@ -288,6 +288,9 @@ def get_processed_df_from_uid_for_epics_fly_scan(db, uid, save_interpolated_file
         # logger.info(f'({ttime.ctime()}) Interpolation failed for {uid}')
         raise e
 
+    if (hdr.start['spectrometer'] == 'johann'):
+        interpolated_df = reduce_johann_images(interpolated_df, md=hdr.start)
+
     try:
         stream_name = hdr.start['motor_stream_names'][0]
         _stream_name = stream_name[:stream_name.index('monitor') - 1]

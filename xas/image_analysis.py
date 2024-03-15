@@ -5,6 +5,8 @@ from scipy.optimize import curve_fit
 from xas.math import gauss
 import math
 
+import matplotlib.path as mpltPath
+
 def get_mus(db, uid):
     data = db[uid].table()
     x = data['giantxy_x']
@@ -567,3 +569,115 @@ class CameraCalibrationFF:
                 grid_line.append([__x, __y])
             grid_lines.append(grid_line)
         return grid_lines
+
+
+def create_mask_for_roi(image, roi):
+    xmax, ymax = image.shape
+
+    xgrid, ygrid = np.meshgrid(np.arange(0, xmax), np.arange(0, ymax))
+    xgrid = xgrid.ravel()
+    ygrid = ygrid.ravel()
+
+    polygon = mpltPath.Path(np.array(roi)[:, [1, 0]])
+    mask = polygon.contains_points([(x, y) for (x, y) in zip(xgrid, ygrid)])
+    mask = mask.reshape((ymax, xmax)).T
+    return mask
+
+def create_mask_for_active_rois(image, roi_dict, active_rois=None):
+    if active_rois is None: active_rois = list(roi_dict.keys())
+    mask = np.zeros(image.shape, dtype=bool)
+    for roi in active_rois:
+        mask |= create_mask_for_roi(image, roi_dict[roi])
+    return mask
+
+def make_edge_roi_dict(roi_dict, dr: float=8.0):
+    edge_roi_dict = {}
+    for key, _polygon in roi_dict.items():
+        polygon = np.array(_polygon, dtype=np.float64)
+        edge_polygon = []
+        for i, (x, y) in enumerate(polygon):
+            i_prev = i - 1
+            i_next = i + 1
+            if i_next == polygon.shape[0]:
+                i_next = 0
+
+            v_prev = polygon[i_prev, :] - polygon[i, :]
+            v_next = polygon[i_next, :] - polygon[i, :]
+
+            v_prev /= np.linalg.norm(v_prev)
+            v_next /= np.linalg.norm(v_next)
+
+            v_out = -(v_prev + v_next)  # outward vector that points away from other two vertices
+            v_out /= np.linalg.norm(v_out)
+
+            dx, dy = np.round(dr * v_out)
+            edge_polygon.append((x + dx, y + dy))
+        edge_roi_dict[key] = edge_polygon
+    return edge_roi_dict
+
+def create_mask_roi_dict(image, roi_dict: dict=None):
+    mask_roi_dict = {}
+    for key, roi_polygon in roi_dict.items():
+        mask_roi_dict[key] = create_mask_for_roi(image, roi_polygon)
+    return mask_roi_dict
+
+def create_mask_edge_dict(image, roi_dict: dict=None, mask_roi_dict: dict=None, dr: float=8.0, allow_roi_crosstalk=False):
+    if mask_roi_dict is None:
+        mask_roi_dict = create_mask_roi_dict(image, roi_dict)
+
+    mask_edge_dict = {}
+    edge_roi_dict = make_edge_roi_dict(roi_dict, dr=dr)
+
+    if allow_roi_crosstalk:
+        mask_all_rois = np.zeros(image.shape, dtype=bool)
+    else:
+        mask_all_rois = np.sum(list(mask_roi_dict.values()), axis=0).astype(bool)
+
+    for key, roi_polygon in edge_roi_dict.items():
+        mask_edge_dict[key] = create_mask_for_roi(image, roi_polygon) & ~mask_all_rois
+
+    return mask_edge_dict
+
+
+
+def estimate_image_background(image, mask_roi, mask_bkg, gauss_fwhm=20, plotting=False):
+
+    a, b = image.shape
+    x, y = np.meshgrid(np.arange(b), np.arange(a))
+    x, y = x.ravel(), y.ravel()
+    mask_roi_arr = mask_roi.ravel()
+    mask_bkg_arr = mask_bkg.ravel()
+    image_arr = image.ravel()
+
+    tresh_lo = np.percentile(image_arr[mask_bkg_arr], 2)
+    tresh_hi = np.percentile(image_arr[mask_bkg_arr], 98)
+    zinger_mask = (image_arr >= tresh_lo) & (image_arr <= tresh_hi)
+
+    mask_bkg_zinger_arr = mask_bkg_arr & zinger_mask
+
+    dx = x[mask_roi_arr, None] - x[None, mask_bkg_zinger_arr]
+    dy = y[mask_roi_arr, None] - y[None, mask_bkg_zinger_arr]
+    # dx = x[:, None] - x[None, :]
+    # dy = y[:, None] - y[None, :]
+    dr = np.sqrt(dx ** 2 + dy ** 2)
+    sigma = gauss_fwhm / 2.355
+    A = np.exp(-0.5 * (dr / sigma) ** 2)
+    A /= np.sum(A, axis=1)[:, None]
+    if plotting:
+        bkg_arr = np.zeros(image_arr.shape)
+        bkg_arr[mask_roi_arr] = A @ image_arr[mask_bkg_zinger_arr]
+        bkg = bkg_arr.reshape(a, b)
+        cor = image.copy()
+        cor[mask_roi] = bkg[mask_roi]
+        plt.figure()
+        plt.imshow(cor, vmin=np.percentile(cor, 5), vmax=np.percentile(cor, 95))
+
+    return np.sum(A @ image_arr[mask_bkg_zinger_arr])
+
+
+
+# def reduce_johann_images():
+
+
+
+
