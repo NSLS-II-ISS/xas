@@ -1644,3 +1644,184 @@ plt.plot(KK_x, KK_y, 'm-')
 plt.xlim(-500, 1000)
 plt.ylim(-500, 1000)
 plt.axis('equal')
+
+
+####
+from xas.file_io import load_binned_df_from_file
+
+
+files = ['/nsls2/data/iss/legacy/processed/2024/1/309462/24-2254 reduced Pt-L3 RIXS 10s 0001 vh_roi1.dat',
+         '/nsls2/data/iss/legacy/processed/2024/1/309462/24-2254 reduced Pt-L3 RIXS 10s 0002 vh_roi1.dat',
+         '/nsls2/data/iss/legacy/processed/2024/1/309462/24-2254 reduced Pt-L3 RIXS 10s 0003 vh_roi1.dat',
+         '/nsls2/data/iss/legacy/processed/2024/1/309462/24-2254 reduced Pt-L3 RIXS 10s 0004 vh_roi1.dat',
+         '/nsls2/data/iss/legacy/processed/2024/1/309462/24-2254 reduced Pt-L3 RIXS 10s 0005 vh_roi1.dat',
+         '/nsls2/data/iss/legacy/processed/2024/1/309462/24-2254 reduced Pt-L3 RIXS 10s 0006 vh_roi1.dat',
+         '/nsls2/data/iss/legacy/processed/2024/1/309462/24-2254 reduced Pt-L3 RIXS 10s 0007 vh_roi1.dat',
+         '/nsls2/data/iss/legacy/processed/2024/1/309462/24-2254 reduced Pt-L3 RIXS 10s 0008 vh_roi1.dat',
+         '/nsls2/data/iss/legacy/processed/2024/1/309462/24-2254 reduced Pt-L3 RIXS 10s 0009 vh_roi1.dat',
+         '/nsls2/data/iss/legacy/processed/2024/1/309462/24-2254 reduced Pt-L3 RIXS 10s 0010 vh_roi1.dat',
+         '/nsls2/data/iss/legacy/processed/2024/1/309462/24-2254 reduced Pt-L3 RIXS 10s 0001-r0002 vh_roi1.dat',
+         '/nsls2/data/iss/legacy/processed/2024/1/309462/24-2254 reduced Pt-L3 RIXS 10s 0002-r0002 vh_roi1.dat',
+         '/nsls2/data/iss/legacy/processed/2024/1/309462/24-2254 reduced Pt-L3 RIXS 10s 0004-r0002 vh_roi1.dat',
+         '/nsls2/data/iss/legacy/processed/2024/1/309462/24-2254 reduced Pt-L3 RIXS 10s 0003-r0002 vh_roi1.dat',
+         '/nsls2/data/iss/legacy/processed/2024/1/309462/24-2254 reduced Pt-L3 RIXS 10s 0005-r0002 vh_roi1.dat',
+         '/nsls2/data/iss/legacy/processed/2024/1/309462/24-2254 reduced Pt-L3 RIXS 10s 0006-r0002 vh_roi1.dat',
+         '/nsls2/data/iss/legacy/processed/2024/1/309462/24-2254 reduced Pt-L3 RIXS 10s 0007-r0002 vh_roi1.dat',
+         '/nsls2/data/iss/legacy/processed/2024/1/309462/24-2254 reduced Pt-L3 RIXS 10s 0008-r0002 vh_roi1.dat',
+         '/nsls2/data/iss/legacy/processed/2024/1/309462/24-2254 reduced Pt-L3 RIXS 10s 0009-r0002 vh_roi1.dat',
+         '/nsls2/data/iss/legacy/processed/2024/1/309462/24-2254 reduced Pt-L3 RIXS 10s 0010-r0002 vh_roi1.dat',
+         '/nsls2/data/iss/legacy/processed/2024/1/309462/24-2254 reduced Pt-L3 RIXS 10s 0011 vh_roi1.dat',
+         '/nsls2/data/iss/legacy/processed/2024/1/309462/24-2254 reduced Pt-L3 RIXS 10s 0012 vh_roi1.dat',
+         '/nsls2/data/iss/legacy/processed/2024/1/309462/24-2254 reduced Pt-L3 RIXS 10s 0013 vh_roi1.dat',
+         '/nsls2/data/iss/legacy/processed/2024/1/309462/24-2254 reduced Pt-L3 RIXS 10s 0014 vh_roi1.dat',
+         '/nsls2/data/iss/legacy/processed/2024/1/309462/24-2254 reduced Pt-L3 RIXS 10s 0015 vh_roi1.dat',
+         # '/nsls2/data/iss/legacy/processed/2024/1/309462/24-2254 reduced Pt-L3 RIXS 10s 0016 vh_roi1.dat',
+         '/nsls2/data/iss/legacy/processed/2024/1/309462/24-2254 reduced Pt-L3 RIXS 10s 0017 vh_roi1.dat',
+         '/nsls2/data/iss/legacy/processed/2024/1/309462/24-2254 reduced Pt-L3 RIXS 10s 0018 vh_roi1.dat',
+         '/nsls2/data/iss/legacy/processed/2024/1/309462/24-2254 reduced Pt-L3 RIXS 10s 0019 vh_roi1.dat',
+         '/nsls2/data/iss/legacy/processed/2024/1/309462/24-2254 reduced Pt-L3 RIXS 10s 0020 vh_roi1.dat',]
+
+files = [
+'/nsls2/data/iss/legacy/processed/2024/1/309462/23-24102 (pos 001) Pt-L3 RIXS 10s 0001 vh_roi1.dat',
+'/nsls2/data/iss/legacy/processed/2024/1/309462/23-24102 (pos 001) Pt-L3 RIXS 10s 0001-r0002 vh_roi1.dat',
+'/nsls2/data/iss/legacy/processed/2024/1/309462/23-24102 (pos 001) Pt-L3 RIXS 10s 0001-r0003 vh_roi1.dat',
+'/nsls2/data/iss/legacy/processed/2024/1/309462/23-24102 (pos 001) Pt-L3 RIXS 10s 0001-r0004 vh_roi1.dat',
+'/nsls2/data/iss/legacy/processed/2024/1/309462/23-24102 (pos 001) Pt-L3 RIXS 10s 0001-r0005 vh_roi1.dat',
+'/nsls2/data/iss/legacy/processed/2024/1/309462/23-24102 (pos 001) Pt-L3 RIXS 10s 0001-r0006 vh_roi1.dat',
+'/nsls2/data/iss/legacy/processed/2024/1/309462/23-24102 (pos 001) Pt-L3 RIXS 10s 0001-r0007 vh_roi1.dat',
+'/nsls2/data/iss/legacy/processed/2024/1/309462/23-24102 (pos 001) Pt-L3 RIXS 10s 0001-r0008 vh_roi1.dat',
+'/nsls2/data/iss/legacy/processed/2024/1/309462/23-24102 (pos 001) Pt-L3 RIXS 10s 0001-r0009 vh_roi1.dat',
+'/nsls2/data/iss/legacy/processed/2024/1/309462/23-24102 (pos 001) Pt-L3 RIXS 10s 0001-r0010 vh_roi1.dat',
+'/nsls2/data/iss/legacy/processed/2024/1/309462/23-24102 (pos 001) Pt-L3 RIXS 10s 0001-r0011 vh_roi1.dat',
+'/nsls2/data/iss/legacy/processed/2024/1/309462/23-24102 (pos 001) Pt-L3 RIXS 10s 0001-r0012 vh_roi1.dat',
+'/nsls2/data/iss/legacy/processed/2024/1/309462/23-24102 (pos 001) Pt-L3 RIXS 10s 0001-r0013 vh_roi1.dat',
+'/nsls2/data/iss/legacy/processed/2024/1/309462/23-24102 (pos 001) Pt-L3 RIXS 10s 0001-r0017 vh_roi1.dat',
+'/nsls2/data/iss/legacy/processed/2024/1/309462/23-24102 (pos 001) Pt-L3 RIXS 10s 0001-r0018 vh_roi1.dat',
+'/nsls2/data/iss/legacy/processed/2024/1/309462/23-24102 (pos 001) Pt-L3 RIXS 10s 0001-r0019 vh_roi1.dat',
+'/nsls2/data/iss/legacy/processed/2024/1/309462/23-24102 (pos 001) Pt-L3 RIXS 10s 0001-r0020 vh_roi1.dat',
+'/nsls2/data/iss/legacy/processed/2024/1/309462/23-24102 (pos 001) Pt-L3 RIXS 10s 0001-r0021 vh_roi1.dat',
+'/nsls2/data/iss/legacy/processed/2024/1/309462/23-24102 (pos 001) Pt-L3 RIXS 10s 0001-r0022 vh_roi1.dat',
+'/nsls2/data/iss/legacy/processed/2024/1/309462/23-24102 (pos 001) Pt-L3 RIXS 10s 0001-r0023 vh_roi1.dat',
+'/nsls2/data/iss/legacy/processed/2024/1/309462/23-24102 (pos 001) Pt-L3 RIXS 10s 0001-r0024 vh_roi1.dat',
+'/nsls2/data/iss/legacy/processed/2024/1/309462/23-24102 (pos 001) Pt-L3 RIXS 10s 0001-r0025 vh_roi1.dat',
+'/nsls2/data/iss/legacy/processed/2024/1/309462/23-24102 (pos 001) Pt-L3 RIXS 10s 0001-r0026 vh_roi1.dat',
+'/nsls2/data/iss/legacy/processed/2024/1/309462/23-24102 (pos 001) Pt-L3 RIXS 10s 0001-r0027 vh_roi1.dat',
+'/nsls2/data/iss/legacy/processed/2024/1/309462/23-24102 (pos 001) Pt-L3 RIXS 10s 0001-r0030 vh_roi1.dat',
+'/nsls2/data/iss/legacy/processed/2024/1/309462/23-24102 (pos 001) Pt-L3 RIXS 10s 0001-r0031 vh_roi1.dat',
+'/nsls2/data/iss/legacy/processed/2024/1/309462/23-24102 (pos 001) Pt-L3 RIXS 10s 0001-r0032 vh_roi1.dat',
+'/nsls2/data/iss/legacy/processed/2024/1/309462/23-24102 (pos 001) Pt-L3 RIXS 10s 0001-r0033 vh_roi1.dat',
+]
+
+
+files = [
+'/nsls2/data/iss/legacy/processed/2024/1/309462/23-63961 (pos 001) Pt-L3 RIXS 10s 0001 vh_roi1.dat',
+'/nsls2/data/iss/legacy/processed/2024/1/309462/23-63961 (pos 001) Pt-L3 RIXS 10s 0001-r0002 vh_roi1.dat',
+'/nsls2/data/iss/legacy/processed/2024/1/309462/23-63961 (pos 001) Pt-L3 RIXS 10s 0001-r0003 vh_roi1.dat',
+'/nsls2/data/iss/legacy/processed/2024/1/309462/23-63961 (pos 001) Pt-L3 RIXS 10s 0001-r0004 vh_roi1.dat',
+'/nsls2/data/iss/legacy/processed/2024/1/309462/23-63961 (pos 001) Pt-L3 RIXS 10s 0001-r0005 vh_roi1.dat',
+'/nsls2/data/iss/legacy/processed/2024/1/309462/23-63961 (pos 001) Pt-L3 RIXS 10s 0001-r0006 vh_roi1.dat',
+'/nsls2/data/iss/legacy/processed/2024/1/309462/23-63961 (pos 001) Pt-L3 RIXS 10s 0001-r0007 vh_roi1.dat',
+'/nsls2/data/iss/legacy/processed/2024/1/309462/23-63961 (pos 001) Pt-L3 RIXS 10s 0001-r0008 vh_roi1.dat',
+'/nsls2/data/iss/legacy/processed/2024/1/309462/23-63961 (pos 001) Pt-L3 RIXS 10s 0001-r0009 vh_roi1.dat',
+'/nsls2/data/iss/legacy/processed/2024/1/309462/23-63961 (pos 001) Pt-L3 RIXS 10s 0001-r0010 vh_roi1.dat',
+'/nsls2/data/iss/legacy/processed/2024/1/309462/23-63961 (pos 001) Pt-L3 RIXS 10s 0001-r0011 vh_roi1.dat',
+'/nsls2/data/iss/legacy/processed/2024/1/309462/23-63961 (pos 001) Pt-L3 RIXS 10s 0001-r0012 vh_roi1.dat',
+'/nsls2/data/iss/legacy/processed/2024/1/309462/23-63961 (pos 001) Pt-L3 RIXS 10s 0001-r0016 vh_roi1.dat',
+'/nsls2/data/iss/legacy/processed/2024/1/309462/23-63961 (pos 001) Pt-L3 RIXS 10s 0001-r0017 vh_roi1.dat',
+'/nsls2/data/iss/legacy/processed/2024/1/309462/23-63961 (pos 001) Pt-L3 RIXS 10s 0001-r0018 vh_roi1.dat',
+'/nsls2/data/iss/legacy/processed/2024/1/309462/23-63961 (pos 001) Pt-L3 RIXS 10s 0001-r0019 vh_roi1.dat',
+'/nsls2/data/iss/legacy/processed/2024/1/309462/23-63961 (pos 001) Pt-L3 RIXS 10s 0001-r0020 vh_roi1.dat',
+'/nsls2/data/iss/legacy/processed/2024/1/309462/23-63961 (pos 001) Pt-L3 RIXS 10s 0001-r0021 vh_roi1.dat',
+'/nsls2/data/iss/legacy/processed/2024/1/309462/23-63961 (pos 001) Pt-L3 RIXS 10s 0001-r0022 vh_roi1.dat',
+'/nsls2/data/iss/legacy/processed/2024/1/309462/23-63961 (pos 001) Pt-L3 RIXS 10s 0001-r0023 vh_roi1.dat',
+'/nsls2/data/iss/legacy/processed/2024/1/309462/23-63961 (pos 001) Pt-L3 RIXS 10s 0001-r0024 vh_roi1.dat',
+'/nsls2/data/iss/legacy/processed/2024/1/309462/23-63961 (pos 001) Pt-L3 RIXS 10s 0001-r0025 vh_roi1.dat',
+'/nsls2/data/iss/legacy/processed/2024/1/309462/23-63961 (pos 001) Pt-L3 RIXS 10s 0001-r0026 vh_roi1.dat',
+# '/nsls2/data/iss/legacy/processed/2024/1/309462/23-63961 (pos 001) Pt-L3 RIXS 10s 0001-r0027 vh_roi1.dat',
+'/nsls2/data/iss/legacy/processed/2024/1/309462/23-63961 (pos 001) Pt-L3 RIXS 10s 0001-r0030 vh_roi1.dat',
+'/nsls2/data/iss/legacy/processed/2024/1/309462/23-63961 (pos 001) Pt-L3 RIXS 10s 0001-r0031 vh_roi1.dat',
+'/nsls2/data/iss/legacy/processed/2024/1/309462/23-63961 (pos 001) Pt-L3 RIXS 10s 0001-r0032 vh_roi1.dat',
+'/nsls2/data/iss/legacy/processed/2024/1/309462/23-63961 (pos 001) Pt-L3 RIXS 10s 0001-r0033 vh_roi1.dat',
+]
+
+rxes_list = []
+
+for file in files:
+    df, _ = load_binned_df_from_file(file)
+    _energy_in = df.energy.values
+    _energy_out = np.array([float('.'.join(i.split('_')[-2:])) for i in df.columns[1::2].tolist()])
+    _counts = df.values[:, 1::2]
+    _i0 = df.values[:, 2::2]
+    rxes_list.append({'energy_in': _energy_in, 'energy_out': _energy_out, 'intensity': _counts / (_i0 / np.median(_i0, axis=1)[:, None])})
+
+energy_in = _energy_in
+energy_out = _energy_out
+rxes = np.mean(np.array([_rxes['intensity'] for _rxes in rxes_list]), axis=0)
+
+plt.figure(2, clear=True)
+plt.contourf(energy_out, energy_in, rxes, 251, vmin=0, vmax=70)
+
+
+
+
+# rxes_242254 = {'energy_out': energy_out, 'energy_in': energy_in, 'rxes': rxes}
+# rxes_2324102 = {'energy_out': energy_out, 'energy_in': energy_in, 'rxes': rxes}
+rxes_2363961 = {'energy_out': energy_out, 'energy_in': energy_in, 'rxes': rxes}
+
+
+plt.figure(1, clear=True)
+plt.contourf(rxes_242254['energy_out'], rxes_242254['energy_in'], rxes_242254['rxes'], 251, vmin=0, vmax=70)
+plt.title('24-2254')
+
+plt.figure(2, clear=True)
+plt.contourf(rxes_2324102['energy_out'], rxes_2324102['energy_in'], rxes_2324102['rxes'], 251, vmin=0, vmax=70)
+plt.title('23-24102')
+
+plt.figure(3, clear=True)
+plt.contourf(rxes_2363961['energy_out'], rxes_2363961['energy_in'], rxes_2363961['rxes'], 251, vmin=0, vmax=70)
+plt.title('23-63961')
+
+
+#########
+
+mask = np.zeros(img.shape, dtype=bool)
+mask[:, 59::61] = True
+mask[:, 60::61] = True
+mask[:, 61::61] = True
+mask[96:99, :] = True
+
+vsize, hsize = mask.shape
+hpix, vpix = np.meshgrid(np.arange(hsize), np.arange(vsize))
+
+hpix_arr = hpix.reshape(vsize * hsize)
+vpix_arr = vpix.reshape(vsize * hsize)
+mask_arr = mask.reshape(vsize * hsize)
+
+dr = np.sqrt((hpix_arr[mask_arr][:, None] - hpix_arr[~mask_arr][None, :])**2 + (vpix_arr[mask_arr][:, None] - vpix_arr[~mask_arr][None, :])**2)
+index_closest = np.argmin(dr, axis=1)
+
+img_mask_arr = img.reshape(vsize * hsize)[mask_arr]
+img_closeset_arr = img.reshape(vsize * hsize)[index_closest]
+
+# mask_closest = np.zeros(img.shape, dtype=bool)
+# for idx in index_closest:
+#     vp = vpix_arr[~mask_arr][idx]
+#     hp = hpix_arr[~mask_arr][idx]
+#     # print(vp, hp)
+#     mask_closest[vp, hp] = True
+
+
+img_cor = img.copy()
+img_cor[mask] *= 0.96
+# img_cor[mask_closest] *= 10
+
+plt.figure(1, clear=True)
+plt.subplot(211)
+plt.imshow(img, vmin=3, vmax=10)
+
+plt.subplot(212)
+plt.imshow(img_cor, vmin=3, vmax=10)
+
+plt.figure(2, clear=True)
+plt.plot(img_closeset_arr, img_closeset_arr / img_mask_arr, 'k.')
+# plt.axis('square')
