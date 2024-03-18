@@ -6,6 +6,7 @@ from xas.math import gauss
 import math
 
 import matplotlib.path as mpltPath
+from .fitting import Nominal2ActualConverter
 
 def get_mus(db, uid):
     data = db[uid].table()
@@ -674,9 +675,62 @@ def estimate_image_background(image, mask_roi, mask_bkg, gauss_fwhm=20, plotting
 
     return np.sum(A @ image_arr[mask_bkg_zinger_arr])
 
+def get_total_counts_from_roi_mask(image, roi_mask):
+    return np.sum(image[roi_mask])
 
 
-# def reduce_johann_images():
+
+def reduce_johann_images(interpolated_df, hdr, detector_key='pil100k2', image_key='image'):
+    _roi_dict = hdr.start['detectors']['Pilatus 100k New']['config']['roi_polygon']
+    trajectory_dict = hdr.start['spectrometer_relative_trajectory']
+
+    crystals = list(trajectory_dict.keys())
+    roi_dict = {}
+    for crystal in crystals:
+        roi_dict[crystal] = _roi_dict[crystal]
+
+    det_image_key = f'{detector_key}_{image_key}'
+    roi_mask_dict = create_mask_roi_dict(interpolated_df[det_image_key][0], roi_dict)
+
+    for crystal in crystals:
+        roi_key = f'{detector_key}_{crystal}'
+        interpolated_df[roi_key] = interpolated_df[det_image_key].apply(lambda x: get_total_counts_from_roi_mask(x, roi_mask_dict[crystal]))
+
+    return interpolated_df
+
+
+
+def plot_polygon_roi(roi_dict, key='main', ax=None, **plot_kwargs):
+    roi = roi_dict[key]
+    if ax is None:
+        ax = plt.gca()
+    for i in range(len(roi)):
+        if i < (len(roi) - 1):
+            j = i + 1
+        else:
+            j = 0
+        point_i = roi[i]
+        point_j = roi[j]
+        ax.plot([point_i[0], point_j[0]], [point_i[1], point_j[1]], **plot_kwargs)
+
+def show_polygon_roi_for_pil100k_image(image, roi_dict): #, detector_key='pil100k2', image_key='image'):
+    # det_image_key = f'{detector_key}_{image_key}'
+    # total_image = np.sum(np.array([v for v in df[det_image_key].values]), axis=0)
+
+    # trajectory_dict = hdr.start['spectrometer_relative_trajectory']
+    # crystals = list(trajectory_dict.keys())
+
+    # _roi_dict = hdr.start['detectors']['Pilatus 100k New']['config']['roi_polygon']
+
+    plt.figure()
+    plt.imshow(image, vmin=np.percentile(image, 5), vmax=np.percentile(image, 95))
+
+    for crystal in roi_dict:
+        plot_polygon_roi(roi_dict, key=crystal, color=_crystal_info_dict[crystal]['color'])
+
+
+
+
 
 
 

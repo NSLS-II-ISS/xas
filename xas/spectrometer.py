@@ -373,6 +373,31 @@ def get_optimal_crystal_alignment_position(x, y, optimum='minimum', plot_func=No
         plot_func(x, y, x_fit=x_fit, y_fit=y_fit, x_peak=x_min, y_peak=y_min, curve_index=0, **plot_kwargs)
     return x_min
 
+_crystal_info_dict = { 'main': {'motor_name': 'johann_main_crystal_motor_cr_main_roll', 'color': 'tab:blue'},
+                       'aux2': {'motor_name': 'johann_aux2_crystal_motor_cr_aux2_roll', 'color': 'tab:orange'},
+                       'aux3': {'motor_name': 'johann_aux3_crystal_motor_cr_aux3_roll', 'color': 'tab:green'},
+                       'aux4': {'motor_name': 'johann_aux4_crystal_motor_cr_aux4_roll', 'color': 'tab:red'},
+                       'aux5': {'motor_name': 'johann_aux5_crystal_motor_cr_aux5_roll', 'color': 'tab:purple'}}
+
+def convert_roll_to_energy_for_johann_fly_scan(df, hdr):
+
+    LUT = hdr.start['spectrometer_config']['fly_calibration_dict']['LUT']
+    if LUT is not None:
+        trajectory_dict = hdr.start['spectrometer_relative_trajectory']
+        crystals = list(trajectory_dict.keys())
+
+        for crystal in crystals:
+            conv_dict = LUT[crystal]
+            _energy, _roll = conv_dict['energy'], conv_dict['roll']
+            e2roll_converter = Nominal2ActualConverter(_energy, _roll)
+            _cr_roll_motor_key = _crystal_info_dict[crystal]['motor_name']
+            _cr_roll = df[_cr_roll_motor_key]
+            _cr_energy = e2roll_converter.act2nom(_cr_roll)
+            df[f'{crystal}_energy'] = _cr_energy
+
+    return df
+
+
 
 
 pilatus_mask = np.ones((195, 487), dtype=bool)

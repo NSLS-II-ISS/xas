@@ -18,6 +18,8 @@ import os
 # from isscloudtools.slack import slack_upload_image
 # from isscloudtools.cloud_dispatcher import generate_output_figures
 
+from xas.spectrometer import convert_roll_to_energy_for_johann_fly_scan
+from xas.image_analysis import reduce_johann_images
 from xas.vonhamos import process_von_hamos_scan #, save_vh_scan_to_file
 import gc
 
@@ -232,6 +234,10 @@ def process_interpolate_unsorted(uid, db):
 def get_processed_df_from_uid_for_epics_fly_scan(db, uid, save_interpolated_file=False, path_to_file=None, comments=None, load_images=False):
     hdr = db[uid]
     stream_names = hdr.stream_names
+
+    if (hdr.start['spectrometer'] == 'johann'):
+        load_images = True
+
     try:
         # default detectors
         # apb_df, energy_df, energy_offset = load_apb_dataset_from_db(db, uid)
@@ -289,7 +295,10 @@ def get_processed_df_from_uid_for_epics_fly_scan(db, uid, save_interpolated_file
         raise e
 
     if (hdr.start['spectrometer'] == 'johann'):
-        interpolated_df = reduce_johann_images(interpolated_df, md=hdr.start)
+        interpolated_df = reduce_johann_images(interpolated_df, hdr)
+
+    if (hdr.start['spectrometer'] == 'johann'):
+        interpolated_df = convert_roll_to_energy_for_johann_fly_scan(interpolated_df, hdr)
 
     try:
         stream_name = hdr.start['motor_stream_names'][0]
