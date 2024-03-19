@@ -696,6 +696,12 @@ def reduce_johann_images(interpolated_df, hdr, detector_key='pil100k2', image_ke
         roi_key = f'{detector_key}_{crystal}'
         interpolated_df[roi_key] = interpolated_df[det_image_key].apply(lambda x: get_total_counts_from_roi_mask(x, roi_mask_dict[crystal]))
 
+    # images = np.array([v.astype(np.int16) for v in interpolated_df[det_image_key].values])
+    #
+    # for crystal in crystals:
+    #     roi_key = f'{detector_key}_{crystal}'
+    #     interpolated_df[roi_key] = np.sum(images[:, roi_mask_dict[crystal]], axis=0)
+
     return interpolated_df
 
 

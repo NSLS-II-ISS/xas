@@ -23,14 +23,14 @@ from xas.image_analysis import reduce_johann_images
 from xas.vonhamos import process_von_hamos_scan #, save_vh_scan_to_file
 import gc
 
-def process_interpolate_bin(doc, db, draw_func_interp = None, draw_func_bin = None, cloud_dispatcher = None, print_func=None, dump_to_tiff=False):
+def process_interpolate_bin(doc, db, draw_func_interp = None, draw_func_bin = None, cloud_dispatcher = None, print_func=None, dump_to_tiff=False, load_images=False):
     # logger = get_logger()
     if 'experiment' in db[doc['run_start']].start.keys():
         uid = doc['run_start']
-        process_interpolate_bin_from_uid(uid, db, draw_func_interp=draw_func_interp, draw_func_bin=draw_func_bin, cloud_dispatcher=cloud_dispatcher, print_func=print_func, dump_to_tiff=dump_to_tiff)
+        process_interpolate_bin_from_uid(uid, db, draw_func_interp=draw_func_interp, draw_func_bin=draw_func_bin, cloud_dispatcher=cloud_dispatcher, print_func=print_func, dump_to_tiff=dump_to_tiff, load_images=load_images)
 
 
-def process_interpolate_bin_from_uid(uid, db, draw_func_interp = None, draw_func_bin = None, cloud_dispatcher = None, print_func=None, dump_to_tiff=False, save_interpolated_file=True, update_start=None):
+def process_interpolate_bin_from_uid(uid, db, draw_func_interp = None, draw_func_bin = None, cloud_dispatcher = None, print_func=None, dump_to_tiff=False, load_images=False, save_interpolated_file=True, update_start=None):
 
     logger = get_logger()
     hdr, primary_df, extended_data, comments, path_to_file, file_list, data_kind = get_processed_df_from_uid(uid, db,
@@ -39,7 +39,8 @@ def process_interpolate_bin_from_uid(uid, db, draw_func_interp = None, draw_func
                                                                           draw_func_bin=draw_func_bin,
                                                                           print_func=print_func,
                                                                           save_interpolated_file=save_interpolated_file,
-                                                                          update_start=update_start)
+                                                                          update_start=update_start,
+                                                                          load_images=load_images)
 
     save_primary_df_as_file(path_to_file, primary_df, comments)
 
@@ -235,8 +236,8 @@ def get_processed_df_from_uid_for_epics_fly_scan(db, uid, save_interpolated_file
     hdr = db[uid]
     stream_names = hdr.stream_names
 
-    if (hdr.start['spectrometer'] == 'johann'):
-        load_images = True
+    # if (hdr.start['spectrometer'] == 'johann'):
+    #     load_images = True
 
     try:
         # default detectors
@@ -294,10 +295,10 @@ def get_processed_df_from_uid_for_epics_fly_scan(db, uid, save_interpolated_file
         # logger.info(f'({ttime.ctime()}) Interpolation failed for {uid}')
         raise e
 
-    if (hdr.start['spectrometer'] == 'johann'):
+    if (hdr.start['spectrometer'] == 'johann') and (load_images):
         interpolated_df = reduce_johann_images(interpolated_df, hdr)
 
-    if (hdr.start['spectrometer'] == 'johann'):
+    if (hdr.start['spectrometer'] == 'johann') and (load_images):
         interpolated_df = convert_roll_to_energy_for_johann_fly_scan(interpolated_df, hdr)
 
     try:

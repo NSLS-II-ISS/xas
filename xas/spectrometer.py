@@ -270,16 +270,21 @@ def analyze_linewidth_fly_scan(db, uid, x_key='johann_main_crystal_motor_cr_main
     if rois is None: rois = [1]
 
     field_base = 'pil100k2' if 'pil100k2_roi1' in df.columns else 'pil100k'
+    output = {}
 
     for i in rois:
-        field = f'{field_base}_roi{i}'
+        if type(i) == int:
+            field = f'{field_base}_roi{i}'
+        else:
+            field = f'{field_base}_{i}'
+
         # print(field)
         y = np.abs(df[field].values / (df['i0'] / df['i0'].median()).values)
 
         y, y_scale = normalize_peak(y, bkg1=5, bkg2=-5, nmax=5, return_scale=True)
 
         y_max = np.mean(np.sort(y)[-5:])
-        mask = y >= y_max * 0.3
+        mask = y >= y_max * 0.5
 
         x_roi = x[mask]
         y_roi = y[mask]
@@ -320,8 +325,13 @@ def analyze_linewidth_fly_scan(db, uid, x_key='johann_main_crystal_motor_cr_main
             plot_func(x, y / y_maximum,
                       x_fit=x_roi, y_fit=y_smooth_roi / y_maximum,
                       x_peak=cen, y_peak=1, fwhm=fwhm, x_label=x_key, y_label=field, **plot_kwargs)
-        fwhm_return = fwhm
-    return fwhm, y_maximum * y_scale, x_maximum, x_com
+
+        if len(rois) == 1:
+            return fwhm, y_maximum * y_scale, x_maximum, x_com
+
+        output[i] = {'fwhm': fwhm, 'max_value': y_maximum * y_scale, 'max_loc': x_maximum, 'com_loc': x_com}
+
+    return output
 
 
 def estimate_hm_positions_of_peak(x, y):
@@ -387,8 +397,8 @@ def convert_roll_to_energy_for_johann_fly_scan(df, hdr):
         crystals = list(trajectory_dict.keys())
 
         for crystal in crystals:
-            conv_dict = LUT[crystal]
-            _energy, _roll = conv_dict['energy'], conv_dict['roll']
+            _roll = LUT[crystal]
+            _energy = LUT['energy']
             e2roll_converter = Nominal2ActualConverter(_energy, _roll)
             _cr_roll_motor_key = _crystal_info_dict[crystal]['motor_name']
             _cr_roll = df[_cr_roll_motor_key]
