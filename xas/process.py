@@ -20,17 +20,23 @@ import os
 
 from xas.spectrometer import convert_roll_to_energy_for_johann_fly_scan
 from xas.image_analysis import reduce_johann_images
-from xas.vonhamos import process_von_hamos_scan #, save_vh_scan_to_file
+from xas.vonhamos import process_von_hamos_scan, filter_von_hamos_kwargs #, save_vh_scan_to_file
 import gc
 
-def process_interpolate_bin(doc, db, draw_func_interp = None, draw_func_bin = None, cloud_dispatcher = None, print_func=None, dump_to_tiff=False, load_images=False):
+def process_interpolate_bin(doc, db, draw_func_interp = None, draw_func_bin = None, cloud_dispatcher = None,
+                            print_func=None, dump_to_tiff=False, load_images=False, processing_kwargs=None):
     # logger = get_logger()
     if 'experiment' in db[doc['run_start']].start.keys():
         uid = doc['run_start']
-        process_interpolate_bin_from_uid(uid, db, draw_func_interp=draw_func_interp, draw_func_bin=draw_func_bin, cloud_dispatcher=cloud_dispatcher, print_func=print_func, dump_to_tiff=dump_to_tiff, load_images=load_images)
+        process_interpolate_bin_from_uid(uid, db, draw_func_interp=draw_func_interp, draw_func_bin=draw_func_bin,
+                                         cloud_dispatcher=cloud_dispatcher, print_func=print_func,
+                                         dump_to_tiff=dump_to_tiff, load_images=load_images,
+                                         processing_kwargs=processing_kwargs)
 
 
-def process_interpolate_bin_from_uid(uid, db, draw_func_interp = None, draw_func_bin = None, cloud_dispatcher = None, print_func=None, dump_to_tiff=False, load_images=False, save_interpolated_file=True, update_start=None):
+def process_interpolate_bin_from_uid(uid, db, draw_func_interp = None, draw_func_bin = None, cloud_dispatcher = None,
+                                     print_func=None, dump_to_tiff=False, load_images=False,
+                                     save_interpolated_file=True, update_start=None, processing_kwargs=None):
 
     logger = get_logger()
     hdr, primary_df, extended_data, comments, path_to_file, file_list, data_kind = get_processed_df_from_uid(uid, db,
@@ -40,9 +46,16 @@ def process_interpolate_bin_from_uid(uid, db, draw_func_interp = None, draw_func
                                                                           print_func=print_func,
                                                                           save_interpolated_file=save_interpolated_file,
                                                                           update_start=update_start,
-                                                                          load_images=load_images)
+                                                                          load_images=load_images,
+                                                                          processing_kwargs=processing_kwargs)
 
-    save_primary_df_as_file(path_to_file, primary_df, comments)
+    if (processing_kwargs is not None) and ('skip_standard_dat' in processing_kwargs):
+        skip_standard_dat = processing_kwargs['skip_standard_dat']
+    else:
+        skip_standard_dat = False
+
+    if not skip_standard_dat:
+        save_primary_df_as_file(path_to_file, primary_df, comments)
 
     try:
         save_extended_data_as_file(path_to_file, extended_data, data_kind=data_kind)
@@ -79,7 +92,7 @@ _legacy_experiment_reg = {'fly_energy_scan_pil100k' : 'fly_scan'}
 
 def get_processed_df_from_uid(uid, db, logger=None, draw_func_interp=None, draw_func_bin = None,
                               print_func=None, save_interpolated_file=True,
-                              update_start=None, return_processed_df=False, load_images=False, **rebin_kwargs):
+                              update_start=None, return_processed_df=False, load_images=False, processing_kwargs=None):
     if print_func is None:
         print_func = print
     if logger is None:
@@ -141,6 +154,8 @@ def get_processed_df_from_uid(uid, db, logger=None, draw_func_interp=None, draw_
 
         try:
             if e0 > 0:
+                # rebin_kwargs = filter_rebin_kwargs(processing_kwargs)
+                rebin_kwargs = {}
                 processed_df = bin(interpolated_df, e0, **rebin_kwargs)
                 (path, extension) = os.path.splitext(path_to_file)
                 path_to_file = path + '.dat'
@@ -184,11 +199,19 @@ def get_processed_df_from_uid(uid, db, logger=None, draw_func_interp=None, draw_
     ### WIP
     if 'spectrometer' in hdr.start.keys():
         if hdr.start['spectrometer'] == 'von_hamos':
-            extended_data, comments, file_paths = process_von_hamos_scan(primary_df, extended_data, comments, hdr, path_to_file, db=db)
+            von_hamos_kwargs = filter_von_hamos_kwargs(processing_kwargs)
+            extended_data, comments, file_paths = process_von_hamos_scan(primary_df, extended_data, comments, hdr,
+                                                                         path_to_file, db=db, **von_hamos_kwargs)
             data_kind = 'von_hamos'
             file_list = file_paths
             # save_vh_scan_to_file(path_to_file, vh_scan, comments)
-    file_list.append(path_to_file)
+    if (processing_kwargs is not None) and ('skip_standard_dat' in processing_kwargs):
+        skip_standard_dat = processing_kwargs['skip_standard_dat']
+    else:
+        skip_standard_dat = False
+
+    if not skip_standard_dat:
+        file_list.append(path_to_file)
     return hdr, primary_df, extended_data, comments, path_to_file, file_list, data_kind
 
 import numpy as np
@@ -232,7 +255,8 @@ def process_interpolate_unsorted(uid, db):
 
 
 
-def get_processed_df_from_uid_for_epics_fly_scan(db, uid, save_interpolated_file=False, path_to_file=None, comments=None, load_images=False):
+def get_processed_df_from_uid_for_epics_fly_scan(db, uid, save_interpolated_file=False, path_to_file=None,
+                                                 comments=None, load_images=False, processing_kwargs=None):
     hdr = db[uid]
     stream_names = hdr.stream_names
 
