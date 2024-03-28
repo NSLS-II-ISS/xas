@@ -635,24 +635,26 @@ def create_mask_edge_dict(image, roi_dict: dict=None, mask_roi_dict: dict=None, 
         mask_all_rois = np.sum(list(mask_roi_dict.values()), axis=0).astype(bool)
 
     for key, roi_polygon in edge_roi_dict.items():
-        mask_edge_dict[key] = create_mask_for_roi(image, roi_polygon) & ~mask_all_rois
+        mask_edge_dict[key] = create_mask_for_roi(image, roi_polygon) & ~mask_all_rois & ~mask_roi_dict[key]
 
     return mask_edge_dict
 
 
+def _estimate_image_background(images, mask_roi, mask_bkg, gauss_fwhm=20, plotting=False):
 
-def estimate_image_background(image, mask_roi, mask_bkg, gauss_fwhm=20, plotting=False):
+    if images.ndim == 2:
+        images = images[None, :, :]
 
-    a, b = image.shape
+    n, a, b = images.shape
     x, y = np.meshgrid(np.arange(b), np.arange(a))
     x, y = x.ravel(), y.ravel()
     mask_roi_arr = mask_roi.ravel()
     mask_bkg_arr = mask_bkg.ravel()
-    image_arr = image.ravel()
+    images_arr = images.reshape((n, a * b))
 
-    tresh_lo = np.percentile(image_arr[mask_bkg_arr], 2)
-    tresh_hi = np.percentile(image_arr[mask_bkg_arr], 98)
-    zinger_mask = (image_arr >= tresh_lo) & (image_arr <= tresh_hi)
+    tresh_lo = np.percentile(images_arr[:, mask_bkg_arr], 2)
+    tresh_hi = np.percentile(images_arr[:, mask_bkg_arr], 98)
+    zinger_mask = np.sum((images_arr >= tresh_lo) & (images_arr <= tresh_hi), axis=0).astype(bool)
 
     mask_bkg_zinger_arr = mask_bkg_arr & zinger_mask
 
@@ -664,21 +666,61 @@ def estimate_image_background(image, mask_roi, mask_bkg, gauss_fwhm=20, plotting
     sigma = gauss_fwhm / 2.355
     A = np.exp(-0.5 * (dr / sigma) ** 2)
     A /= np.sum(A, axis=1)[:, None]
-    if plotting:
-        bkg_arr = np.zeros(image_arr.shape)
-        bkg_arr[mask_roi_arr] = A @ image_arr[mask_bkg_zinger_arr]
-        bkg = bkg_arr.reshape(a, b)
-        cor = image.copy()
-        cor[mask_roi] = bkg[mask_roi]
-        plt.figure()
-        plt.imshow(cor, vmin=np.percentile(cor, 5), vmax=np.percentile(cor, 95))
 
-    return np.sum(A @ image_arr[mask_bkg_zinger_arr])
+    bkg_arr = np.zeros(images_arr.shape, dtype=np.float64)
+    bkg_arr[:, mask_roi_arr] = (A @ images_arr[:, mask_bkg_zinger_arr].T.astype(np.float64)).T
+    bkg = bkg_arr.reshape(n, a, b)
+    images_bkg = images.copy().astype(np.float64)
+    print(images_bkg.dtype)
+    images_bkg[:, mask_roi] = bkg[:, mask_roi]
+    print(images_bkg.dtype)
+
+    if plotting:
+        total_image = np.sum(images_bkg, axis=0)
+        plt.figure()
+        plt.imshow(total_image, vmin=np.percentile(total_image, 5), vmax=np.percentile(total_image, 95))
+        plt.title('Results for sum of all images')
+
+    return images_bkg
+
+def _estimate_images_background_counts(images, mask_roi, mask_bkg, gauss_fwhm=20, plotting=False):
+    images_bkg = _estimate_image_background(images, mask_roi, mask_bkg, gauss_fwhm=gauss_fwhm, plotting=plotting)
+    return np.sum(images_bkg[:, mask_roi], axis=0)
+
+def estimate_background_images(images, roi_dict, roi, rectangular_roi=True, dr=8.0, gauss_fwhm=20, allow_roi_crosstalk=False):
+    if images.ndim == 2:
+        images = images[None, :, :]
+    if rectangular_roi:
+        poly_roi_dict = _convert_rectangular_roi_dict_to_polygon(roi_dict)
+    else:
+        poly_roi_dict = roi_dict
+    mask_roi_dict = create_mask_roi_dict(images[0, :, :], poly_roi_dict)
+    mask_edge_dict = create_mask_edge_dict(images[0, :, :], roi_dict=poly_roi_dict, mask_roi_dict=mask_roi_dict, dr=dr, allow_roi_crosstalk=allow_roi_crosstalk)
+    return _estimate_image_background(images, mask_roi_dict[roi], mask_edge_dict[roi], gauss_fwhm=gauss_fwhm, plotting=False)
 
 def get_total_counts_from_roi_mask(image, roi_mask):
     return np.sum(image[roi_mask])
 
+def pil100k2_flat_field():
+    gain = 0.93789523598 # independently determined
+    ff_image = np.ones((195, 487), dtype=np.float64)
+    ff_image[:, 0] = gain
+    ff_image[:, 59::61] = gain
+    ff_image[:, 60::61] = gain
+    ff_image[:, 61::61] = gain
+    ff_image[0, :] = gain
+    ff_image[96, :] = gain
+    ff_image[97, :] = gain
+    ff_image[98, :] = gain
+    ff_image[-1, :] = gain
+    return ff_image
 
+
+def correct_pil100k2_images_flat_field(images, ff_image=None):
+    if ff_image is None:
+        ff_image = pil100k2_flat_field()
+    new_images = [img * ff_image for img in images]
+    return new_images
 
 def reduce_johann_images(interpolated_df, hdr, detector_key='pil100k2', image_key='image'):
     _roi_dict = hdr.start['detectors']['Pilatus 100k New']['config']['roi_polygon']
@@ -719,7 +761,7 @@ def plot_polygon_roi(roi_dict, key='main', ax=None, **plot_kwargs):
         point_j = roi[j]
         ax.plot([point_i[0], point_j[0]], [point_i[1], point_j[1]], **plot_kwargs)
 
-def show_polygon_roi_for_pil100k_image(image, roi_dict): #, detector_key='pil100k2', image_key='image'):
+def show_polygon_roi_for_pil100k_image(image, roi_dict, info_dict=None): #, detector_key='pil100k2', image_key='image'):
     # det_image_key = f'{detector_key}_{image_key}'
     # total_image = np.sum(np.array([v for v in df[det_image_key].values]), axis=0)
 
@@ -731,10 +773,26 @@ def show_polygon_roi_for_pil100k_image(image, roi_dict): #, detector_key='pil100
     plt.figure()
     plt.imshow(image, vmin=np.percentile(image, 5), vmax=np.percentile(image, 95))
 
-    for crystal in roi_dict:
-        plot_polygon_roi(roi_dict, key=crystal, color=_crystal_info_dict[crystal]['color'])
+    for i, crystal in enumerate(roi_dict.keys()):
+        if info_dict is not None:
+            plot_kwargs = {'color': info_dict[crystal]['color']}
+        else:
+            plot_kwargs = {'color': f'C{i}'}
+        plot_polygon_roi(roi_dict, key=crystal, **plot_kwargs)
+
+def _convert_rectangular_roi_to_polygon(x=None, dx=None, y=None, dy=None):
+    return [(x, y), (x, y + dy), (x + dx, y + dy), (x + dx, y)]
+
+def _convert_rectangular_roi_dict_to_polygon(roi_dict):
+    polygon_dict = {}
+    for key, val in roi_dict.items():
+        polygon_dict[key] = _convert_rectangular_roi_to_polygon(**val)
+    return polygon_dict
 
 
+def show_rectangular_roi_for_pil100k_image(image, roi_dict):
+    polygon_dict = _convert_rectangular_roi_dict_to_polygon(roi_dict)
+    show_polygon_roi_for_pil100k_image(image, polygon_dict)
 
 
 
