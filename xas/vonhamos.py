@@ -7,6 +7,8 @@ from xas.fitting import fit_gaussian_with_estimation, fit_gaussian, Nominal2Actu
 import pandas as pd
 import os
 
+from .image_analysis import estimate_background_images, correct_pil100k2_images_flat_field
+
 from scipy.ndimage import center_of_mass, rotate
 from scipy import linalg
 from sklearn.covariance import MinCovDet
@@ -217,8 +219,7 @@ def scan_and_calibration_roi_match(md, uid_calibration, db, roi='roi1', detector
     roi_calibration = get_roi(md_calibration, roi=roi, detector=detector)
     return (roi_scan == roi_calibration)
 
-def apply_calibration_for_roi(df, extended_data, md, uid_calibration, db, roi='roi1', roi_dict=None, detector=PILATUS_KEY, droi=5):
-
+def apply_calibration_for_roi(df, extended_data, md, uid_calibration, db, roi='roi1', roi_dict=None, detector=PILATUS_KEY, droi=8, gauss_fwhm=20):
 
     if roi_dict is None:
         roi_dict = md['detectors'][detector]['config']['roi']
@@ -249,23 +250,40 @@ def apply_calibration_for_roi(df, extended_data, md, uid_calibration, db, roi='r
     else:
         p_xy, p_xe = process_calibration_for_roi_uid(uid_calibration, db, roi=roi, roi_dict=roi_dict_calibration, detector=detector)
 
-    image_stack = get_cropped_image_stack(extended_data, roi_dict[roi])
-    # need to do something about the bkg intensity using droi
+    image_stack = get_image_array(extended_data)
+    bkg_stack = estimate_background_images(image_stack, roi_dict, roi, rectangular_roi=True,
+                                           dr=droi, gauss_fwhm=gauss_fwhm, allow_roi_crosstalk=True)
+
+    cropped_image_stack = crop_roi(image_stack, roi_dict[roi])
+    cropped_bkg_stack = crop_roi(bkg_stack, roi_dict[roi])
+
     intensity = []
-    for image in image_stack:
-        x_pix, _intensity = reduce_image_alt(image, p_xy)
+    intensity_bkg = []
+    for img, bkg in zip(cropped_image_stack, cropped_bkg_stack):
+        x_pix, _intensity = reduce_image_alt(img, p_xy)
+        _, _intensity_bkg = reduce_image_alt(bkg, p_xy)
         intensity.append(_intensity)
+        intensity_bkg.append(_intensity_bkg)
 
     intensity = np.array(intensity)
+    intensity_bkg = np.array(intensity_bkg)
     energy = np.polyval(p_xe, x_pix)
 
-    vh_roi_data = {f'energy' : energy, f'{DET2KEY[detector]}' : intensity}
+    vh_roi_data = {f'energy' : energy,
+                   f'{DET2KEY[detector]}' : intensity,
+                   f'{DET2KEY[detector]}_bkg': intensity_bkg,
+                   f'{DET2KEY[detector]}_no_bkg': intensity - intensity_bkg}
     return vh_roi_data, roi_dict
 
+def filter_von_hamos_kwargs(kwargs: dict=None):
+    if kwargs is None:
+        kwargs = {}
+    return {k: v for k, v in kwargs.items() if k in ['droi', 'gauss_fwhm', 'uid_calibration']}
 
 def process_von_hamos_scan(df, extended_data, comments, hdr, path_to_file, db=None,
                            detector=PILATUS_KEY, roi_keys=None, roi_dict=None,
-                           droi=5, save_dat=True):
+                           droi=5, gauss_fwhm=40, uid_calibration=None,
+                           save_dat=True):
     comments += f'# Spectrometer.type: von Hamos\n' \
                 f'# Spectrometer.detector: {detector}'
 
@@ -274,6 +292,11 @@ def process_von_hamos_scan(df, extended_data, comments, hdr, path_to_file, db=No
     if roi_keys is None:
         roi_keys = ['roi1']
 
+    img_key = f'{DET2KEY[PILATUS_KEY]}_image'
+
+    # correct flat field
+    extended_data[img_key] = correct_pil100k2_images_flat_field(extended_data[img_key])
+
     vh_data_dict = {}
 
     for roi_key in roi_keys:
@@ -281,8 +304,9 @@ def process_von_hamos_scan(df, extended_data, comments, hdr, path_to_file, db=No
         if md['scan_for_calibration_purpose']:
             uid_calibration = md['uid']
         else:
-            uid_calibration = md['spectrometer_config']['energy_calibration_uid']
-        vh_data_dict[roi_key], roi_dict = apply_calibration_for_roi(df, extended_data, md, uid_calibration, db, roi=roi_key, roi_dict=roi_dict, detector=detector, droi=droi)
+            if uid_calibration is None:
+                uid_calibration = md['spectrometer_config']['energy_calibration_uid']
+        vh_data_dict[roi_key], roi_dict = apply_calibration_for_roi(df, extended_data, md, uid_calibration, db, roi=roi_key, roi_dict=roi_dict, detector=detector, droi=droi, gauss_fwhm=gauss_fwhm)
 
     extended_data = {**extended_data, 'von_hamos_data' : vh_data_dict}
 
