@@ -86,6 +86,16 @@ for item in x.list_data.selectedItems():
     else:
         rixs_dict[emission_energy].append({'energy': df.energy, 'mu' : -df.pil100k_roi1 / df.i0})
 
+uids = []
+for item in x.list_data.selectedItems():
+    fname = os.path.join(x.working_folder, item.text())
+    df, header = load_binned_df_from_file(fname)
+    print(fname, df.shape)
+    uid_idx1 = header.find('Scan.uid:') + 10
+    uid_idx2 = header.find('\n', header.find('Scan.uid:'))
+    uid = header[uid_idx1: uid_idx2]
+    uids.append(uid)
+
 
 
 some_emission_energy = list(rixs_dict.keys())[0]
@@ -1644,6 +1654,60 @@ plt.plot(KK_x, KK_y, 'm-')
 plt.xlim(-500, 1000)
 plt.ylim(-500, 1000)
 plt.axis('equal')
+
+
+from xas.process import process_interpolate_bin_from_uid, get_processed_df_from_uid
+from xas.file_io import save_extended_data_as_file
+
+uids = [ 'd6b89a0d-1cf5-4b0b-8695-bc84cb5007e5',
+         '318cec96-5213-4773-baf2-da50cae02f2d',
+         '138e62df-c191-4831-9249-a5d252e8b6e8',
+         '4989c59b-76a0-46dd-8723-51fd6f1ff6e5',
+         'abaa4995-9bd1-4a5b-9b2d-4338ea30ab12',
+         'b5d1704b-8c99-4f71-884f-14204166ab7b',
+         '119523cd-0aae-4964-af3d-140458a51bcd',
+         '4f94bb97-166e-4194-b145-bab39479bbf1',
+         '23bfef24-7602-4a65-b761-cd9617152716',
+         '8e71ee10-c9a3-4c49-9c59-11f169ca94d9' ]
+
+
+# uids = list(range(42213, 42321 + 1))[4:]
+uids = list(range(42304, 42321 + 1))
+for i, uid in enumerate(uids):
+    try:
+        print('workding on', uid, db[uid].start.name, 'progress:', i / len(uids) * 100)
+    except:
+        pass
+    if 'experiment' not in db[uid].start:
+        continue
+    hdr, primary_df, extended_data, comments, path_to_file, file_list, data_kind = get_processed_df_from_uid(uid, db,
+                                                                              logger=None,
+                                                                              draw_func_interp=None,
+                                                                              draw_func_bin=None,
+                                                                              print_func=None,
+                                                                              save_interpolated_file=False,
+                                                                              update_start=None,
+                                                                              load_images=True)
+
+    path_to_file = hdr.start['interp_filename'][:-3] + 'dat'
+    # extended_data['pil100k_image'] = extended_data['pil100k_image'].astype(np.float32)
+    save_extended_data_as_file(path_to_file, extended_data, data_kind=data_kind)
+
+
+
+###
+np.random.seed(1)
+
+x = np.arange(100)
+s = np.exp(-((x - 50)/ (np.sqrt(2) * 5))**2) * 7
+noise1 = np.random.randn(100) * (np.sqrt(55)/np.sqrt(500))
+noise2 = np.random.randn(100) * (np.sqrt(55/10)/np.sqrt(180))
+
+
+plt.figure(1, clear=True)
+plt.plot(x, s + noise1)
+plt.plot(x, s + noise2)
+
 
 
 ####
