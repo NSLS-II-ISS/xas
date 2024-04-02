@@ -403,7 +403,7 @@ def convert_roll_to_energy_for_johann_fly_scan(df, hdr):
             _cr_roll_motor_key = _crystal_info_dict[crystal]['motor_name']
             _cr_roll = df[_cr_roll_motor_key]
             _cr_energy = e2roll_converter.act2nom(_cr_roll)
-            df[f'{crystal}_energy'] = _cr_energy
+            df[f'energy_{crystal}'] = _cr_energy
 
     return df
 
