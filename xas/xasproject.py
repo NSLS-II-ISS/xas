@@ -47,20 +47,34 @@ class XASDataSet:
                 self.nnorm = 2
                 self.clamp_hi = 0
                 self.clamp_lo = 0
-                self.normalize()
-                self.deriv()
-                try:
-                    self.extract_chi()
-                    self.kmin_ft = 3
-                    self.kmax_ft = self.kmax - 1
-                except:
-                    self.kmax = 8
-                    self.kmin = 3
-                    self.kmax_ft = 8
-                    self.kmin_ft = 3
                 self.kweight = 2
                 self.rbkg = 1
-            else:
+                self.kmax = 8
+                self.kmin = 3
+                self.kmin_ft = 3
+                self.kmax_ft = 8
+                try:
+                    self.normalize()
+                    self.deriv()
+                    try:
+                        self.extract_chi()
+                        self.kmin_ft = 3
+                        self.kmax_ft = self.kmax - 1
+
+                    except:
+                        pass
+
+                except:
+                    self.pre1 = None
+                    self.pre2 = None
+                    self.norm1 = None
+                    self.norm2 = None
+                    self.e0 = None
+                    self.pre_edge = None
+                    self.post_edge = None
+                    self.edge_step = None
+
+            if xasdataset is not None:
                 self.clamp_hi = xasdataset.clamp_hi
                 self.clamp_lo = xasdataset.clamp_lo
                 self.kmin = xasdataset.kmin
