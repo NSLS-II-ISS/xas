@@ -318,12 +318,12 @@ def get_processed_df_from_uid_for_epics_fly_scan(db, uid, save_interpolated_file
     except Exception as e:
         # logger.info(f'({ttime.ctime()}) Interpolation failed for {uid}')
         raise e
+    if 'spectrometer' in hdr.start:
+        if (hdr.start['spectrometer'] == 'johann') and (load_images):
+            interpolated_df = reduce_johann_images(interpolated_df, hdr)
 
-    if (hdr.start['spectrometer'] == 'johann') and (load_images):
-        interpolated_df = reduce_johann_images(interpolated_df, hdr)
-
-    if (hdr.start['spectrometer'] == 'johann') and (load_images):
-        interpolated_df = convert_roll_to_energy_for_johann_fly_scan(interpolated_df, hdr)
+        if (hdr.start['spectrometer'] == 'johann') and (load_images):
+            interpolated_df = convert_roll_to_energy_for_johann_fly_scan(interpolated_df, hdr)
 
     try:
         stream_name = hdr.start['motor_stream_names'][0]
