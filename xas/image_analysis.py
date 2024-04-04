@@ -652,9 +652,12 @@ def _estimate_image_background(images, mask_roi, mask_bkg, gauss_fwhm=20, plotti
     mask_bkg_arr = mask_bkg.ravel()
     images_arr = images.reshape((n, a * b))
 
-    tresh_lo = np.percentile(images_arr[:, mask_bkg_arr], 2)
-    tresh_hi = np.percentile(images_arr[:, mask_bkg_arr], 98)
-    zinger_mask = np.sum((images_arr >= tresh_lo) & (images_arr <= tresh_hi), axis=0).astype(bool)
+    # tresh_lo = np.percentile(images_arr[:, mask_bkg_arr], 2)
+    # tresh_hi = np.percentile(images_arr[:, mask_bkg_arr], 98)
+    # zinger_mask = np.sum((images_arr >= tresh_lo) & (images_arr <= tresh_hi), axis=0).astype(bool)
+
+    tresh_hi = np.percentile(images_arr[:, mask_bkg_arr], 99.999)
+    zinger_mask = np.sum(images_arr <= tresh_hi, axis=0).astype(bool)
 
     mask_bkg_zinger_arr = mask_bkg_arr & zinger_mask
 
@@ -722,17 +725,18 @@ def correct_pil100k2_images_flat_field(images, ff_image=None):
     new_images = [img * ff_image for img in images]
     return new_images
 
-def reduce_johann_images(interpolated_df, hdr, detector_key='pil100k2', image_key='image'):
-    _roi_dict = hdr.start['detectors']['Pilatus 100k New']['config']['roi_polygon']
-    trajectory_dict = hdr.start['spectrometer_relative_trajectory']
+def reduce_johann_images(interpolated_df, hdr, detector_key='pil100k2', image_key='image', poly_roi_dict=None):
+    if poly_roi_dict is None:
+        poly_roi_dict = hdr.start['detectors']['Pilatus 100k New']['config']['roi_polygon']
 
+    trajectory_dict = hdr.start['spectrometer_relative_trajectory']
     crystals = list(trajectory_dict.keys())
-    roi_dict = {}
+    roi_dict_filt = {}
     for crystal in crystals:
-        roi_dict[crystal] = _roi_dict[crystal]
+        roi_dict_filt[crystal] = poly_roi_dict[crystal]
 
     det_image_key = f'{detector_key}_{image_key}'
-    roi_mask_dict = create_mask_roi_dict(interpolated_df[det_image_key][0], roi_dict)
+    roi_mask_dict = create_mask_roi_dict(interpolated_df[det_image_key][0], roi_dict_filt)
 
     for crystal in crystals:
         roi_key = f'{detector_key}_{crystal}'

@@ -18,7 +18,8 @@ import os
 # from isscloudtools.slack import slack_upload_image
 # from isscloudtools.cloud_dispatcher import generate_output_figures
 
-from xas.spectrometer import convert_roll_to_energy_for_johann_fly_scan
+from xas.spectrometer import convert_roll_to_energy_for_johann_fly_scan, filter_johann_image_kwargs, \
+    filter_johann_calibration_kwargs, interpolate_df_emission_energies_on_common_grid
 from xas.image_analysis import reduce_johann_images
 from xas.vonhamos import process_von_hamos_scan, filter_von_hamos_kwargs #, save_vh_scan_to_file
 import gc
@@ -105,7 +106,10 @@ def get_processed_df_from_uid(uid, db, logger=None, draw_func_interp=None, draw_
     experiment = hdr.start['experiment']
     if experiment in _legacy_experiment_reg.keys(): experiment = _legacy_experiment_reg[experiment]
     comments = create_file_header(hdr)
-    path_to_file = hdr.start['interp_filename']
+    if (processing_kwargs is not None) and ('interp_filename' in processing_kwargs):
+        path_to_file = processing_kwargs['interp_filename']
+    else:
+        path_to_file = hdr.start['interp_filename']
     path_to_file = _shift_root(path_to_file)
     validate_path_exists(path_to_file)
     path_to_file = validate_file_exists(path_to_file, file_type='interp')
@@ -184,7 +188,8 @@ def get_processed_df_from_uid(uid, db, logger=None, draw_func_interp=None, draw_
     elif experiment == 'epics_fly_scan':
         processed_df = get_processed_df_from_uid_for_epics_fly_scan(db, uid, save_interpolated_file=True,
                                                                     path_to_file=path_to_file,
-                                                                    comments=comments, load_images=load_images)
+                                                                    comments=comments, load_images=load_images,
+                                                                    processing_kwargs=processing_kwargs)
     else:
         return
 
@@ -319,12 +324,19 @@ def get_processed_df_from_uid_for_epics_fly_scan(db, uid, save_interpolated_file
         # logger.info(f'({ttime.ctime()}) Interpolation failed for {uid}')
         raise e
     if 'spectrometer' in hdr.start:
+        johann_image_kwargs = filter_johann_image_kwargs(processing_kwargs)
         if (hdr.start['spectrometer'] == 'johann') and (load_images):
-            interpolated_df = reduce_johann_images(interpolated_df, hdr)
+            interpolated_df = reduce_johann_images(interpolated_df, hdr, **johann_image_kwargs)
 
+        johann_calibration_kwargs = filter_johann_calibration_kwargs(processing_kwargs)
         if (hdr.start['spectrometer'] == 'johann') and (load_images):
-            interpolated_df = convert_roll_to_energy_for_johann_fly_scan(interpolated_df, hdr)
-
+            interpolated_df, energy_key = convert_roll_to_energy_for_johann_fly_scan(interpolated_df, hdr, **johann_calibration_kwargs)
+            # return interpolated_df
+            if energy_key is not None:
+                interpolated_df = interpolate_df_emission_energies_on_common_grid(interpolated_df, hdr, energy_key=energy_key)
+                step_size = 0.2 # eV
+                processed_df = bin_epics_fly_scan(interpolated_df, key_base='energy', step_size=step_size)
+                return processed_df
     try:
         stream_name = hdr.start['motor_stream_names'][0]
         _stream_name = stream_name[:stream_name.index('monitor') - 1]

@@ -263,8 +263,12 @@ def analyze_elastic_scan(db, uid):
 #     return fwhm
 
 def analyze_linewidth_fly_scan(db, uid, x_key='johann_main_crystal_motor_cr_main_roll', rois=None,
-                               plot_func=None, **plot_kwargs):
-    fname_bin = db[uid].start['interp_filename'][:-3] + 'dat'
+                               plot_func=None, processing_kwargs=None, **plot_kwargs):
+    if (processing_kwargs is not None) and ('interp_filename' in processing_kwargs):
+        path_to_file = processing_kwargs['interp_filename']
+    else:
+        path_to_file = db[uid].start['interp_filename']
+    fname_bin = path_to_file[:-3] + 'dat'
     df, _ = load_binned_df_from_file(fname_bin)
     x = df[x_key].values
     if rois is None: rois = [1]
@@ -389,14 +393,18 @@ _crystal_info_dict = { 'main': {'motor_name': 'johann_main_crystal_motor_cr_main
                        'aux4': {'motor_name': 'johann_aux4_crystal_motor_cr_aux4_roll', 'color': 'tab:red'},
                        'aux5': {'motor_name': 'johann_aux5_crystal_motor_cr_aux5_roll', 'color': 'tab:purple'}}
 
-def convert_roll_to_energy_for_johann_fly_scan(df, hdr):
+def convert_roll_to_energy_for_johann_fly_scan(df, hdr, LUT=None):
+    energy_base = None
+    if LUT is None:
+        LUT = hdr.start['spectrometer_config']['fly_calibration_dict']['LUT']
 
-    LUT = hdr.start['spectrometer_config']['fly_calibration_dict']['LUT']
     if LUT is not None:
         trajectory_dict = hdr.start['spectrometer_relative_trajectory']
         crystals = list(trajectory_dict.keys())
 
         for crystal in crystals:
+            if energy_base is None:
+                energy_base = f'energy_{crystal}'
             _roll = LUT[crystal]
             _energy = LUT['energy']
             e2roll_converter = Nominal2ActualConverter(_energy, _roll)
@@ -405,9 +413,34 @@ def convert_roll_to_energy_for_johann_fly_scan(df, hdr):
             _cr_energy = e2roll_converter.act2nom(_cr_roll)
             df[f'energy_{crystal}'] = _cr_energy
 
+    return df, energy_base
+
+def interpolate_df_emission_energies_on_common_grid(df, hdr, energy_key, det_key='pil100k2',):
+    trajectory_dict = hdr.start['spectrometer_relative_trajectory']
+    crystals = list(trajectory_dict.keys())
+    for crystal in crystals:
+        if crystal != energy_key:
+            this_xes_key = f'{det_key}_{crystal}'
+            df[this_xes_key] = np.interp(df[energy_key], df[f'energy_{crystal}'], df[this_xes_key])
+
+    df = df.rename(columns={energy_key: 'energy'})
+    columns_to_drop = [c for c in df.columns if ('energy_' in c) or ('_crystal_motor_cr' in c)]
+    df = df.drop(columns=columns_to_drop)
+    rois = [f'pil100k2_{k}' for k in hdr.start.spectrometer_relative_trajectory.keys()]
+    df['pil100k2_xes_total'] = np.sum(df[rois].values, axis=1)
+    df['pil100k2_xes_mean'] = np.mean(df[rois].values, axis=1)
     return df
 
 
+def filter_johann_image_kwargs(kwargs: dict=None):
+    if kwargs is None:
+        kwargs = {}
+    return {k: v for k, v in kwargs.items() if k in ['poly_roi_dict']}
+
+def filter_johann_calibration_kwargs(kwargs: dict=None):
+    if kwargs is None:
+        kwargs = {}
+    return {k: v for k, v in kwargs.items() if k in ['LUT']}
 
 
 pilatus_mask = np.ones((195, 487), dtype=bool)
