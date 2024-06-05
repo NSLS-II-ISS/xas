@@ -120,8 +120,10 @@ for i in range(1, 10):
                                         'human_readable_key': f'SampleGasHandlingSystem.RGA.ch{i}.mass'}
     _rga_dict[f'rga_ch{i}_rb'] = {'kind': 'epics_pv',   'pv_str': 'XF:08IDB-VA{RGA:1}P:MID' + f'{i}' + '-I',
                                         'human_readable_key': f'SampleGasHandlingSystem.RGA.ch{i}.readback'}
-
-metadata_dict = {**metadata_dict, **_ghs_selected_gas_dict, **_ghs_mfc_dict, **_rga_dict}
+    
+# @TerribleHack to allow to work on RGA
+# metadata_dict = {**metadata_dict, **_ghs_selected_gas_dict, **_ghs_mfc_dict, **_rga_dict}
+metadata_dict = {**metadata_dict, **_ghs_selected_gas_dict, **_ghs_mfc_dict}
 
 ghs_selected_gas_key_match = {
     'ghs_selected_gas_a': {0: 'None',   1: 'Phosphine',     2: 'Arsine'},
