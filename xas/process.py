@@ -324,19 +324,20 @@ def get_processed_df_from_uid_for_epics_fly_scan(db, uid, save_interpolated_file
         # logger.info(f'({ttime.ctime()}) Interpolation failed for {uid}')
         raise e
     if 'spectrometer' in hdr.start:
-        johann_image_kwargs = filter_johann_image_kwargs(processing_kwargs)
-        if (hdr.start['spectrometer'] == 'johann') and (load_images):
-            interpolated_df = reduce_johann_images(interpolated_df, hdr, **johann_image_kwargs)
+        if 'roi_polygon' in hdr.start['detectors']['Pilatus 100k New']['config']:
+            johann_image_kwargs = filter_johann_image_kwargs(processing_kwargs)
+            if (hdr.start['spectrometer'] == 'johann') and (load_images):
+                interpolated_df = reduce_johann_images(interpolated_df, hdr, **johann_image_kwargs)
 
-        johann_calibration_kwargs = filter_johann_calibration_kwargs(processing_kwargs)
-        if (hdr.start['spectrometer'] == 'johann') and (load_images):
-            interpolated_df, energy_key = convert_roll_to_energy_for_johann_fly_scan(interpolated_df, hdr, **johann_calibration_kwargs)
-            # return interpolated_df
-            if energy_key is not None:
-                interpolated_df = interpolate_df_emission_energies_on_common_grid(interpolated_df, hdr, energy_key=energy_key)
-                step_size = 0.2 # eV
-                processed_df = bin_epics_fly_scan(interpolated_df, key_base='energy', step_size=step_size)
-                return processed_df
+            johann_calibration_kwargs = filter_johann_calibration_kwargs(processing_kwargs)
+            if (hdr.start['spectrometer'] == 'johann') and (load_images):
+                interpolated_df, energy_key = convert_roll_to_energy_for_johann_fly_scan(interpolated_df, hdr, **johann_calibration_kwargs)
+                # return interpolated_df
+                if energy_key is not None:
+                    interpolated_df = interpolate_df_emission_energies_on_common_grid(interpolated_df, hdr, energy_key=energy_key)
+                    step_size = 0.2 # eV
+                    processed_df = bin_epics_fly_scan(interpolated_df, key_base='energy', step_size=step_size)
+                    return processed_df
     try:
         stream_name = hdr.start['motor_stream_names'][0]
         _stream_name = stream_name[:stream_name.index('monitor') - 1]
