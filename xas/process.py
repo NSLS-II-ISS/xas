@@ -23,16 +23,18 @@ from xas.spectrometer import convert_roll_to_energy_for_johann_fly_scan, filter_
 from xas.image_analysis import reduce_johann_images
 from xas.vonhamos import process_von_hamos_scan, filter_von_hamos_kwargs #, save_vh_scan_to_file
 import gc
+from iss_workflows.processing import process_run
 
 def process_interpolate_bin(doc, db, draw_func_interp = None, draw_func_bin = None, cloud_dispatcher = None,
                             print_func=None, dump_to_tiff=False, load_images=False, processing_kwargs=None):
     # logger = get_logger()
     if 'experiment' in db[doc['run_start']].start.keys():
         uid = doc['run_start']
-        process_interpolate_bin_from_uid(uid, db, draw_func_interp=draw_func_interp, draw_func_bin=draw_func_bin,
-                                         cloud_dispatcher=cloud_dispatcher, print_func=print_func,
-                                         dump_to_tiff=dump_to_tiff, load_images=load_images,
-                                         processing_kwargs=processing_kwargs)
+        return process_run(uid)
+        # process_interpolate_bin_from_uid(uid, db, draw_func_interp=draw_func_interp, draw_func_bin=draw_func_bin,
+        #                                  cloud_dispatcher=cloud_dispatcher, print_func=print_func,
+        #                                  dump_to_tiff=dump_to_tiff, load_images=load_images,
+        #                                  processing_kwargs=processing_kwargs)
 
 
 def process_interpolate_bin_from_uid(uid, db, draw_func_interp = None, draw_func_bin = None, cloud_dispatcher = None,
