@@ -25,16 +25,37 @@ from xas.vonhamos import process_von_hamos_scan, filter_von_hamos_kwargs #, save
 import gc
 from iss_workflows.processing import process_run
 
-def process_interpolate_bin(doc, db, draw_func_interp = None, draw_func_bin = None, cloud_dispatcher = None,
-                            print_func=None, dump_to_tiff=False, load_images=False, processing_kwargs=None):
+def process_interpolate_bin(doc, db,
+                            processing_repo='iss-workflows',
+                            draw_func_interp=None,
+                            draw_func_bin=None,
+                            cloud_dispatcher=None,
+                            print_func=None,
+                            dump_to_tiff=False,
+                            load_images=False,
+                            processing_kwargs=None):
     # logger = get_logger()
     if 'experiment' in db[doc['run_start']].start.keys():
         uid = doc['run_start']
-        return process_run(uid)
-        # process_interpolate_bin_from_uid(uid, db, draw_func_interp=draw_func_interp, draw_func_bin=draw_func_bin,
-        #                                  cloud_dispatcher=cloud_dispatcher, print_func=print_func,
-        #                                  dump_to_tiff=dump_to_tiff, load_images=load_images,
-        #                                  processing_kwargs=processing_kwargs)
+        if processing_repo == 'xas':
+            process_interpolate_bin_from_uid(uid, db,
+                                             draw_func_interp=draw_func_interp,
+                                             draw_func_bin=draw_func_bin,
+                                             cloud_dispatcher=cloud_dispatcher,
+                                             print_func=print_func,
+                                             dump_to_tiff=dump_to_tiff,
+                                             load_images=load_images,
+                                             processing_kwargs=processing_kwargs)
+
+        elif processing_repo == 'iss-workflows':
+            process_run(uid,
+                        send_to_sandbox=False,
+                        save_to_file=True,
+                        draw_func_interp=draw_func_interp,
+                        cloud_dispatcher=cloud_dispatcher,
+                        dump_to_tiff=dump_to_tiff,
+                        load_images=load_images,
+                        processing_kwargs=processing_kwargs)
 
 
 def process_interpolate_bin_from_uid(uid, db, draw_func_interp = None, draw_func_bin = None, cloud_dispatcher = None,
