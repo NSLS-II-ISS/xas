@@ -3,12 +3,14 @@ import numpy as np
 from . import xray
 from itertools import product
 from copy import deepcopy
-
+from iss_workflows.tiled_io import _fix_apb_dataset_from_tiled
 
 def load_apb_dataset_from_db(db, uid):
     hdr = db[uid]
-    apb_dataset = list(hdr.data(stream_name='apb_stream', field='apb_stream'))[0].copy()
-    apb_dataset = pd.DataFrame(apb_dataset,
+    t = list(hdr.data(stream_name='apb_stream', field='apb_stream'))[0].copy()
+    arr = np.array(t.tolist()).squeeze()
+    arr = _fix_apb_dataset_from_tiled(arr)
+    apb_dataset = pd.DataFrame(arr,
                                columns=['timestamp', 'i0', 'it', 'ir', 'iff', 'aux1', 'aux2', 'aux3', 'aux4'])
     # apb_dataset = list(hdr.data(stream_name='apb_stream', field='apb_stream'))[0]
     energy_dataset =  list(hdr.data(stream_name='pb9_enc1',field='pb9_enc1'))[0].copy()
@@ -90,7 +92,9 @@ def load_apb_trig_dataset_from_db(db, uid, use_fall=True, stream_name='apb_trigg
 
     hdr = db[uid]
     # t = hdr.table(stream_name=stream_name, fill=True)
-    data = list(hdr.data(stream_name=stream_name, field=stream_name))[0]
+    t = list(hdr.data(stream_name=stream_name, field=stream_name))[0]
+    arr = np.array(t.tolist()).squeeze()
+    data = arr[arr[:, 0] >= 1e8, :]
     timestamps, transitions = data[:, 0], data[:, 1]
     # timestamps = t[stream_name][1]['timestamp'].values
     # transitions = t[stream_name][1]['transition'].values

@@ -54,7 +54,7 @@ def process_interpolate_bin(doc, db,
                         draw_func_interp=draw_func_interp,
                         cloud_dispatcher=cloud_dispatcher,
                         dump_to_tiff=dump_to_tiff,
-                        load_images=load_images,
+                        heavyweight_processing=load_images,
                         processing_kwargs=processing_kwargs)
 
 
@@ -263,7 +263,7 @@ def split_df_data_into_primary_and_extended(df_orig):
 
 
 def clear_db_cache(db):
-    db._catalog._entries.cache_clear()
+    # db._catalog._entries.cache_clear()
     gc.collect()
 
 
