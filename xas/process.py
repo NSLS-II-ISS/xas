@@ -37,6 +37,7 @@ def process_interpolate_bin(doc, db,
     # logger = get_logger()
     if 'experiment' in db[doc['run_start']].start.keys():
         uid = doc['run_start']
+        print(f'processing {uid} in using repo {processing_repo}')
         if processing_repo == 'xas':
             process_interpolate_bin_from_uid(uid, db,
                                              draw_func_interp=draw_func_interp,
