@@ -94,6 +94,7 @@ _legacy_experiment_reg = {'fly_energy_scan_pil100k' : 'fly_scan'}
 def get_processed_df_from_uid(uid, db, logger=None, draw_func_interp=None, draw_func_bin = None,
                               print_func=None, save_interpolated_file=True,
                               update_start=None, return_processed_df=False, load_images=False, processing_kwargs=None):
+
     if print_func is None:
         print_func = print
     if logger is None:
@@ -116,26 +117,32 @@ def get_processed_df_from_uid(uid, db, logger=None, draw_func_interp=None, draw_
     e0 = find_e0(hdr)
     data_kind = 'default'
     file_list = []
-
+    logger.info(f'({ttime.ctime()}) Starting processing for {uid}/{path_to_file}')
     if experiment == 'fly_scan':
 
         # path_to_file = validate_file_exists(path_to_file, file_type='interp')
         stream_names = hdr.stream_names
         try:
+            logger.info(f'({ttime.ctime()}) Retrieving pizzabox and monochromator data')
             # default detectors
             apb_df, energy_df, energy_offset = load_apb_dataset_from_db(db, uid)
+            logger.info(f'({ttime.ctime()}) Pizzabox and monochromator data received')
             raw_dict = translate_apb_dataset(apb_df, energy_df, energy_offset)
-
+            logger.info(f'({ttime.ctime()}) Pizzabox and monochromator data processed')
             for stream_name in stream_names:
                 if (stream_name == 'pil100k_stream') or (stream_name == 'pil100k2_stream'):
+                    logger.info(f'({ttime.ctime()}) Retrieving Pilatus data...')
                     pil100k_stream_name = stream_name
                     pil100k_name = stream_name.split('_')[0]
                     apb_trigger_stream_name = f'apb_trigger_{pil100k_name}'
+
                     apb_trigger_pil100k_timestamps = load_apb_trig_dataset_from_db(db, uid, use_fall=True,
                                                                                    stream_name=apb_trigger_stream_name)
+                    logger.info(f'({ttime.ctime()}) Trigger data received')
                     pil100k_dict = load_pil100k_dataset_from_db(db, uid, apb_trigger_pil100k_timestamps,
                                                                 pil100k_stream_name=pil100k_stream_name,
                                                                 load_images=load_images)
+                    logger.info(f'({ttime.ctime()}) Pilatus data received')
                     raw_dict = {**raw_dict, **pil100k_dict}
 
                 elif stream_name == 'xs_stream':
@@ -143,9 +150,9 @@ def get_processed_df_from_uid(uid, db, logger=None, draw_func_interp=None, draw_
                     xs3_dict = load_xs3_dataset_from_db(db, uid, apb_trigger_xs_timestamps)
                     raw_dict = {**raw_dict, **xs3_dict}
 
-            logger.info(f'({ttime.ctime()}) Loading file successful for UID {uid}/{path_to_file}')
+            logger.info(f'({ttime.ctime()}) Loading streams successful for UID {uid}/{path_to_file}')
         except Exception as e:
-            logger.info(f'({ttime.ctime()}) Loading file failed for UID {uid}/{path_to_file}')
+            logger.info(f'({ttime.ctime()}) Loading streams failed for UID {uid}/{path_to_file}')
             raise e
         try:
             interpolated_df = interpolate(raw_dict)
