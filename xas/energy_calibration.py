@@ -175,7 +175,7 @@ def get_energy_offset_old(uid, db, db_proc, dE=25, plot_fun=None, attempts=5, sl
         else:
             return e0, e_cor
 
-def get_energy_offset(uid, db, db_proc, dE=25, plot_fun=None, attempts=5, sleep_time=1, full_return=False):
+def get_energy_offset(uid, db, db_proc, dE=25, plot_fun=None, attempts=20, sleep_time=2, full_return=False):
     print('running get_energy_offset')
     start = db[uid].start
     fname_raw = start['interp_filename']
@@ -190,7 +190,7 @@ def get_energy_offset(uid, db, db_proc, dE=25, plot_fun=None, attempts=5, sleep_
                 # print('bla')
                 break
             except:
-                print(f'[Energy Calibration] Attempt to read data {i + 1}')
+                print(f'[Energy Calibration] Attempt to read data {i + 1} {ttime.ctime()}')
                 ttime.sleep(sleep_time)
                 df = None
 
@@ -204,7 +204,16 @@ def get_energy_offset(uid, db, db_proc, dE=25, plot_fun=None, attempts=5, sleep_
             edge = start['edge']
             e0 = float(start['e0'])
             # energy_ref, mu_ref = get_foil_spectrum(element, edge, db_proc)
-            energy_ref, mu_ref = db_proc.foil_spectrum(element, edge)
+            energy_ref, mu_ref = db_proc.foil_spectrum(element, edge) ## unsorted array of energy and mu
+
+            _foil_spectrum_tuple = db_proc.foil_spectrum(element, edge)
+            _dataframe_foil = pd.DataFrame(np.column_stack(_foil_spectrum_tuple))
+            _dataframe_foil = _dataframe_foil.sort_values(0)
+
+            energy_ref = np.array(_dataframe_foil[0])
+            mu_ref = np.array(_dataframe_foil[1])
+
+
             mask = (energy_ref >= (e0 - dE)) & (energy_ref <= (e0 + dE))
 
             energy_shift_coarse = energy_ref[np.argmin(np.abs(mu_ref - 0.5))] - energy[np.argmin(np.abs(mu - 0.5))]

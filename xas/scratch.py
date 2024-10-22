@@ -1889,3 +1889,141 @@ plt.imshow(img_cor, vmin=3, vmax=10)
 plt.figure(2, clear=True)
 plt.plot(img_closeset_arr, img_closeset_arr / img_mask_arr, 'k.')
 # plt.axis('square')
+
+
+
+hhm_y_precise = {}
+hhm_y_precise['uid'] = []
+hhm_y_precise['value'] = []
+def find_optimal_hhm_Y_values():
+    energy_tab = [ 4900,  5100,  5500,  6000,  7000,  8000,  9000, 10000, 11000, 12000, 13000, 15000, 17500, 20000]
+    # energy_tab = [9000]
+    for energy in energy_tab:
+        yield from bps.mv(hhm.energy, energy)
+        yield from prepare_beamline_plan(energy, move_cm_mirror = True, move_hhm_y = True)
+        yield from quick_pitch_optimization()
+        yield from bp.relative_scan([bpm_fm], hhm.y_precise, -0.5, 0.5, 21)
+
+
+        hdr = db[-1]
+        hhm_y_precise['uid'].append(hdr.start['uid'])
+        t = hdr.table()
+        index = np.argmax(t['bpm_fm_stats1_total'])
+        hhm_y_precise['value'].append(t['hhm_y_precise'][index+1])
+
+
+
+
+
+#2024-09-19
+
+[9.937850000000001,
+ 9.57315,
+ 9.467450000000001,
+ 9.3162,
+ 9.177100000000001,
+ 9.08755,
+ 9.025,
+ 8.978050000000001,
+ 8.9411,
+ 8.9609,
+ 8.88475,
+ 8.84365,
+ 8.85205,
+ 8.816450000000001]
+
+
+uids =['d0166c48-ebcf-4647-820f-f10f53e768f8',
+ '93b12235-e1ba-4ef4-93e7-7ea558450f0d',
+ '3e49c021-69de-4011-937f-0637a56ddf40',
+ 'ebfafa6f-5ef5-4820-a77f-8f0b9436959e',
+ '9f8e8399-a0af-4099-ae57-b89f4e9687cf',
+ '021337a6-693c-4a0f-a529-5246e574f941',
+ '8a21ec71-c4ae-4a95-94ee-6b8e6e5b24c4',
+ '6ec12c6d-492e-44d1-93c9-9876a1b53f96',
+ '922fa456-e258-43c6-b6ba-b498f6f61bf9',
+ '7794afc8-4dd0-4591-98ff-c576df92790e',
+ 'c7354f86-c247-4ad4-858f-2d0e7043f326',
+ '496d2087-10dd-4ff1-83f1-7ab7410d8bd2',
+ '1baf04d6-a8e3-4a6b-882d-e31ca3a5b75a',
+ 'db7bb3d2-866d-47d4-a1fd-463d94c46416']
+
+with open('inclinometer_data.json') as jd:
+    d = json.load(jd)
+
+d = {'motor_det_th1': {'0': -27,
+  '1': -24,
+  '2': -21,
+  '3': -18,
+  '4': -15,
+  '5': -12,
+  '6': -9,
+  '7': -6,
+  '8': -3,
+  '9': 0,
+  '10': 3,
+  '11': 6,
+  '12': 9,
+  '13': 12,
+  '14': 15,
+  '15': 18,
+  '16': 21,
+  '17': 24,
+  '18': 27,
+  '19': 30,
+  '20': 33,
+  '21': 36,
+  '22': 39,
+  '23': 42,
+  '24': 45,
+  '25': 48,
+  '26': 51,
+  '27': 54,
+  '28': 57,
+  '29': 60,
+  '30': 63,
+  '31': 66,
+  '32': 69},
+ 'motor_det_inc1': {'0': 14653,
+  '1': 14388,
+  '2': 14119,
+  '3': 13855,
+  '4': 13575,
+  '5': 13316,
+  '6': 13047,
+  '7': 12782,
+  '8': 12514,
+  '9': 12244,
+  '10': 11980,
+  '11': 11705,
+  '12': 11436,
+  '13': 11172,
+  '14': 10903,
+  '15': 10639,
+  '16': 10370,
+  '17': 10106,
+  '18': 9836,
+  '19': 9567,
+  '20': 9303,
+  '21': 9039,
+  '22': 8774,
+  '23': 8505,
+  '24': 8241,
+  '25': 7972,
+  '26': 7707,
+  '27': 7438,
+  '28': 7164,
+  '29': 6900,
+  '30': 6631,
+  '31': 6366,
+  '32': 6097}}
+
+
+plt.figure();
+plt.plot(d['motor_det_th1'].keys(), d['motor_det_th1'].values())
+
+
+
+
+
+

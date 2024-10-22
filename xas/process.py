@@ -325,9 +325,10 @@ def get_processed_df_from_uid_for_epics_fly_scan(db, uid, save_interpolated_file
         raise e
     if 'spectrometer' in hdr.start:
         if 'roi_polygon' in hdr.start['detectors']['Pilatus 100k New']['config']:
-            johann_image_kwargs = filter_johann_image_kwargs(processing_kwargs)
-            if (hdr.start['spectrometer'] == 'johann') and (load_images):
-                interpolated_df = reduce_johann_images(interpolated_df, hdr, **johann_image_kwargs)
+        # if 'roi_polygon' in hdr.start['detectors']['Pilatus 100k']['config']:
+            # johann_image_kwargs = filter_johann_image_kwargs(processing_kwargs)
+            # if (hdr.start['spectrometer'] == 'johann') and (load_images):
+            #     interpolated_df = reduce_johann_images(interpolated_df, hdr, **johann_image_kwargs)
 
             johann_calibration_kwargs = filter_johann_calibration_kwargs(processing_kwargs)
             if (hdr.start['spectrometer'] == 'johann') and (load_images):

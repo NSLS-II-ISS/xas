@@ -14,6 +14,7 @@ from scipy import linalg
 from sklearn.covariance import MinCovDet
 
 PILATUS_KEY = 'Pilatus 100k New'
+# PILATUS_KEY = 'Pilatus 100k'
 
 DET2KEY = {'Pilatus 100k' : 'pil100k',
            'Pilatus 100k New': 'pil100k2'}
