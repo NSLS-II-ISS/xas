@@ -3,19 +3,30 @@ import numpy as np
 from . import xray
 from itertools import product
 from copy import deepcopy
+from xas.xas_logger import get_logger
+import time as ttime
 
 
 def load_apb_dataset_from_db(db, uid):
+    logger= get_logger()
     hdr = db[uid]
+    logger.info(f'({ttime.ctime()}) Retrieving pizzabox data... ')
     apb_dataset = list(hdr.data(stream_name='apb_stream', field='apb_stream'))[0].copy()
     apb_dataset = pd.DataFrame(apb_dataset,
                                columns=['timestamp', 'i0', 'it', 'ir', 'iff', 'aux1', 'aux2', 'aux3', 'aux4'])
+    #to fix the padding
+    apb_dataset = apb_dataset[apb_dataset['timestamp'] > 1]
+
+    logger.info(f'({ttime.ctime()}) Pizzabox data received.')
+    logger.info(f'({ttime.ctime()}) Retrieving encoder data... ')
     # apb_dataset = list(hdr.data(stream_name='apb_stream', field='apb_stream'))[0]
     energy_dataset =  list(hdr.data(stream_name='pb9_enc1',field='pb9_enc1'))[0].copy()
+    logger.info(f'({ttime.ctime()}) Encoder data received.')
     energy_dataset = pd.DataFrame(energy_dataset,
                                   columns=['ts_s', 'ts_ns', 'encoder', 'index', 'state'])
     angle_offset = -float(hdr['start']['angle_offset'])
 
+    energy_dataset = energy_dataset[energy_dataset['ts_s'] > 1]
     # ch_offset_keys = [key for key in hdr.start.keys() if key.startswith('ch') and key.endswith('_offset')]
     # ch_offsets = np.array([hdr.start[key] for key in ch_offset_keys])
 
@@ -30,8 +41,11 @@ def load_apb_dataset_from_db(db, uid):
 
 
 def load_apb_dataset_only_from_db(db, uid):
+    logger = get_logger()
     hdr = db[uid]
+    logger.info(f'({ttime.ctime()}) Retrieving pizzabox data... ')
     apb_dataset = list(hdr.data(stream_name='apb_stream', field='apb_stream'))[0].copy()
+    logger.info(f'({ttime.ctime()}) Pizzabox data received.')
     apb_dataset = pd.DataFrame(apb_dataset,
                                columns=['timestamp', 'i0', 'it', 'ir', 'iff', 'aux1', 'aux2', 'aux3', 'aux4'])
     # apb_dataset = list(hdr.data(stream_name='apb_stream', field='apb_stream'))[0]

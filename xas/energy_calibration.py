@@ -12,13 +12,21 @@ import pandas as pd
 from scipy.interpolate import CubicSpline
 import os
 
+# def get_foil_spectrum(element, edge, db_proc):
+#     r = db_proc.search({'Sample_name' : f'{element} foil', 'Edge' : edge})
+#     uid_proc = list(r)[0]
+#     ds = db_proc[uid_proc].primary.read()
+#     energy = ds['Energy'].values
+#     mu = ds['mu_norm'].values
+#     return energy, mu
+
+
 def get_foil_spectrum(element, edge, db_proc):
-    r = db_proc.search({'Sample_name' : f'{element} foil', 'Edge' : edge})
-    uid_proc = list(r)[0]
-    ds = db_proc[uid_proc].primary.read()
-    energy = ds['Energy'].values
-    mu = ds['mu_norm'].values
+    data = db_proc[element][edge]
+    energy = data[0]
+    mu = data[1]
     return energy, mu
+
 
 
 def compute_shift_between_spectra(energy, mu, energy_ref_roi, mu_ref_roi):
@@ -203,17 +211,19 @@ def get_energy_offset(uid, db, db_proc, dE=25, plot_fun=None, attempts=20, sleep
             element = start['element']
             edge = start['edge']
             e0 = float(start['e0'])
-            # energy_ref, mu_ref = get_foil_spectrum(element, edge, db_proc)
-            energy_ref, mu_ref = db_proc.foil_spectrum(element, edge) ## unsorted array of energy and mu
 
-            _foil_spectrum_tuple = db_proc.foil_spectrum(element, edge)
-            _dataframe_foil = pd.DataFrame(np.column_stack(_foil_spectrum_tuple))
-            _dataframe_foil = _dataframe_foil.sort_values(0)
+            # energy_ref, mu_ref = db_proc.foil_spectrum(element, edge) ## unsorted array of energy and mu
+            #
+            # _foil_spectrum_tuple = db_proc.foil_spectrum(element, edge)
+            # _dataframe_foil = pd.DataFrame(np.column_stack(_foil_spectrum_tuple))
+            # _dataframe_foil = _dataframe_foil.sort_values(0)
+            #
+            # energy_ref = np.array(_dataframe_foil[0])
+            # mu_ref = np.array(_dataframe_foil[1])
 
-            energy_ref = np.array(_dataframe_foil[0])
-            mu_ref = np.array(_dataframe_foil[1])
-
-
+            _energy_ref, _mu_ref = get_foil_spectrum(element, edge, db_proc)
+            energy_ref = np.array(_energy_ref)
+            mu_ref = np.array(_mu_ref)
             mask = (energy_ref >= (e0 - dE)) & (energy_ref <= (e0 + dE))
 
             energy_shift_coarse = energy_ref[np.argmin(np.abs(mu_ref - 0.5))] - energy[np.argmin(np.abs(mu - 0.5))]

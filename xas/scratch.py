@@ -2023,6 +2023,56 @@ plt.figure();
 plt.plot(d['motor_det_th1'].keys(), d['motor_det_th1'].values())
 
 
+id = 'fb1129d8-0a05-45fc-85d0-6844af4c5e50'
+fb=f'/nsls2/data/iss/legacy/raw/apb/2024/10/31/{id}.txt'
+raw_data = np.fromfile(fp, dtype=np.int32)
+columns = ['timestamp', 'i0', 'it', 'ir', 'iff', 'aux1', 'aux2', 'aux3', 'aux4']
+num_columns = len(columns) + 1  # TODO: figure out why 1
+reshaped = raw_data[2:].reshape((raw_data.size // num_columns, num_columns))
+derived_data = np.zeros((reshaped.shape[0], reshaped.shape[1] - 1))
+derived_data[:, 0] = reshaped[:, -2] + reshaped[:, -1] * 8.0051232 * 1e-9  # Unix timestamp with nanoseconds
+for i in range(num_columns - 2):
+    derived_data[:, i + 1] = reshaped[:, i]  #
+df = pd.DataFrame(data=derived_data, columns=columns)
+
+class XmapMCA(Device):
+    val = Cpt(EpicsSignal, "VAL")
+    R0low = Cpt(EpicsSignal, "R0LO")
+    R0high = Cpt(EpicsSignal, "R0HI")
+    R0 = Cpt(EpicsSignal, "R0")
+    R0nm = Cpt(EpicsSignal, "R0NM")
+
+def make_channels(channels):
+    chn_dict = OrderedDict()
+    for channel in channels:
+        attrStr = f"mca{channel:1d}"
+        chn_dict[attrStr] = (XmapMCA, f"mca{channel:1d}.", dict())
+        attrStr = f"preamp{channel:1d}_gain"
+        chn_dict[attrStr] = (EpicsSignal, f"dxp{channel:1d}.PreampGain", dict())
+
+    return chn_dict
+
+# def make_mcas(mcas):
+#     mca_dict = OrderedDict()
+#     for mca in mcas:
+#         attrStr = f"mca{mca:1d}"
+#         mca_dict[attrStr] = (EpicsSignal, f"mca{mca:1d}.VAL", dict())
+#
+#     return mca_dict
+
+
+class GeDetector(Device):
+    ch = DDC(make_mcas(range(1, 33)))
+    start = Cpt(EpicsSignal, "StartAll")
+
+ge_detector = GeDetector("XF:08IDB-ES{GE-Det:1}", name="ge_detector")
+
+from xas.process import load_apb_dataset_from_db
+a=load_apb_dataset_from_db(db,-1)
+plt.figure(); plt.plot(a[0]['timestamp'])
+
+
+
 
 
 

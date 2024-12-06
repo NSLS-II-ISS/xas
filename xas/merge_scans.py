@@ -225,7 +225,7 @@ def average_scan_groups_from_files(df_uid: pd.DataFrame):
 
 
 def get_df_uid_from_files():
-    df_uid = search_db_for_entries(["Fe", "Cu"], 5000)
+    df_uid = frmsearch_db_for_entries(["Fe", "Cu"], 5000)
     df_uid = filter_df_uid_by_strings(df_uid)
     df_uid['reduced_name'] = df_uid['name'].apply(reduce_name)
     group_scans(df_uid)
