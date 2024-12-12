@@ -105,14 +105,22 @@ def load_apb_trig_dataset_from_db(db, uid, use_fall=True, stream_name='apb_trigg
     hdr = db[uid]
     # t = hdr.table(stream_name=stream_name, fill=True)
     data = list(hdr.data(stream_name=stream_name, field=stream_name))[0]
-    timestamps, transitions = data[:, 0], data[:, 1]
+    _timestamps = np.array([f[0] for f in data])
+    _transitions = np.array([f[1] for f in data])
+
+    timestamps = _timestamps[_timestamps > 0]
+    mask = _timestamps != 0
+
+    transitions = _transitions[mask]
+
+    # timestamps, transitions = data[:, 0], data[:, 1]
     # timestamps = t[stream_name][1]['timestamp'].values
     # transitions = t[stream_name][1]['transition'].values
 
     if use_fall:
         # shift = 0
         if transitions[0] == 0:
-        #     shift = timestamps[1] - timestamps[0]
+            #     shift = timestamps[1] - timestamps[0]
             timestamps = timestamps[1:]
             transitions = transitions[1:]
         # print('dfhdshdahda')

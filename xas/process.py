@@ -269,6 +269,16 @@ def process_interpolate_unsorted(uid, db):
      interpolated_df = interpolate(raw_df, sort=False)
      return interpolated_df
 
+def clean_dict(raw_dict):
+    clean_raw_dict = {}
+    for key in raw_dict.keys():
+        df = raw_dict[key]
+        zero_idx = df[df['timestamp'] == 0].index.min()
+        if zero_idx is None:
+            clean_raw_dict[key] = df
+        else:
+            clean_raw_dict[key] = df.loc[:zero_idx - 1]
+    return clean_raw_dict
 
 
 
@@ -337,6 +347,7 @@ def get_processed_df_from_uid_for_epics_fly_scan(db, uid, save_interpolated_file
         # logger.info(f'({ttime.ctime()}) Loading file failed for UID {uid}')
         raise e
     try:
+        raw_dict = clean_dict(raw_dict)
         interpolated_df = interpolate(raw_dict, sort=False)
         if save_interpolated_file:
             save_interpolated_df_as_file(path_to_file, interpolated_df, comments)
