@@ -2023,6 +2023,10 @@ plt.figure();
 plt.plot(d['motor_det_th1'].keys(), d['motor_det_th1'].values())
 
 
+plt.figure();
+plt.plot(d['motor_det_th1'].keys(), d['motor_det_inc1'].values())
+
+
 id = 'fb1129d8-0a05-45fc-85d0-6844af4c5e50'
 fb=f'/nsls2/data/iss/legacy/raw/apb/2024/10/31/{id}.txt'
 raw_data = np.fromfile(fp, dtype=np.int32)
@@ -2369,3 +2373,294 @@ for i in range(frames):
     for j in range(32):
         plt.plot(array[i][j])
 plt.show()
+
+# inclinometer values 2025-01-13
+d = {'motor_det_th1': {'0': -27,
+  '1': -24,
+  '2': -21,
+  '3': -18,
+  '4': -15,
+  '5': -12,
+  '6': -9,
+  '7': -6,
+  '8': -3,
+  '9': 0,
+  '10': 3,
+  '11': 6,
+  '12': 9,
+  '13': 12,
+  '14': 15,
+  '15': 18,
+  '16': 21,
+  '17': 24,
+  '18': 27,
+  '19': 30,
+  '20': 33,
+  '21': 36,
+  '22': 39,
+  '23': 42,
+  '24': 45,
+  '25': 48,
+  '26': 51,
+  '27': 54,
+  '28': 57,
+  '29': 60,
+  '30': 63,
+  '31': 66,
+  '32': 69},
+ 'motor_det_inc1': {'0': 14667,
+  '1': 14398,
+  '2': 14133,
+  '3': 13864,
+  '4': 13594,
+  '5': 13325,
+  '6': 13056,
+  '7': 12791,
+  '8': 12522,
+  '9': 12258,
+  '10': 11994,
+  '11': 11725,
+  '12': 11455,
+  '13': 11191,
+  '14': 10922,
+  '15': 10657,
+  '16': 10389,
+  '17': 10119,
+  '18': 9855,
+  '19': 9586,
+  '20': 9317,
+  '21': 9052,
+  '22': 8788,
+  '23': 8519,
+  '24': 8255,
+  '25': 7986,
+  '26': 7721,
+  '27': 7452,
+  '28': 7188,
+  '29': 6918,
+  '30': 6649,
+  '31': 6385,
+  '32': 6116}}
+
+d = {'motor_det_th1': {'0': -27,
+  '1': -24,
+  '2': -21,
+  '3': -18,
+  '4': -15,
+  '5': -12,
+  '6': -9,
+  '7': -6,
+  '8': -3,
+  '9': 0,
+  '10': 3,
+  '11': 6,
+  '12': 9,
+  '13': 12,
+  '14': 15,
+  '15': 18,
+  '16': 21,
+  '17': 24,
+  '18': 27,
+  '19': 30,
+  '20': 33,
+  '21': 36,
+  '22': 39,
+  '23': 42,
+  '24': 45,
+  '25': 48,
+  '26': 51,
+  '27': 54,
+  '28': 57,
+  '29': 60,
+  '30': 63,
+  '31': 66,
+  '32': 69},
+ 'motor_det_inc1': {'0': 14667,
+  '1': 14402,
+  '2': 14133,
+  '3': 13869,
+  '4': 13599,
+  '5': 13330,
+  '6': 13061,
+  '7': 12791,
+  '8': 12527,
+  '9': 12253,
+  '10': 11988,
+  '11': 11720,
+  '12': 11455,
+  '13': 11186,
+  '14': 10922,
+  '15': 10652,
+  '16': 10388,
+  '17': 10119,
+  '18': 9850,
+  '19': 9581,
+  '20': 9317,
+  '21': 9039,
+  '22': 8783,
+  '23': 8519,
+  '24': 8250,
+  '25': 7986,
+  '26': 7716,
+  '27': 7453,
+  '28': 7183,
+  '29': 6914,
+  '30': 6650,
+  '31': 6381,
+  '32': 6116}}
+
+
+
+fpath = "/nsls2/data/iss/legacy/xf08id/settings/json/"
+
+with open(fpath + 'test.json', 'w') as f:
+    json.dump(d, f)
+
+
+
+    theta = 80
+    R = 500
+    _th = np.deg2rad(theta)
+    crystal_x = R/np.sin(_th)
+    detector_y = 2 * R * np.cos(_th)
+    detector_x = 2 * R * np.cos(_th) * np.cos(_th) / np.sin(_th)
+
+    print(f'Crystal at distance {crystal_x =} mm')
+    print(f'Detector at distance {detector_x = } mm')
+    print(f'Detector at height {detector_y = } mm')
+
+    import matplotlib.pyplot as plt
+
+    circle1 = plt.Circle((0, 0), 7, color='r')
+    circle2 = plt.Circle((-crystal_x,0), 7, color='blue')
+    circle3 = plt.Circle((-detector_x, detector_y), 7, color='g', clip_on=False)
+
+    fig, ax = plt.subplots()  # note we must use plt.subplots, not plt.subplot
+    ax.set_xlim(-750,10)
+    ax.set_ylim(-10, 750)
+    ax.set_aspect('equal', adjustable='box')
+
+    # (or if you have an existing figure)
+    # fig = plt.gcf()
+    # ax = fig.gca()
+
+    ax.add_patch(circle1)
+    ax.add_patch(circle2)
+    ax.add_patch(circle3)
+
+
+    circle1 = plt.Circle((0, 0), 7, color='r')
+    circle2 = plt.Circle((-508,0), 7, color='blue')
+    circle3 = plt.Circle((-34, 184), 7, color='g', clip_on=False)
+
+    fig, ax = plt.subplots()  # note we must use plt.subplots, not plt.subplot
+    ax.set_xlim(-750,10)
+    ax.set_ylim(-10, 750)
+    ax.set_aspect('equal', adjustable='box')
+
+    # (or if you have an existing figure)
+    # fig = plt.gcf()
+    # ax = fig.gca()
+
+    ax.add_patch(circle1)
+    ax.add_patch(circle2)
+    ax.add_patch(circle3)
+
+pseudo_dict = {'det_pitch':10.61 , 'det_x': 34.52, 'det_y': 10.6144}
+
+
+
+a = 337.38 #mm
+b = 302.50 #mm
+c = 234.55 #mm
+
+alpha = 42.55 - theta
+
+def calculate_arc(theta):
+    a = 337.38  # mm
+    b = 302.50  # mm
+    c = 234.55  # mm
+    alpha = 42.55 - theta
+    return  c - np.sqrt(a**2 + b**2 - 2*a*b*np.cos(np.deg2rad(alpha)))
+
+
+{'motor_det_x': 164.8610169497468,
+ 'motor_det_th1': 32.604633125382826,
+ 'motor_det_th2': -53.80463312538281}
+
+
+
+def get_energy_offset(uid, db,  dE=25, plot_fun=None, attempts=20, sleep_time=2, full_return=False):
+    print('running get_energy_offset')
+    start = db[uid].start
+    fname_raw = start['interp_filename']
+    if fname_raw.endswith('.raw'):
+        fname_bin = fname_raw[:-4] + '.dat'
+
+
+
+    df, file_hdr = load_binned_df_from_file(fname_bin)
+    scan_uid = [line for i, line in enumerate(file_hdr.split('\n# ')) if line.startswith('Scan.uid')][0].split(': ')[1]
+    print(f"Computing energy shift for {os.path.split(fname_bin)[1]} (uid: '{scan_uid}')")
+                # print('bla')
+
+    try:
+        energy = df['energy'].values
+        _mu = -np.log(df['ir'] / df['it']).values
+        ds = XASDataSet(mu=_mu, energy=energy)
+        mu = ds.flat
+
+        element = start['element']
+        edge = start['edge']
+        e0 = float(start['e0'])
+
+        # energy_ref, mu_ref = db_proc.foil_spectrum(element, edge) ## unsorted array of energy and mu
+        #
+        # _foil_spectrum_tuple = db_proc.foil_spectrum(element, edge)
+        # _dataframe_foil = pd.DataFrame(np.column_stack(_foil_spectrum_tuple))
+        # _dataframe_foil = _dataframe_foil.sort_values(0)
+        #
+        # energy_ref = np.array(_dataframe_foil[0])
+        # mu_ref = np.array(_dataframe_foil[1])
+
+        _energy_ref, _mu_ref = get_foil_spectrum(element, edge)
+        energy_ref = np.array(_energy_ref)
+        mu_ref = np.array(_mu_ref)
+        mask = (energy_ref >= (e0 - dE)) & (energy_ref <= (e0 + dE))
+
+        energy_shift_coarse = energy_ref[np.argmin(np.abs(mu_ref - 0.5))] - energy[np.argmin(np.abs(mu - 0.5))]
+        energy += energy_shift_coarse
+        energy_ref_roi = energy_ref[mask]
+        mu_ref_roi = mu_ref[mask]
+        shift, mu_fit = compute_shift_between_spectra(energy, mu, energy_ref_roi, mu_ref_roi)
+        e_cor = e0 + shift - energy_shift_coarse
+        if plot_fun is not None:
+            # mu = np.interp(energy_ref_roi, energy, mu)
+            plot_fun(energy_ref_roi, mu_ref_roi, mu_fit)
+
+    except Exception as e:
+        print(f'[Energy Calibration] Error: {e}')
+        e0, e_cor, energy_ref_roi, mu_ref_roi, mu_fit = None, None, None, None, None
+
+    if full_return:
+        return e0, e_cor, energy_ref_roi, mu_ref_roi, mu_fit
+    else:
+        return e0, e_cor
+
+
+
+
+def get_attenuation_value(thickness:int  = 0, **kwargs):
+    # Adding reference foil element list
+    with open(f'{ROOT_PATH_SHARED}/settings/json/attenuator.json') as fp:
+        attenuators_list = json.load(fp)
+
+    current_attenuator_position = int(attenuator_motor.pos.user_readback.get())
+    positions_list = [item['position'] for item in attenuators_list]
+    attenuation_str_list = [item['position'] for item in attenuators_list]
+
+    if position in positions_list:
+        indx = thickness_str_list.index(thickness_str)
+        yield from mv(attenuator_motor.pos, attenuators_list[indx]['position'])
+    else:
+        yield from mv(attenuator_motor.pos, 0)

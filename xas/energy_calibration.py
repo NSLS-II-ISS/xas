@@ -11,6 +11,7 @@ from xas.db_io import get_fly_uids_for_proposal
 import pandas as pd
 from scipy.interpolate import CubicSpline
 import os
+import json
 
 # def get_foil_spectrum(element, edge, db_proc):
 #     r = db_proc.search({'Sample_name' : f'{element} foil', 'Edge' : edge})
@@ -19,10 +20,12 @@ import os
 #     energy = ds['Energy'].values
 #     mu = ds['mu_norm'].values
 #     return energy, mu
+ROOT_PATH_SHARED = '/nsls2/data/iss/legacy/xf08id'
 
-
-def get_foil_spectrum(element, edge, db_proc):
-    data = db_proc[element][edge]
+def get_foil_spectrum(element, edge):
+    with open(f'{ROOT_PATH_SHARED}/settings/reference_library.json') as fp:
+        reference_library = json.load(fp)
+    data = reference_library[element][edge]
     energy = data[0]
     mu = data[1]
     return energy, mu
@@ -183,7 +186,7 @@ def get_energy_offset_old(uid, db, db_proc, dE=25, plot_fun=None, attempts=5, sl
         else:
             return e0, e_cor
 
-def get_energy_offset(uid, db, db_proc, dE=25, plot_fun=None, attempts=20, sleep_time=2, full_return=False):
+def get_energy_offset(uid, db,  dE=25, plot_fun=None, attempts=20, sleep_time=2, full_return=False):
     print('running get_energy_offset')
     start = db[uid].start
     fname_raw = start['interp_filename']
@@ -221,7 +224,7 @@ def get_energy_offset(uid, db, db_proc, dE=25, plot_fun=None, attempts=20, sleep
             # energy_ref = np.array(_dataframe_foil[0])
             # mu_ref = np.array(_dataframe_foil[1])
 
-            _energy_ref, _mu_ref = get_foil_spectrum(element, edge, db_proc)
+            _energy_ref, _mu_ref = get_foil_spectrum(element, edge)
             energy_ref = np.array(_energy_ref)
             mu_ref = np.array(_mu_ref)
             mask = (energy_ref >= (e0 - dE)) & (energy_ref <= (e0 + dE))
