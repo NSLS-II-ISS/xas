@@ -15,7 +15,12 @@ def load_apb_dataset_from_db(db, uid):
     apb_dataset = pd.DataFrame(apb_dataset,
                                columns=['timestamp', 'i0', 'it', 'ir', 'iff', 'aux1', 'aux2', 'aux3', 'aux4'])
     #to fix the padding
-    apb_dataset = apb_dataset[apb_dataset['timestamp'] > 1]
+    # looking for teh first negative number in difference dataset
+    # apb_dataset = apb_dataset[apb_dataset['timestamp'] > 1]   Lame attempt to clean up padding
+    dataset_diff  = np.diff(apb_dataset['timestamp'])
+    padding_index = np.where(dataset_diff < 0)[0][0]
+    apb_dataset = apb_dataset[0:padding_index]
+
 
     logger.info(f'({ttime.ctime()}) Pizzabox data received.')
     logger.info(f'({ttime.ctime()}) Retrieving encoder data... ')

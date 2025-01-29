@@ -300,7 +300,7 @@ def convert_header_to_dict(header):
 
 
 
-
+#TODO add channels for XIA
 
 stepscan_channel_dict = {
     'hhm_energy': 'energy',
@@ -347,7 +347,23 @@ stepscan_channel_dict = {
     'xs_roi01': 'xs_roi01',
     'xs_roi02': 'xs_roi02',
     'xs_roi03': 'xs_roi03',
-    'xs_roi04': 'xs_roi04'}
+    'xs_roi04': 'xs_roi04',
+    }
+
+for j in range(1,33):
+    for k in range(1):
+        key =  f'ge_detector_channels_mca{j}_R{k}'
+        value = f'xia_ch{j}_roi{k}'
+        stepscan_channel_dict[key]=value
+for k in range(1):
+    key = f'xia_roi{k}'
+    stepscan_channel_dict[key]=key
+
+xia_channel_list =[ ]
+for j in range(1,33):
+    for k in range(1):
+        xia_channel_list.append( f'xia_ch{j}_roi{k}')
+
 xs_channel_list = [
     'xs_ch01_roi01',
     'xs_ch02_roi01',
@@ -384,6 +400,19 @@ xs_channel_comb_dict = {'xs_roi01' : ['xs_ch01_roi01',
                                       'xs_ch04_roi04'],
                         }
 
+xia_raw_channel_list =[]
+for j in range(1,33):
+    for k in range(1):
+        xia_raw_channel_list.append(f'ge_detector_channels_mca{j}_R{k}')
+
+
+xia_channel_comb_dict = {}
+for k in range(1):
+    ch_list = []
+    for j in range(1,33):
+        ch_list.append(f'xia_ch{j}_roi{k}')
+    xia_channel_comb_dict[f'xia_roi{k}']= ch_list
+
 
 pil100k_channel_list = [
     'pil100k_roi1',
@@ -415,6 +444,12 @@ def stepscan_normalize_xs(df):
             df[channel_name] = df[channel_name] / df['xs_settings_acquire_time']
     return df
 
+def stepscan_normalize_xia(df):
+    for channel_name in xia_raw_channel_list:
+        if channel_name in df.columns:
+            df[channel_name] = df[channel_name] / df['ge_detector_settings_real_time']
+    return df
+
 
 def combine_xspress3_channels(df):
     if xs_channel_list[0] in df.columns:
@@ -424,6 +459,18 @@ def combine_xspress3_channels(df):
         aug_df = pd.DataFrame(aug_df)
         cols = [c for c in df.columns if c not in xs_channel_list]
         cols = cols + list(xs_channel_comb_dict.keys()) + xs_channel_list
+        df = pd.concat((df, aug_df), axis=1)
+        df = df[cols]
+    return df
+
+def combine_xia_channels(df):
+    if xia_channel_list[0] in df.columns:
+        aug_df = {}
+        for k, chs in xia_channel_comb_dict.items():
+            aug_df[k] = np.sum(df[chs].values, axis=1)
+        aug_df = pd.DataFrame(aug_df)
+        cols = [c for c in df.columns if c not in xia_channel_list]
+        cols = cols + list(xia_channel_comb_dict.keys()) + xia_channel_list
         df = pd.concat((df, aug_df), axis=1)
         df = df[cols]
     return df

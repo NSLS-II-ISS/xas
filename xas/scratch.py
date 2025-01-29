@@ -2016,7 +2016,8 @@ d = {'motor_det_th1': {'0': -27,
   '29': 6900,
   '30': 6631,
   '31': 6366,
-  '32': 6097}}
+
+
 
 
 plt.figure();
@@ -2664,3 +2665,63 @@ def get_attenuation_value(thickness:int  = 0, **kwargs):
         yield from mv(attenuator_motor.pos, attenuators_list[indx]['position'])
     else:
         yield from mv(attenuator_motor.pos, 0)
+
+
+
+
+ 'xia_ch1_roi0': 'ge_detector_channels_mca1_R0'='ge_detector_channels_mca1_R0',
+ 'xia_ch2_roi0': 'ge_detector_channels_mca2_R0',
+ 'xia_ch3_roi0': 'ge_detector_channels_mca3_R0',
+ 'xia_ch4_roi0': 'ge_detector_channels_mca4_R0',
+ 'xia_ch5_roi0': 'ge_detector_channels_mca5_R0',
+ 'xia_ch6_roi0': 'ge_detector_channels_mca6_R0',
+ 'xia_ch7_roi0': 'ge_detector_channels_mca7_R0',
+ 'xia_ch8_roi0': 'ge_detector_channels_mca8_R0',
+ 'xia_ch9_roi0': 'ge_detector_channels_mca9_R0',
+ 'xia_ch10_roi0': 'ge_detector_channels_mca10_R0',
+ 'xia_ch11_roi0': 'ge_detector_channels_mca11_R0',
+ 'xia_ch12_roi0': 'ge_detector_channels_mca12_R0',
+ 'xia_ch13_roi0': 'ge_detector_channels_mca13_R0',
+ 'xia_ch14_roi0': 'ge_detector_channels_mca14_R0',
+ 'xia_ch15_roi0': 'ge_detector_channels_mca15_R0',
+ 'xia_ch16_roi0': 'ge_detector_channels_mca16_R0',
+ 'xia_ch17_roi0': 'ge_detector_channels_mca17_R0',
+ 'xia_ch18_roi0': 'ge_detector_channels_mca18_R0',
+ 'xia_ch19_roi0': 'ge_detector_channels_mca19_R0',
+ 'xia_ch20_roi0': 'ge_detector_channels_mca20_R0',
+ 'xia_ch21_roi0': 'ge_detector_channels_mca21_R0',
+ 'xia_ch22_roi0': 'ge_detector_channels_mca22_R0',
+ 'xia_ch23_roi0': 'ge_detector_channels_mca23_R0',
+ 'xia_ch24_roi0': 'ge_detector_channels_mca24_R0',
+ 'xia_ch25_roi0': 'ge_detector_channels_mca25_R0',
+ 'xia_ch26_roi0': 'ge_detector_channels_mca26_R0',
+ 'xia_ch27_roi0': 'ge_detector_channels_mca27_R0',
+ 'xia_ch28_roi0': 'ge_detector_channels_mca28_R0',
+ 'xia_ch29_roi0': 'ge_detector_channels_mca29_R0',
+ 'xia_ch30_roi0': 'ge_detector_channels_mca30_R0',
+ 'xia_ch31_roi0': 'ge_detector_channels_mca31_R0',
+ 'xia_ch32_roi0': 'ge_detector_channels_mca32_R0'}
+
+
+'ge_detector_channels_mca1_val',
+ 'ge_detector_channels_mca1_R0low',
+ 'ge_detector_channels_mca1_R0high',
+ 'ge_detector_channels_mca1_R0',
+ 'ge_detector_channels_mca1_R0nm',
+ 'ge_detector_channels_mca2_val',
+ 'ge_detector_channels_mca2_R0low',
+ 'ge_detector_channels_mca2_R0high',
+ 'ge_detector_channels_mca2_R0',
+ 'ge_detector_channels_mca2_R0nm',
+ 'ge_detector_channels_mca3_val',
+ 'ge_detector_channels_mca3_R0low',
+ 'ge_detector_channels_mca3_R0high',
+ 'ge_detector_channels_mca3_R0',
+ 'ge_detector_channels_mca3_R0nm',
+ 'ge_detector_channels_mca4_val',
+ 'ge_detector_channels_mca4_R0low',
+
+
+
+
+
