@@ -534,8 +534,8 @@ ax1.set_ylim(1 - 0.8 - 0.3, 1 + 0.5)
 ax1.set_xticks([])
 ax1.set_yticks([])
 
-plt.savefig('C:\work\ISS beamline\ISS_spectrometers\ISS_analyzer_atlas.png', dpi=600)
-# plt.savefig('C:\work\ISS beamline\ISS_spectrometers\ISS_analyzer_atlas.pdf')
+plt.savefig('ISS_analyzer_atlas.png', dpi=600)
+plt.savefig('ISS_analyzer_atlas.pdf')
 # %%
 make_figure_with_small_font(2, figsize=(30 / 2.54, 12 / 2.54), clear=True, fontsize=6)
 reflection_library, emission_lines_list, edges_list, fmt_top, fmt_second_top = plot_atlas(crystal_library, emin=3700,
@@ -566,7 +566,7 @@ ax1.set_ylim(1 - 0.8 - 0.3, 1 + 0.5)
 ax1.set_xticks([])
 ax1.set_yticks([])
 
-plt.savefig(r'C:\Users\denis\Dropbox\ISS_Spectrometer_paper\Review_document\ISS_analyzer_atlas2.png', dpi=600)
+# plt.savefig(r'C:\Users\denis\Dropbox\ISS_Spectrometer_paper\Review_document\ISS_analyzer_atlas2.png', dpi=600)
 
 # %%
 
