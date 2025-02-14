@@ -2358,6 +2358,15 @@ def decode_xmap_buffers(array_data):
     xmapdat.outputCounts = xmapdat.outputCounts[:npix_total]
     return xmapdat
 
+#####################################################################
+fname = '077c7dc4-70ef-4e60-8807_000000.h5'
+
+folder_path = "/nsls2/data/iss/legacy/Sandbox/epics/raw/dxp/2025/02/11/"
+f = h5py.File(folder_path + fname, 'r')
+data = f['entry']['data']['data'][:]
+a=decode_xmap_buffers(data)
+
+
 
 path = '/nsls2/data/iss/legacy/Sandbox/epics/'
 filename = 'mock2_003.h5'
@@ -2368,12 +2377,47 @@ data = f['entry']['data']['data']
 array = decode_xmap_buffers(data).counts
 
 
+import h5py
+from matplotlib import pyplot as plt
+#from decode_xmap_buffers import decode_xmap_buffers
+import os
+
+
+folder_path = "/nsls2/data/iss/legacy/Sandbox/epics/raw/dxp/2025/02/11/"
+
+#folder_path = r"C:/nsls/test_006.h5"
+
+#files = [f for f in os.listdir(folder_path) if os.path.isfile(os.path.join(folder_path, f))]
+
+
+plt.figure()
+for nn in range(20:25):
+    d=b[:,nn,0]
+    d=d-np.average(d[-10:])
+    d=d/np.max(d)
+    plt.plot(d, legend =  str(nn))
+plt.legend()
+
+files = ["4d5f0594-8243-44e4-bfbe_000000.h5"]
+
+for fname in files:
+#    fname = r"C:/nsls/test_006.h5"
+    if not str(fname).endswith("h5"):
+        continue
+    print(folder_path + fname)
+    f = h5py.File(folder_path + fname, 'r')
+    data = f['entry']['data']['data'][:]
+    decoded_data, mapmode = decode_xmap_buffers(data)
+    print(decoded_data.counts.shape)
+    print(f"{mapmode=}")
+
+
 frames = 1
 plt.figure()
 for i in range(frames):
     for j in range(32):
         plt.plot(array[i][j])
-plt.show()
+plt.show()plt
 
 # inclinometer values 2025-01-13
 d = {'motor_det_th1': {'0': -27,
@@ -2723,5 +2767,263 @@ def get_attenuation_value(thickness:int  = 0, **kwargs):
 
 
 
+bragg = 80
+def calc(bragg):
+    h = 550* np.sin(np.deg2rad(69))
+    R=500
+    L1=550
+    L2=91
 
+    Xc = R/np.cos(np.deg2rad(90-bragg))
+    Yc = 0
+    y = R*np.sin(np.deg2rad(90-bragg))
+    c = R/np.tan(np.deg2rad(bragg))
+    Xd = 2 * c * np.cos(np.deg2rad(bragg))
+    Yd = 2 * c * np.sin(np.deg2rad(bragg))
+
+    Xj = Xd-L2*np.cos(np.deg2rad(90-bragg))
+    Yj = Yd+L2*np.sin(np.deg2rad(90-bragg))
+
+
+    theta1 = (np.arcsin((h-Yd)/L1))
+
+    Xg = Xj+L1*np.cos(theta1)
+    Yg = h
+
+    plt.figure();
+    plt.plot(0,0,'or');
+    plt.plot(F,0,'xr');
+    plt.plot(Xc,Yc,'xb');
+    plt.plot(Xd,Yd,'ob');
+    plt.plot(Xj,Yj,'ob');
+    plt.plot(Xg,Yg,'ob');
+    plt.plot([0,Xc ],[0,Yc], 'b:')
+    plt.plot([Xd,Xc ],[Yd,Yc], 'b:')
+    plt.plot([Xd,0 ],[Yd,0], 'b:')
+    plt.plot([Xd,Xj ],[Yd,Yj], 'b')
+    plt.plot([Xg,Xj ],[Yg,Yj], 'b')
+    plt.plot([0, 500], [h,h], 'b:')
+
+
+    plt.axis('equal')
+
+channels = np.array([ 1,  2,  3,  5,  7,  8,  9, 10, 11, 12, 13, 14, 15, 16, 17,
+       18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 31])
+def process_ge_detctor_data(uid):
+    t = db[uid].table()
+
+    length = len(t['time'])
+    array = np.zeros(length)
+    for channel in channels:
+        pass
+
+
+energy = [8020, 8030, 8050, 8070]
+pixel = [338, 293, 217, 139]
+
+from scipy.interpolate import interp1d
+
+interp1d(
+    x,
+    y,
+    kind='linear',
+    axis=-1,
+    copy=True,
+    bounds_error=None,
+    fill_value=nan,
+    assume_sorted=False,
+)
+
+spectra = []
+uids = []
+images = []
+horz_cuts = []
+def perform_crystal_x_scan(range=2, acq_time=1,step = 0.2):
+    current_cr_x = vonhamos_motors.assm_x.user_readback.get()
+    cr_x_array = np.arange(current_cr_x - range/2, (current_cr_x + range/2) + 0.1, step)
+
+
+    for cr_x in cr_x_array:
+        yield from bps.mv(vonhamos_motors.assm_x, cr_x)
+        uid = (yield from pil2_count(acq_time=acq_time))
+        uids.append(uid)
+        _img=pil100k2.image.array_data.get()
+        _img = _img.reshape(195,487)
+        images.append(_img)
+        roi = _img[80:100,150:380]
+        horz_cuts.append(np.average(roi, axis=1))
+        spectra.append(np.average(roi, axis=0))
+    yield from bps.mv(vonhamos_motors.assm_x,  current_cr_x)
+    return uids, spectra, horz_cuts,images
+
+
+spectra = []
+uids = []
+images = []
+horz_cuts = []
+pos_array = np.array()
+def perform_crystal_yaw_scan(range=6, acq_time=1,step = 0.5):
+    motor = vonhamos_motors.arc
+    current_pos = motor.user_readback.get()
+    pos_array = np.arange(current_pos - range/2, (current_pos + range/2) + 0.1, step)
+
+
+    for pos in pos_array:
+        yield from bps.mv(motor, pos)
+        uid = (yield from pil2_count(acq_time=acq_time))
+        uids.append(uid)
+        _img=pil100k2.image.array_data.get()
+        _img = _img.reshape(195,487)
+        images.append(_img)
+        roi = _img[80:100,150:380]
+        horz_cuts.append(np.average(roi, axis=1))
+        spectra.append(np.average(roi, axis=0))
+    yield from bps.mv(motor,  current_pos)
+    return uids, spectra, horz_cuts,images
+
+
+
+
+
+
+    def compute_arc_motion(self, bragg=90):
+        a = 337.38  # mm
+        b = 302.50  # mm
+        c = 234.55  # mm
+        alpha = 42.55 - bragg
+        return c - np.sqrt(a ** 2 + b ** 2 - 2 * a * b * np.cos(np.deg2rad(alpha)))
+
+    #79.38
+
+
+
+from lmfit.models import GaussianModel as gauss
+from lmfit.models import LorentzianModel as lorenz
+def fit_gauss_normalize_center(x, y, no_of_points=10):
+    dat = y - np.sum(y[:no_of_points])/no_of_points
+    pars = gauss().guess(data=dat, x=x)
+    out = gauss().fit(dat, pars, x=x)
+    return x-out.params.valuesdict()['center'], dat/out.params.valuesdict()['height'], out.best_fit/out.params.valuesdict()['height'], out
+
+def fit_lorent_normalize_center(x, y, no_of_points=10):
+    dat = y - np.sum(y[:no_of_points])/no_of_points
+    pars = lorenz().guess(data=dat, x=x)
+    out = lorenz().fit(dat, pars, x=x)
+    return x-out.params.valuesdict()['center'], dat/out.params.valuesdict()['height'], out.best_fit/out.params.valuesdict()['height'], out
+
+
+
+plt.figure()
+fwhms = []
+for i, spec in enumerate(spectra):
+    a = np.arange(len(spec))
+    x, y,z, t = fit_lorent_normalize_center(a, spec)
+    plt.plot(x,y+i)
+    plt.plot(x,z+i)
+    fwhms.append(t.values['fwhm']*0.25)
+
+
+plt.figure()
+fwhms = []
+for i, spec in enumerate(horz_cuts):
+    a = np.arange(0, len(spec))
+    x, y,z, t = fit_gauss_normalize_center(a, spec)
+    plt.plot(x,y+i)
+    plt.plot(x,z+i)
+    fwhms.append(t.values['fwhm']*0.25)
+
+16-6690-4e10-aae0-bfa9aa7f668b''4b150416-6690-4e10-aae0-bfa9aa7f668b'
+
+spectra = []
+horz_cuts = []
+for image in images:
+    roi = image[80:100,190:270]
+    horz_cuts.append(np.average(roi, axis=1))
+    spectra.append(np.average(roi, axis=0))
+
+
+
+
+spectra = []
+uids = []
+images = []
+horz_cuts = []
+pos_array = []
+def perform_crystal_roll_scan(range=20, acq_time=1,step = 0.5):
+    motor = vonhamos_motors.crystal_pitch
+    current_pos = motor.user_readback.get()
+    pos_array = np.arange(current_pos - range/2, (current_pos + range/2) + 0.1, step)
+
+    for pos in pos_array:
+        yield from bps.mv(motor, pos)
+        uid = (yield from pil2_count(acq_time=acq_time))
+        uids.append(uid)
+        _img=pil100k2.image.array_data.get()
+        _img = _img.reshape(195,487)
+        images.append(_img)
+        roi = _img[80:100,150:380]
+        horz_cuts.append(np.average(roi, axis=1))
+        spectra.append(np.average(roi, axis=0))
+    yield from bps.mv(motor,  current_pos)
+    return uids, spectra, horz_cuts,images
+
+
+
+images = []
+def perform_crystal_roll_scan_stupid(range=10, step = 0.5):
+    motor = vonhamos_motors.crystal_pitch
+    current_pos = motor.user_readback.get()
+    pos_array = np.arange(current_pos - range/2, (current_pos + range/2) + 0.1, step)
+
+    for pos in pos_array:
+        motor.set(pos)
+        ttime.sleep(0.5)
+        _img=pil100k2.image.array_data.get()
+        images.append(_img)
+        ttime.sleep(0.5)
+    motor.set(current_pos)
+
+spectra = []
+horz_cuts = []
+for image in images:
+    image = image.reshape(195,487)
+    roi = image[90:110,140:380]
+    horz_cuts.append(np.average(roi, axis=1))
+    spectra.append(np.average(roi, axis=0))
+
+plt.figure()
+for i, spec in enumerate(spectra):
+    plt.plot(spec, label = str(i))
+
+plt.legend()
+
+
+plt.figure()
+
+
+
+spectra_array = spectra[0:10]
+length = len(spectra_array)
+
+for i, spec, pos in zip(np.arange(10), spectra[:10], pos_array[:10]):
+    plt.plot(spec, label = f"{pos:.2f}")
+plt.legend()
+
+folder_path = "/nsls2/data/iss/legacy/Sandbox/epics/raw/dxp/2025/02/12/"
+
+import glob
+import os
+
+list_of_files = glob.glob(folder_path+ '/*') # * means all if need specific format then *.csv
+latest_file = max(list_of_files, key=os.path.getctime)
+print(latest_file)
+fname = latest_file.split('/')[-1]
+f = h5py.File(folder_path + fname, 'r')
+data = f['entry']['data']['data'][:]
+a=decode_xmap_buffers(data)
+b=a.counts
+c=b[:,:,0]
+plt.figure()
+for ii in range(32):
+    plt.plot(c[:,ii]-np.average(c[-10:,ii]))
 

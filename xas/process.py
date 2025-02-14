@@ -2,7 +2,8 @@
 from xas.bin import bin, bin_epics_fly_scan
 from xas.file_io import (load_dataset_from_files, create_file_header, validate_file_exists, validate_path_exists,
                       save_interpolated_df_as_file, save_binned_df_as_file, find_e0, save_stepscan_as_file,
-                      stepscan_remove_offsets, stepscan_normalize_xs, combine_xspress3_channels, combine_pil100k_channels,
+                      stepscan_remove_offsets, stepscan_normalize_xs, stepscan_normalize_xia,combine_xspress3_channels, combine_pil100k_channels,
+                      combine_xia_channels,
                       filter_df_by_valid_keys, save_primary_df_as_file, save_extended_data_as_file, dump_tiff_images)
 from xas.db_io import load_apb_dataset_from_db, translate_apb_dataset, load_apb_trig_dataset_from_db, load_xs3_dataset_from_db, load_pil100k_dataset_from_db, load_apb_dataset_only_from_db, translate_apb_only_dataset
 from xas.interpolate import interpolate
@@ -192,6 +193,7 @@ def get_processed_df_from_uid(uid, db, logger=None, draw_func_interp=None, draw_
         # path_to_file = validate_file_exists(path_to_file, file_type='interp')
         df = stepscan_remove_offsets(hdr)
         df = stepscan_normalize_xs(df)
+        df = stepscan_normalize_xia(df)
         processed_df = filter_df_by_valid_keys(df)
         # df_processed = combine_xspress3_channels(df)
 
@@ -205,6 +207,7 @@ def get_processed_df_from_uid(uid, db, logger=None, draw_func_interp=None, draw_
         return
 
     processed_df = combine_xspress3_channels(processed_df)
+    processed_df = combine_xia_channels(processed_df)
     processed_df = combine_pil100k_channels(processed_df)
 
     if return_processed_df:

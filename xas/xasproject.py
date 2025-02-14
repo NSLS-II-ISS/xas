@@ -232,6 +232,7 @@ class XASDataSet:
         # self._mu = pd.DataFrame(values, columns=['mu'])
         # self.larch.mu = self._mu
         self.larch.mu = values
+        self._mu = values
 
     @property
     def filename(self):
