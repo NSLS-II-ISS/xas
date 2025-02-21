@@ -3027,3 +3027,6 @@ plt.figure()
 for ii in range(32):
     plt.plot(c[:,ii]-np.average(c[-10:,ii]))
 
+
+
+ge_flyscan_uid = 'b441983c-f26b-47a9-a332-c938af5bd928'

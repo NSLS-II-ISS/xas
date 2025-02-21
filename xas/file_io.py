@@ -350,19 +350,36 @@ stepscan_channel_dict = {
     'xs_roi04': 'xs_roi04',
     }
 
+
 for j in range(1,33):
     for k in range(1):
-        key =  f'ge_detector_channels_mca{j}_R{k}'
-        value = f'xia_ch{j}_roi{k}'
+        key =  f'ge_detector__channels_mca{j}_R{k}'
+        value = f'xia_mca_ch{j}_roi{k}'
         stepscan_channel_dict[key]=value
+
+for j in range(1,33):
+    for k in range(1):
+        key =  f'ge_detector_scas_dxp{j}_counts'
+        value = f'xia_sca_ch{j}_roi{k}'
+        stepscan_channel_dict[key]=value
+
 for k in range(1):
-    key = f'xia_roi{k}'
+    key = f'xia_mca_roi{k}'
     stepscan_channel_dict[key]=key
 
-xia_channel_list =[ ]
+for k in range(1):
+    key = f'xia_sca_roi{k}'
+    stepscan_channel_dict[key]=key
+
+xia_mca_channel_list = []
 for j in range(1,33):
     for k in range(1):
-        xia_channel_list.append( f'xia_ch{j}_roi{k}')
+        xia_mca_channel_list.append(f'xia_mca_ch{j}_roi{k}')
+
+xia_sca_channel_list = []
+for j in range(1,33):
+    for k in range(1):
+        xia_sca_channel_list.append(f'xia_sca_ch{j}_roi{k}')
 
 xs_channel_list = [
     'xs_ch01_roi01',
@@ -400,18 +417,18 @@ xs_channel_comb_dict = {'xs_roi01' : ['xs_ch01_roi01',
                                       'xs_ch04_roi04'],
                         }
 
+
+xia_mca_comb_dict = {'xia_mca_roi0': [f'xia_mca_ch{i}_roi0' for i in range(1,33)],
+                    }
+xia_sca_comb_dict = {'xia_sca_roi0': [f'xia_sca_ch{i}_roi0'for i in range(1,33)] }
+
 xia_raw_channel_list =[]
+
 for j in range(1,33):
     for k in range(1):
-        xia_raw_channel_list.append(f'ge_detector_channels_mca{j}_R{k}')
-
-
-xia_channel_comb_dict = {}
-for k in range(1):
-    ch_list = []
-    for j in range(1,33):
-        ch_list.append(f'xia_ch{j}_roi{k}')
-    xia_channel_comb_dict[f'xia_roi{k}']= ch_list
+        xia_raw_channel_list.append(f'ge_detector__channels_mca{j}_R{k}')
+for j in range(1,33):
+        xia_raw_channel_list.append(f'ge_detector_scas_dxp{j}_counts')
 
 
 pil100k_channel_list = [
@@ -447,7 +464,7 @@ def stepscan_normalize_xs(df):
 def stepscan_normalize_xia(df):
     for channel_name in xia_raw_channel_list:
         if channel_name in df.columns:
-            df[channel_name] = df[channel_name] / df['ge_detector_settings_real_time']
+            df[channel_name] = df[channel_name] / df['ge_detector_settings_actual_time']
     return df
 
 
@@ -464,16 +481,26 @@ def combine_xspress3_channels(df):
     return df
 
 def combine_xia_channels(df):
-    if xia_channel_list[0] in df.columns:
+    if xia_mca_channel_list[0] in df.columns:
         aug_df = {}
-        for k, chs in xia_channel_comb_dict.items():
+        for k, chs in xia_mca_comb_dict.items():
             aug_df[k] = np.sum(df[chs].values, axis=1)
         aug_df = pd.DataFrame(aug_df)
-        cols = [c for c in df.columns if c not in xia_channel_list]
-        cols = cols + list(xia_channel_comb_dict.keys()) + xia_channel_list
+        cols = [c for c in df.columns if c not in xia_mca_channel_list]
+        cols = cols + list(xia_mca_comb_dict.keys()) + xia_mca_channel_list
         df = pd.concat((df, aug_df), axis=1)
-        df = df[cols]
+
+    if xia_sca_channel_list[0] in df.columns:
+        aug_df = {}
+        for k, chs in xia_sca_comb_dict.items():
+            aug_df[k] = np.sum(df[chs].values, axis=1)
+        aug_df = pd.DataFrame(aug_df)
+        cols = [c for c in df.columns if c not in xia_sca_channel_list]
+        cols = cols + list(xia_sca_comb_dict.keys()) + xia_mca_channel_list
+        df = pd.concat((df, aug_df), axis=1)
     return df
+
+
 
 
 def combine_pil100k_channels(df):

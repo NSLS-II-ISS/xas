@@ -149,6 +149,8 @@ def get_processed_df_from_uid(uid, db, logger=None, draw_func_interp=None, draw_
                     xs3_dict = load_xs3_dataset_from_db(db, uid, apb_trigger_xs_timestamps)
                     logger.info(f'({ttime.ctime()}) SDD data received')
                     raw_dict = {**raw_dict, **xs3_dict}
+                elif stream_name == 'ge_detector':
+                    pass #WIP for flying Ge detrctor
 
             logger.info(f'({ttime.ctime()}) Streams loaded successfully')
         except Exception as e:
@@ -195,7 +197,6 @@ def get_processed_df_from_uid(uid, db, logger=None, draw_func_interp=None, draw_
         df = stepscan_normalize_xs(df)
         df = stepscan_normalize_xia(df)
         processed_df = filter_df_by_valid_keys(df)
-        # df_processed = combine_xspress3_channels(df)
 
     elif experiment == 'epics_fly_scan':
         logger.info(f'({ttime.ctime()}) Processing EPICS fly scan')

@@ -289,6 +289,7 @@ def register_all_handlers(db):
     db.reg.register_handler(ISSXIAHDF5HandlerLegacy.HANDLER_NAME,
                             ISSXIAHDF5HandlerLegacy, overwrite=True)
 
+
 def register_all_handlers_legacy(db):
     db.reg.register_handler('PIZZABOX_ENC_FILE_TXT_PD',
                             PizzaBoxEncHandlerTxtPD, overwrite=True)
