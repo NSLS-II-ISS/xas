@@ -18,7 +18,13 @@ def load_apb_dataset_from_db(db, uid):
     # looking for teh first negative number in difference dataset
     # apb_dataset = apb_dataset[apb_dataset['timestamp'] > 1]   Lame attempt to clean up padding
     dataset_diff  = np.diff(apb_dataset['timestamp'])
-    padding_index = np.where(dataset_diff < 0)[0][0]
+
+    array_of_zero_index = np.where(dataset_diff < 0)[0]
+
+    if array_of_zero_index.size == 0:
+        padding_index = len(dataset_diff)
+    else:
+        padding_index = array_of_zero_index[0]
     apb_dataset = apb_dataset[0:padding_index]
 
 
@@ -187,6 +193,26 @@ def load_xs3_dataset_from_db(db, uid, apb_trig_timestamps):
                                          columns=['timestamp', chan_roi])
 
     return spectra
+
+
+
+def load_xia_dataset_from_db(db, uid, apb_trig_timestamps):
+    hdr = db[uid]
+    t = hdr.table(stream_name='ge_detector_stream', fill=True)
+    n_spectra = min(t['ge_detector_channels_mca1_R0'][1].size, apb_trig_timestamps.size)
+    xs_timestamps = apb_trig_timestamps[:n_spectra]
+    chan_roi_names = [f'ge_detector_channels_mca{i}_R{j}' for i, j in product(range(1,33), range(4))]
+    # chan_roi_names = [f'ge_detector_channels_mca{i}_R0' for i in range(1, 33)]
+    spectra = {}
+
+    for j, chan_roi in enumerate(chan_roi_names):
+        this_spectrum = t[chan_roi][1][:n_spectra]/100000
+
+        spectra[chan_roi] = pd.DataFrame(np.vstack((xs_timestamps, this_spectrum)).T,
+                                         columns=['timestamp', chan_roi])
+
+    return spectra
+
 
 
 
@@ -380,27 +406,7 @@ def plot_normalized_scan(db, uid, factor=1):
 
 
 
-def load_xs3_dataset_from_db(db, uid, apb_trig_timestamps):
-    hdr = db[uid]
-    t = hdr.table(stream_name='xs_stream', fill=True)
-    # n_spectra = t.size
-    n_spectra = min(t['xs_ch01_roi01'][1].size, apb_trig_timestamps.size)
-    xs_timestamps = apb_trig_timestamps[:n_spectra]
-    # chan_roi_names = [f'CHAN{c}ROI{r}' for c, r in product([1, 2, 3, 4], [1, 2, 3, 4])]
-    chan_roi_names = [f'xs_ch{c:02d}_roi{r:02d}' for r, c in product([1, 2, 3, 4], [1, 2, 3, 4])]
-    spectra = {}
 
-    for j, chan_roi in enumerate(chan_roi_names):
-        # this_spectrum = np.zeros(n_spectra)
-        this_spectrum = t[chan_roi][1][:n_spectra]/100000
-        # for i in range(n_spectra):
-        # this_spectrum[i] = t[i+1][chan_roi]
-        # this_spectrum[i] = t[chan_roi][i + 1]
-
-        spectra[chan_roi] = pd.DataFrame(np.vstack((xs_timestamps, this_spectrum)).T,
-                                         columns=['timestamp', chan_roi])
-
-    return spectra
 
 
 

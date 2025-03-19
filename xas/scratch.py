@@ -3030,3 +3030,153 @@ for ii in range(32):
 
 
 ge_flyscan_uid = 'b441983c-f26b-47a9-a332-c938af5bd928'
+
+
+
+
+def load_xia_dataset_from_db(db, uid, apb_trig_timestamps):
+    hdr = db[uid]
+    t = hdr.table(stream_name='ge_detector_stream', fill=True)
+    # n_spectra = t.size
+    n_spectra = min(t['ge_detector_channels_mca1_R0'][1].size, apb_trig_timestamps.size)
+    xs_timestamps = apb_trig_timestamps[:n_spectra]
+    # chan_roi_names = [f'CHAN{c}ROI{r}' for c, r in product([1, 2, 3, 4], [1, 2, 3, 4])]
+    chan_roi_names = [f'ge_detector_channels_mca{i}_R0' for i in range(1,33)]
+    # chan_roi_names = [f'xs_ch{c:02d}_roi{r:02d}' for r, c in product([1, 2, 3, 4], [1, 2, 3, 4])]
+    spectra = {}
+
+    for j, chan_roi in enumerate(chan_roi_names):
+        # this_spectrum = np.zeros(n_spectra)
+        this_spectrum = t[chan_roi][1][:n_spectra]/100000
+        # for i in range(n_spectra):
+        # this_spectrum[i] = t[i+1][chan_roi]
+        # this_spectrum[i] = t[chan_roi][i + 1]
+
+        spectra[chan_roi] = pd.DataFrame(np.vstack((xs_timestamps, this_spectrum)).T,
+                                         columns=['timestamp', chan_roi])
+
+    return spectra
+
+
+
+### calib scan for 10 energy points
+####
+
+from scipy.ndimage import rotate
+
+uid = '283c2f60-46b5-47bd-bd23-36e6dc2fbedd'
+
+uid = '5211435a-7751-44de-885b-a2de32c1d33a'
+hdr = db[uid]
+t = hdr.table(fill=True)
+from scipy.ndimage import rotate
+image_stack = []
+for img in t['pil100k2_image'][:]:
+    rot = rotate(img[0][77:95, :], angle=-1.2, order=3)
+    image_stack.append(rot)
+image_stack = np.array(image_stack)
+
+def run_calibration_on_slice(uid, slice_array=[100, 200, 0, 300], slice=False):
+    hdr = db[uid]
+    t = hdr.table(fill=True)
+
+
+
+
+rotation = rotate(image_stack, angle=-0.5)
+
+image = t['pil100k2_image'][1:].sum(axis=0)[0]
+
+from xas.process import get_processed_df_from_uid, process_interpolate_bin
+uid = 'ed806cad-9d61-4bbe-b1ba-06c885fc0e87'
+
+hdr, primary_df, extended_data, comments, path_to_file, file_list, data_kind = get_processed_df_from_uid(uid, db, load_images=True)
+
+hdr = db[uid]
+doc = hdr.stop
+
+process_interpolate_bin(doc, db, load_images=True, dump_to_tiff=True)
+
+from xas.process import process_interpolate_bin
+def create_tiff_images(last_few_scans=10):
+    for scan in range(1, last_few_scans+1, 1):
+        hdr = db[-scan]
+        doc = hdr.stop
+        try:
+            process_interpolate_bin(doc, db, load_images=True, dump_to_tiff=True)
+        except:
+            pass
+
+
+
+from xas.process import get_processed_df_from_uid, process_interpolate_bin
+
+
+hdr, primary_df, extended_data, comments, path_to_file, file_list, data_kind = get_processed_df_from_uid(uid, db, load_images=True)
+pil_images =  extended_data['pil100k2_image']
+
+specs = []
+energy = primary_df['energy']
+for image in pil_images:
+    specs.append(np.average(image[70:100, 200:500], axis=0))
+Y =  energy
+X = np.array(range(len(specs[0])))
+Z= np.array(specs)
+X_mesh, Y_mesh = np.meshgrid(X, Y)
+
+plt.figure(figsize=(8, 6))
+contour = plt.contourf(X_mesh, Y_mesh, Z, cmap='viridis')
+plt.colorbar(contour, label='Values')
+plt.xlabel('X Coordinate')
+plt.ylabel('Incident energy')
+plt.title('Contour Plot from Excel Data')
+plt.show()
+
+
+x = xview_gui.widget_data
+
+from xas.file_io import load_binned_df_from_file
+from xas.process import process_interpolate_bin
+uids = []
+for item in x.list_data.selectedItems():
+    fname = os.path.join(x.working_folder, item.text())
+    df, header = load_binned_df_from_file(fname)
+    print(fname, df.shape)
+    uid_idx1 = header.find('Scan.uid:') + 10
+    uid_idx2 = header.find('\n', header.find('Scan.uid:'))
+    uid = header[uid_idx1: uid_idx2]
+    uids.append(uid)
+
+def create_tiff_images(uids):
+    for uid in uids:
+        hdr = db[uid]
+        doc = hdr.stop
+        process_interpolate_bin(doc, db, load_images=True, dump_to_tiff=True, cloud_dispatcher=True)
+
+
+create_tiff_images(uids)
+
+
+uid = 'bb4b2fd0-70c2-416d-8fde-2af9954b0948'
+
+def process_rixs_images(uids, calib_pixel=None, calib_energy=None):
+    rixs = []
+    energy = []
+    for uid in uids:
+        hdr, primary_df, extended_data, comments, path_to_file, file_list, data_kind = get_processed_df_from_uid(uid, db, load_images=True)
+        energy.append(primary_df['energy'])
+
+        xes = []
+        for img in extended_data['pil100k2_image']:
+            xes.append(img[77:95,  :].sum(axis=0))
+
+        rixs.append(np.array(xes))
+
+    energy = np.array(energy)
+    rixs = np.array(rixs)
+
+    return energy, rixs, calib_pixel, calib_energy
+
+
+
+ENERGY, RIXS, CALIB_PIXEL, CALIB_ENERGY = process_rixs_images(uids, calib_pixel=pix, calib_energy=energy)

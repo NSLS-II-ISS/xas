@@ -251,7 +251,7 @@ class ISSXIAHDF5HandlerLegacy(Xspress3HDF5Handler,
             #            keys = [k for k in all_keys if k.startswith(base) and not k.endswith('LM')]
             for roi_num in range(_maxroi):
                 #                roi_num = int(key.replace(base, ''))
-                self._roi_data[(chan + 1, roi_num + 1)] = self._dataset[:, chan, roi_num]
+                self._roi_data[(chan + 1, roi_num)] = self._dataset[:, chan, roi_num]
 
     #                self._roi_data[(chan, roi_num)] = self._file['/entry/instrument/detector/NDAttributes'][key][()]
 

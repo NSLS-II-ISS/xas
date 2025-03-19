@@ -353,7 +353,7 @@ stepscan_channel_dict = {
 
 for j in range(1,33):
     for k in range(1):
-        key =  f'ge_detector__channels_mca{j}_R{k}'
+        key =  f'ge_detector_channels_mca{j}_R{k}'
         value = f'xia_mca_ch{j}_roi{k}'
         stepscan_channel_dict[key]=value
 
@@ -380,6 +380,16 @@ xia_sca_channel_list = []
 for j in range(1,33):
     for k in range(1):
         xia_sca_channel_list.append(f'xia_sca_ch{j}_roi{k}')
+
+
+# ge_detector_channels_mca_list = {k:f"ge_detector_channles_mca{j}_R{k}" for j, k in product(range(1,33), range(4))}
+ge_detector_channels_mca_dict = {}
+for i in range(4):
+    ge_detector_channels_mca_dict[i] = []
+    for j in range(1,33):
+        ge_detector_channels_mca_dict[i].append(f"ge_detector_channels_mca{j}_R{i}")
+
+
 
 xs_channel_list = [
     'xs_ch01_roi01',
@@ -498,6 +508,22 @@ def combine_xia_channels(df):
         cols = [c for c in df.columns if c not in xia_sca_channel_list]
         cols = cols + list(xia_sca_comb_dict.keys()) + xia_mca_channel_list
         df = pd.concat((df, aug_df), axis=1)
+
+    elif ge_detector_channels_mca_dict[0][0] in df.columns:
+        aug_df = {}
+        for channel, item in ge_detector_channels_mca_dict.items():
+            _name = f"mca_R{channel}_sum"
+            aug_df[_name] = df[item].sum(axis=1)
+        aug_df = pd.DataFrame(aug_df)
+        df = pd.concat((df, aug_df), axis=1)
+
+
+        # for k, chs in ge_detector_channels_mca_list.items():
+        #     aug_df[k] = np.sum(df[chs].values, axis=1)
+        # aug_df = pd.DataFrame(aug_df)
+        # cols = [c for c in df.columns if c not in xia_sca_channel_list]
+        # cols = cols + list(xia_sca_comb_dict.keys()) + xia_mca_channel_list
+        # df = pd.concat((df, aug_df), axis=1)
     return df
 
 
@@ -604,19 +630,24 @@ def load_extended_data_from_file(path_to_ext_file):
         return None
 
 def dump_tiff_images(path_to_file, df, extended_data, df_red=None, tiff_storage_path='/tiff_storage/', zip=True):
-    if 'pil100k_image' in extended_data.keys():
+    # print(f'Extended data shape  {extended_data.shape}')
+    if 'pil100k2_image' in extended_data.keys():
         # deal with paths
         tiff_storage_path = os.path.dirname(path_to_file) + tiff_storage_path
+
         scan_name, _ = os.path.splitext(os.path.basename(path_to_file))
         dat_file_fpath = tiff_storage_path + scan_name + '.dat'
         tiff_images_path = tiff_storage_path + scan_name + '/'
 
         try:
+            print('Creating a directory tiff_storage')
             os.mkdir(tiff_storage_path)
         except FileExistsError:
+            print('Failed to create directory tiff_storage')
             pass
 
         try:
+            print('Creating a directory tiff_images')
             os.mkdir(tiff_images_path)
         except FileExistsError:
             print('These tiff images were saved already')
@@ -624,7 +655,7 @@ def dump_tiff_images(path_to_file, df, extended_data, df_red=None, tiff_storage_
 
         filename_list = []
         filepath_list = []
-        for i, im in enumerate(extended_data['pil100k_image']):
+        for i, im in enumerate(extended_data['pil100k2_image']):
             image_data = Image.fromarray(im)
             #
             tiff_filename = '{}{:04d}{}'.format('image', i + 1, '.tif')
@@ -635,6 +666,7 @@ def dump_tiff_images(path_to_file, df, extended_data, df_red=None, tiff_storage_
             filename_list.append(tiff_filename)
 
         if zip:
+            print('Creating a zip file')
             zip_file = os.path.splitext(dat_file_fpath)[0]+'.zip'
             os.system(f"cd '{tiff_images_path}'; zip '{zip_file}' ./*.tif")
             # os.system(f"zip '{zip_file}' '{tiff_images_path}'/*.tif")

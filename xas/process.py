@@ -5,7 +5,7 @@ from xas.file_io import (load_dataset_from_files, create_file_header, validate_f
                       stepscan_remove_offsets, stepscan_normalize_xs, stepscan_normalize_xia,combine_xspress3_channels, combine_pil100k_channels,
                       combine_xia_channels,
                       filter_df_by_valid_keys, save_primary_df_as_file, save_extended_data_as_file, dump_tiff_images)
-from xas.db_io import load_apb_dataset_from_db, translate_apb_dataset, load_apb_trig_dataset_from_db, load_xs3_dataset_from_db, load_pil100k_dataset_from_db, load_apb_dataset_only_from_db, translate_apb_only_dataset
+from xas.db_io import load_apb_dataset_from_db, translate_apb_dataset, load_apb_trig_dataset_from_db, load_xs3_dataset_from_db, load_pil100k_dataset_from_db, load_apb_dataset_only_from_db, translate_apb_only_dataset, load_xia_dataset_from_db
 from xas.interpolate import interpolate
 from scipy.interpolate import interp1d
 import pandas as pd
@@ -149,7 +149,11 @@ def get_processed_df_from_uid(uid, db, logger=None, draw_func_interp=None, draw_
                     xs3_dict = load_xs3_dataset_from_db(db, uid, apb_trigger_xs_timestamps)
                     logger.info(f'({ttime.ctime()}) SDD data received')
                     raw_dict = {**raw_dict, **xs3_dict}
-                elif stream_name == 'ge_detector':
+                elif stream_name == 'ge_detector_stream':
+                    apb_trigger_xia_timestamps = load_apb_trig_dataset_from_db(db, uid, stream_name='apb_trigger_ge_detector')
+                    xia_dict = load_xia_dataset_from_db(db, uid, apb_trigger_xia_timestamps)
+                    logger.info(f'({ttime.ctime()}) XIA data received')
+                    raw_dict = {**raw_dict, **xia_dict}
                     pass #WIP for flying Ge detrctor
 
             logger.info(f'({ttime.ctime()}) Streams loaded successfully')
