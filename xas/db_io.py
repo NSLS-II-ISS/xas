@@ -3,19 +3,43 @@ import numpy as np
 from . import xray
 from itertools import product
 from copy import deepcopy
+from xas.xas_logger import get_logger
+import time as ttime
 
 
 def load_apb_dataset_from_db(db, uid):
+    logger= get_logger()
     hdr = db[uid]
+    logger.info(f'({ttime.ctime()}) Retrieving pizzabox data... ')
     apb_dataset = list(hdr.data(stream_name='apb_stream', field='apb_stream'))[0].copy()
+    logger.info(f'({ttime.ctime()}) Pizzabox data extracted from DB')
     apb_dataset = pd.DataFrame(apb_dataset,
                                columns=['timestamp', 'i0', 'it', 'ir', 'iff', 'aux1', 'aux2', 'aux3', 'aux4'])
+    #to fix the padding
+    # looking for teh first negative number in difference dataset
+    # apb_dataset = apb_dataset[apb_dataset['timestamp'] > 1]   Lame attempt to clean up padding
+    dataset_diff  = np.diff(apb_dataset['timestamp'])
+
+    array_of_zero_index = np.where(dataset_diff < 0)[0]
+
+    if array_of_zero_index.size == 0:
+        padding_index = len(dataset_diff)
+    else:
+        padding_index = array_of_zero_index[0]
+    apb_dataset = apb_dataset[0:padding_index]
+
+
+    logger.info(f'({ttime.ctime()}) Pizzabox data processed.')
+
+    logger.info(f'({ttime.ctime()}) Retrieving encoder data... ')
     # apb_dataset = list(hdr.data(stream_name='apb_stream', field='apb_stream'))[0]
     energy_dataset =  list(hdr.data(stream_name='pb9_enc1',field='pb9_enc1'))[0].copy()
+    logger.info(f'({ttime.ctime()}) Encoder data received.')
     energy_dataset = pd.DataFrame(energy_dataset,
                                   columns=['ts_s', 'ts_ns', 'encoder', 'index', 'state'])
     angle_offset = -float(hdr['start']['angle_offset'])
 
+    energy_dataset = energy_dataset[energy_dataset['ts_s'] > 1]
     # ch_offset_keys = [key for key in hdr.start.keys() if key.startswith('ch') and key.endswith('_offset')]
     # ch_offsets = np.array([hdr.start[key] for key in ch_offset_keys])
 
@@ -30,8 +54,11 @@ def load_apb_dataset_from_db(db, uid):
 
 
 def load_apb_dataset_only_from_db(db, uid):
+    logger = get_logger()
     hdr = db[uid]
+    logger.info(f'({ttime.ctime()}) Retrieving pizzabox data... ')
     apb_dataset = list(hdr.data(stream_name='apb_stream', field='apb_stream'))[0].copy()
+    logger.info(f'({ttime.ctime()}) Pizzabox data received.')
     apb_dataset = pd.DataFrame(apb_dataset,
                                columns=['timestamp', 'i0', 'it', 'ir', 'iff', 'aux1', 'aux2', 'aux3', 'aux4'])
     # apb_dataset = list(hdr.data(stream_name='apb_stream', field='apb_stream'))[0]
@@ -91,14 +118,22 @@ def load_apb_trig_dataset_from_db(db, uid, use_fall=True, stream_name='apb_trigg
     hdr = db[uid]
     # t = hdr.table(stream_name=stream_name, fill=True)
     data = list(hdr.data(stream_name=stream_name, field=stream_name))[0]
-    timestamps, transitions = data[:, 0], data[:, 1]
+    _timestamps = np.array([f[0] for f in data])
+    _transitions = np.array([f[1] for f in data])
+
+    timestamps = _timestamps[_timestamps > 0]
+    mask = _timestamps != 0
+
+    transitions = _transitions[mask]
+
+    # timestamps, transitions = data[:, 0], data[:, 1]
     # timestamps = t[stream_name][1]['timestamp'].values
     # transitions = t[stream_name][1]['transition'].values
 
     if use_fall:
         # shift = 0
         if transitions[0] == 0:
-        #     shift = timestamps[1] - timestamps[0]
+            #     shift = timestamps[1] - timestamps[0]
             timestamps = timestamps[1:]
             transitions = transitions[1:]
         # print('dfhdshdahda')
@@ -163,6 +198,26 @@ def load_xs3_dataset_from_db(db, uid, apb_trig_timestamps):
 
 
 
+def load_xia_dataset_from_db(db, uid, apb_trig_timestamps):
+    hdr = db[uid]
+    t = hdr.table(stream_name='ge_detector_stream', fill=True)
+    n_spectra = min(t['ge_detector_channels_mca1_R0'][1].size, apb_trig_timestamps.size)
+    xs_timestamps = apb_trig_timestamps[:n_spectra]
+    chan_roi_names = [f'ge_detector_channels_mca{i}_R{j}' for i, j in product(range(1,33), range(4))]
+    # chan_roi_names = [f'ge_detector_channels_mca{i}_R0' for i in range(1, 33)]
+    spectra = {}
+
+    for j, chan_roi in enumerate(chan_roi_names):
+        this_spectrum = t[chan_roi][1][:n_spectra]/100000
+
+        spectra[chan_roi] = pd.DataFrame(np.vstack((xs_timestamps, this_spectrum)).T,
+                                         columns=['timestamp', chan_roi])
+
+    return spectra
+
+
+
+
 pil100k_legacy_keys_match = {   'pil100k_ROI1': 'pil100k_roi1',
                                 'pil100k_ROI2': 'pil100k_roi2',
                                 'pil100k_ROI3': 'pil100k_roi3',
@@ -203,14 +258,19 @@ def _load_pil100k_dataset_from_db_legacy(db, uid, apb_trig_timestamps, input_typ
 
 
 def _load_pil100k_dataset_from_db(db, uid, apb_trig_timestamps, pil100k_stream_name='pil100k_stream', load_images=False):
+    logger = get_logger()
     hdr = db[uid]
     output = {}
     # t = hdr.table(stream_name='pil100k_stream', fill=True)
     pil100k_name = pil100k_stream_name.split('_')[0]
     field_list = [f'{pil100k_name}_roi{i}' for i in range(1, 5)]#, 'pil100k_image']
+
     _t = {field : list(hdr.data(stream_name=pil100k_stream_name, field=field))[0] for field in field_list}
+
     if load_images:
+        logger.info(f'({ttime.ctime()}) Loading Pilatus images...')
         _t[f'{pil100k_name}_image'] = [i for i in list(hdr.data(stream_name=pil100k_stream_name, field=f'{pil100k_name}_image'))[0]]
+        logger.info(f'({ttime.ctime()}) Pilatus images loading is complete.')
     t = pd.DataFrame(_t)
     # n_images = t.shape[0]
     n_images = min(t[f'{pil100k_name}_roi1'].size, apb_trig_timestamps.size)
@@ -220,14 +280,7 @@ def _load_pil100k_dataset_from_db(db, uid, apb_trig_timestamps, pil100k_stream_n
     for j, key in enumerate(keys):
         output[key] = pd.DataFrame(np.vstack((pil100k_timestamps, t[key])).T, columns=['timestamp', f'{key}'])
     return output
-    # _spectra = np.zeros((n_images, len(keys)))
-    # for i in range(0, n_images):
-    #
-    #         _spectra[i, j] = t[i+1][key]
-    # for j, key in enumerate(keys):
-    #     spectra[key] =  pd.DataFrame(np.vstack((pil100k_timestamps, _spectra[:, j])).T, columns=['timestamp', f'pil100k_ROI{j+1}'])
-    #
-    # return spectra
+
 
 def load_pil100k_dataset_from_db(db, uid, apb_trig_timestamps, pil100k_stream_name='pil100k_stream', load_images=False):
     try:
@@ -346,6 +399,12 @@ def plot_normalized_scan(db, uid, factor=1):
     x = list(hdr.data('hhm_energy'))
     y = list(hdr.data('pil100k_stats1_total'))
     plot_normalized(x, y, factor)
+
+
+
+
+
+
 
 
 

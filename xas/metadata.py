@@ -62,6 +62,8 @@ metadata_dict = OrderedDict({
 'stop_time':                    {'kind' : 'auto',                                                                   'human_readable_key': 'Scan.end_time'},
 'name':                         {'kind' : 'auto',                                                                   'human_readable_key': 'Scan.name'},
 'comment':                      {'kind' : 'auto',                                                                   'human_readable_key': 'Scan.comment'},
+'attenuation':                  {'kind' : 'auto',                                                                   'human_readable_key': 'Scan.attenuation'},
+'reference_foil':               {'kind' : 'auto',                                                                   'human_readable_key': 'Scan.reference_foil'},
 'sample_name':                  {'kind' : 'auto',                                                                   'human_readable_key': 'Sample.name'},
 'sample_comment':               {'kind' : 'auto',                                                                   'human_readable_key': 'Sample.comment'},
 'sample_x_position':            {'kind' : 'epics_pv',                                                               'human_readable_key': 'Sample.position.x'},

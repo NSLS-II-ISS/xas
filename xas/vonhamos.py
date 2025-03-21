@@ -147,12 +147,13 @@ def run_calibration(image_stack_roi, energies, n_poly=2, output_diagnostics=Fals
 
     p_xe = np.polyfit(x_pix_centers, energies, n_poly)
 
+
     if output_diagnostics:
         plot_calibration_diagnostics(np.sum(image_stack_roi, axis=0), energies,
                                      x_pix, intensity_total, intensity_total_fit, x_pix_centers, fwhms, p_xy, p_xe)
-        return p_xy, p_xe, x_pix, intensity_total, intensity_total_fit, x_pix_centers
+        return p_xy, p_xe, x_pix, intensity_total, intensity_total_fit, x_pix_centers, np.polyval(p_xe, x_pix)
     else:
-        return p_xy, p_xe
+        return p_xy, p_xe, x_pix, np.polyval(p_xe, x_pix)
 
 
 def plot_calibration_diagnostics(image_total, energies,
@@ -431,6 +432,16 @@ def process_von_hamos_scan_legacy(df, extended_data, comments, hdr, path_to_file
 
 
 
+# from xas.vonhamos import run_calibration
+# uid = '5211435a-7751-44de-885b-a2de32c1d33a'
+# hdr = db[uid]
+# t = hdr.table(fill=True)
+# image_stack = []
+# for img in t['pil100k2_image'][:]:
+#     # rot = rotate(img[0][77:95, :], angle=-0.6, order=3, mode='grid-wrap')
+#     image_stack.append(img[0][77:95,:])
+# image_stack = np.array(image_stack)
+# run_calibration(image_stack_roi=image_stack, energies=t['hhm_energy'][:], output_diagnostics=True)
 
 
 

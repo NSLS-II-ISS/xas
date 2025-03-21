@@ -5,7 +5,7 @@ import os
 import numpy as np
 import time as ttime
 from xas.file_io import _shift_root
-
+from xas.xia import decode_xmap_buffers
 
 class ISSHandlerBaseShiftRoot(HandlerBase):
     def shift_root(self, fpath):
@@ -214,6 +214,67 @@ class ISSPilatusHDF5HandlerLegacy(Xspress3HDF5Handler, ISSHandlerBaseShiftRoot):
         return return_dict
 
 
+class ISSXIAHDF5HandlerLegacy(Xspress3HDF5Handler,
+                              ISSHandlerBaseShiftRoot):  # Denis: I used Xspress3HDF5Handler as basis since it has all the basic functionality and I more or less understand how it works
+    #    specs = {'PIL100k_HDF5'} | HandlerBase.specs
+    HANDLER_NAME = 'XIA_XMAP_HDF5'
+
+    def __init__(self, filename, **kwargs):
+        filename = self.shift_root(filename)
+        super().__init__(filename, **kwargs)
+        self._roi_data = None
+        # self._num_channels = None
+
+    def _get_dataset(self):
+        super()._get_dataset()
+        # if self._dataset is not None:
+        #     return
+        # self._dataset = np.array([[0]])
+
+        data, mapmode = decode_xmap_buffers(self._file['entry']['data']['data'])
+        if mapmode != 2:
+            raise RuntimeError('Data must be saved in ROI mapping mode!')
+        self._dataset = data.counts
+        #        if self._roi_data is not None:
+        #            return
+        #        print(f'{ttime.ctime()} Determining number of channels...')
+        shape = self.dataset.shape
+        if len(shape) != 3:
+            raise RuntimeError(f'The ndim of the dataset is not 3, but {len(shape)}')
+        _num_channels = shape[1]
+        _maxroi = shape[2]
+        self._roi_data = {}
+        #        all_keys = self._file['/entry/instrument/detector/NDAttributes'].keys()
+        for chan in range(_num_channels):
+
+            #            base = f'CHAN{chan}ROI'
+            #            keys = [k for k in all_keys if k.startswith(base) and not k.endswith('LM')]
+            for roi_num in range(_maxroi):
+                #                roi_num = int(key.replace(base, ''))
+                self._roi_data[(chan + 1, roi_num)] = self._dataset[:, chan, roi_num]
+
+    #                self._roi_data[(chan, roi_num)] = self._file['/entry/instrument/detector/NDAttributes'][key][()]
+
+    def close(self):
+        super().close()
+        self._roi_data = None
+
+    def __call__(self, data_type: str = 'spectrum', channel: int = 1, roi_num: int = 1):
+        # print(f'{ttime.ctime()} XS dataset retrieving starting...')
+        self._get_dataset()
+
+        if data_type == 'spectrum':
+            # actually outputs spectrum:
+            # return self._dataset[:, channel - 1, :].squeeze()
+            # return self._dataset
+            return np.array([[0]])
+
+        elif data_type == 'roi':
+            return self._roi_data[(channel, roi_num)].squeeze()
+
+        else:
+            raise KeyError(f'data_type={data_type} not supported')
+
 def register_all_handlers(db):
     db.reg.register_handler('PIZZABOX_ENC_FILE_TXT_PD',
                             PizzaBoxEncHandlerTxtPD, overwrite=True)
@@ -225,6 +286,9 @@ def register_all_handlers(db):
                             ISSPilatusHDF5Handler, overwrite=True)
     db.reg.register_handler(ISSXspress3HDF5Handler.HANDLER_NAME,
                             ISSXspress3HDF5Handler, overwrite=True)
+    db.reg.register_handler(ISSXIAHDF5HandlerLegacy.HANDLER_NAME,
+                            ISSXIAHDF5HandlerLegacy, overwrite=True)
+
 
 def register_all_handlers_legacy(db):
     db.reg.register_handler('PIZZABOX_ENC_FILE_TXT_PD',
@@ -237,6 +301,8 @@ def register_all_handlers_legacy(db):
                             ISSPilatusHDF5HandlerLegacy, overwrite=True)
     db.reg.register_handler(ISSXspress3HDF5Handler.HANDLER_NAME,
                             ISSXspress3HDF5Handler, overwrite=True)
+    db.reg.register_handler(ISSXIAHDF5HandlerLegacy.HANDLER_NAME,
+                            ISSXIAHDF5HandlerLegacy, overwrite=True)
 
 
 def get_iss_db():

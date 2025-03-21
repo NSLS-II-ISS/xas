@@ -2016,14 +2016,1450 @@ d = {'motor_det_th1': {'0': -27,
   '29': 6900,
   '30': 6631,
   '31': 6366,
-  '32': 6097}}
+
+
 
 
 plt.figure();
 plt.plot(d['motor_det_th1'].keys(), d['motor_det_th1'].values())
 
 
+plt.figure();
+plt.plot(d['motor_det_th1'].keys(), d['motor_det_inc1'].values())
+
+
+id = 'fb1129d8-0a05-45fc-85d0-6844af4c5e50'
+fb=f'/nsls2/data/iss/legacy/raw/apb/2024/10/31/{id}.txt'
+raw_data = np.fromfile(fp, dtype=np.int32)
+columns = ['timestamp', 'i0', 'it', 'ir', 'iff', 'aux1', 'aux2', 'aux3', 'aux4']
+num_columns = len(columns) + 1  # TODO: figure out why 1
+reshaped = raw_data[2:].reshape((raw_data.size // num_columns, num_columns))
+derived_data = np.zeros((reshaped.shape[0], reshaped.shape[1] - 1))
+derived_data[:, 0] = reshaped[:, -2] + reshaped[:, -1] * 8.0051232 * 1e-9  # Unix timestamp with nanoseconds
+for i in range(num_columns - 2):
+    derived_data[:, i + 1] = reshaped[:, i]  #
+df = pd.DataFrame(data=derived_data, columns=columns)
+
+class XmapMCA(Device):
+    val = Cpt(EpicsSignal, "VAL")
+    R0low = Cpt(EpicsSignal, "R0LO")
+    R0high = Cpt(EpicsSignal, "R0HI")
+    R0 = Cpt(EpicsSignal, "R0")
+    R0nm = Cpt(EpicsSignal, "R0NM")
+
+def make_channels(channels):
+    chn_dict = OrderedDict()
+    for channel in channels:
+        attrStr = f"mca{channel:1d}"
+        chn_dict[attrStr] = (XmapMCA, f"mca{channel:1d}.", dict())
+        attrStr = f"preamp{channel:1d}_gain"
+        chn_dict[attrStr] = (EpicsSignal, f"dxp{channel:1d}.PreampGain", dict())
+
+    return chn_dict
+
+# def make_mcas(mcas):
+#     mca_dict = OrderedDict()
+#     for mca in mcas:
+#         attrStr = f"mca{mca:1d}"
+#         mca_dict[attrStr] = (EpicsSignal, f"mca{mca:1d}.VAL", dict())
+#
+#     return mca_dict
+
+
+class GeDetector(Device):
+    ch = DDC(make_mcas(range(1, 33)))
+    start = Cpt(EpicsSignal, "StartAll")
+
+ge_detector = GeDetector("XF:08IDB-ES{GE-Det:1}", name="ge_detector")
+
+from xas.process import load_apb_dataset_from_db
+a = load_apb_dataset_from_db(db, -1)
+plt.figure();
+plt.plot(a[0]['timestamp'])
+
+
+def get_processed_df_from_uid_for_epics_fly_scan(db, uid, save_interpolated_file=False, path_to_file=None,
+                                                 comments=None, load_images=False, processing_kwargs=None):
+    hdr = db[uid]
+    stream_names = hdr.stream_names
+    logger = get_logger()
+
+    # if (hdr.start['spectrometer'] == 'johann'):
+    #     load_images = True
+
+    # try:
+    # default detectors
+    # apb_df, energy_df, energy_offset = load_apb_dataset_from_db(db, uid)
+    # raw_dict = translate_apb_dataset(apb_df, energy_df, energy_offset)
+    raw_dict = {}
+
+    for stream_name in stream_names:
+        if stream_name == 'apb_stream':
+            apb_df = load_apb_dataset_only_from_db(db, uid)
+            raw_dict = {**raw_dict, **translate_apb_only_dataset(apb_df)}
+
+        elif (stream_name == 'pil100k_stream') or (stream_name == 'pil100k2_stream'):
+            pil100k_stream_name = stream_name
+            pil100k_name = stream_name.split('_')[0]
+            apb_trigger_stream_name = f'apb_trigger_{pil100k_name}'
+            logger.info(f'({ttime.ctime()}) Retrieving trigger data...')
+            apb_trigger_pil100k_timestamps = load_apb_trig_dataset_from_db(db, uid, use_fall=True,
+                                                                           stream_name=apb_trigger_stream_name)
+            logger.info(f'({ttime.ctime()}) Trigger data received')
+            logger.info(f'({ttime.ctime()}) Retrieving Pilatus data...')
+            pil100k_dict = load_pil100k_dataset_from_db(db, uid, apb_trigger_pil100k_timestamps,
+                                                        pil100k_stream_name=pil100k_stream_name,
+                                                        load_images=load_images)
+            logger.info(f'({ttime.ctime()}) Pilatus data received')
+            raw_dict = {**raw_dict, **pil100k_dict}
+
+        elif stream_name == 'xs_stream':
+            apb_trigger_xs_timestamps = load_apb_trig_dataset_from_db(db, uid, stream_name='apb_trigger_xs')
+            logger.info(f'({ttime.ctime()}) Retrieving SDD data...')
+            xs3_dict = load_xs3_dataset_from_db(db, uid, apb_trigger_xs_timestamps)
+            logger.info(f'({ttime.ctime()}) SDD data received')
+            raw_dict = {**raw_dict, **xs3_dict}
+
+        elif stream_name.endswith('monitor'):
+            _stream_name = stream_name[:stream_name.index('monitor') - 1]
+            logger.info(f'({ttime.ctime()}) Retrieving monitor data...')
+            df = hdr.table(stream_name)
+            logger.info(f'({ttime.ctime()}) Monitor data received')
+            df['timestamp'] = (df.time.values - np.datetime64('1970-01-01T00:00:00Z')) / np.timedelta64(1, 's')
+
+            interpolator_func = interp1d(df['timestamp'].values, df[_stream_name].values, axis=0, kind='quadratic')
+            fine_timestamp = np.linspace(df['timestamp'].min(), df['timestamp'].max(),
+                                         int((df['timestamp'].max() - df['timestamp'].min()) * 500))
+            motor_pos_fine = interpolator_func(fine_timestamp)
+
+            monitor_dict = {_stream_name: pd.DataFrame({'timestamp': fine_timestamp,
+                                                        _stream_name: motor_pos_fine})}
+            raw_dict = {**raw_dict, **monitor_dict}
+
+        # logger.info(f'({ttime.ctime()}) Loading file successful for UID {uid}')
+    # except Exception as e:
+    #     # logger.info(f'({ttime.ctime()}) Loading file failed for UID {uid}')
+    #     raise e
+    # try:
+    return raw_dict
+    interpolated_df = interpolate(raw_dict, sort=False)
+    if save_interpolated_file:
+        save_interpolated_df_as_file(path_to_file, interpolated_df, comments)
+        # logger.info(f'({ttime.ctime()}) Interpolation successful for {uid}')
+    # except Exception as e:
+    #     # logger.info(f'({ttime.ctime()}) Interpolation failed for {uid}')
+    #     raise e
+    if 'spectrometer' in hdr.start:
+        if 'roi_polygon' in hdr.start['detectors']['Pilatus 100k New']['config']:
+            # if 'roi_polygon' in hdr.start['detectors']['Pilatus 100k']['config']:
+            # johann_image_kwargs = filter_johann_image_kwargs(processing_kwargs)
+            # if (hdr.start['spectrometer'] == 'johann') and (load_images):
+            #     interpolated_df = reduce_johann_images(interpolated_df, hdr, **johann_image_kwargs)
+
+            johann_calibration_kwargs = filter_johann_calibration_kwargs(processing_kwargs)
+            if (hdr.start['spectrometer'] == 'johann') and (load_images):
+                interpolated_df, energy_key = convert_roll_to_energy_for_johann_fly_scan(interpolated_df, hdr,
+                                                                                         **johann_calibration_kwargs)
+                # return interpolated_df
+                if energy_key is not None:
+                    interpolated_df = interpolate_df_emission_energies_on_common_grid(interpolated_df, hdr,
+                                                                                      energy_key=energy_key)
+                    step_size = 0.2  # eV
+                    processed_df = bin_epics_fly_scan(interpolated_df, key_base='energy', step_size=step_size)
+                    return processed_df
+    # try:
+    stream_name = hdr.start['motor_stream_names'][0]
+    _stream_name = stream_name[:stream_name.index('monitor') - 1]
+    if ('johann' in _stream_name) and (('roll' in _stream_name) or ('yaw' in _stream_name)):
+        step_size = 5
+    else:
+        step_size = 0.1
+    processed_df = bin_epics_fly_scan(interpolated_df, key_base=_stream_name, step_size=step_size)
+    # (path, extension) = os.path.splitext(path_to_file)
+    # path_to_file = path + '.dat'
+    logger.info(f'({ttime.ctime()}) Binning successful')
+
+    # if draw_func_interp is not None:
+    #     draw_func_interp(interpolated_df)
+    # if draw_func_bin is not None:
+    #     draw_func_bin(processed_df, path_to_file)
+
+    # except Exception as e:
+    #     logger.info(f'({ttime.ctime()}) Binning failed')
+    #     raise e
+
+    return processed_df
+
+    def clean_dict(raw_dict):
+        clean_raw_dict = {}
+        for key in raw_dict.keys():
+            df = raw_dict[key]
+            zero_idx = df[df['timestamp'] == 0].index.min()
+            if zero_idx is None:
+                clean_raw_dict[key] = df
+            else:
+                clean_raw_dict[key] = df.loc[:zero_idx - 1]
+        return clean_raw_dict
+
+    uid2 = 'f0dc13a9-e87b-448f-a875-dea91d54ab7b'
+
+    a = get_processed_df_from_uid_for_epics_fly_scan(db, uid2)
+    n = a['i0']['timestamp']
+    plt.figure();
+    plt.plot(n)
 
 
 
 
+
+#processing of Ge detector data from XIA map
+
+
+import numpy as np
+import time
+import sys
+import os
+import h5py
+import matplotlib.pyplot as plt
+
+
+def aslong(d):
+    """unravels and converts array of int16 (int) to int32 (long)"""
+    # need to unravel the array!!!
+    d = d.astype(np.int16).ravel()
+    d.dtype = np.int32
+    return d
+
+
+class xMAPBufferHeader(object):
+    def __init__(self, buff):
+        self.tag0 = buff[0]  # Tag word 0
+        self.tag1 = buff[1]  # Tag word 1
+        self.headerSize = buff[2]  # Buffer header size
+        #  Mapping mode (1=Full spectrum, 2=Multiple ROI, 3=List mode)
+        self.mappingMode = buff[3]
+        self.runNumber = buff[4]  # Run number
+        # Sequential buffer number, low word first
+        self.bufferNumber = aslong(buff[5:7])[0]
+        self.bufferID = buff[7]  # 0=A, 1=B
+        self.numPixels = buff[8]  # Number of pixels in buffer
+        # Starting pixel number, low word first
+        self.startingPixel = aslong(buff[9:11])[0]
+        self.moduleNumber = buff[11]
+        self.channelID = np.array(buff[12:20]).reshape((4, 2))
+        self.channelSize = buff[20:24]
+        self.bufferErrors = buff[24]
+        self.userDefined = buff[32:64]
+        self.listMode = buff[64]
+        self.wordsPerEvent = buff[65]
+        self.totalEvents = aslong(buff[66:68])[0]
+        self.specialRecords = aslong(buff[68:70])[0]
+
+    def report(self):
+        print(["{}={}".format(field, getattr(self, field)) for field in ['mappingMode',
+                                                                         'runNumber', 'bufferNumber', 'bufferID',
+                                                                         'numPixels',
+                                                                         'startingPixel', 'moduleNumber', 'channelSize',
+                                                                         'totalEvents']])
+
+
+class xMAPMCAPixelHeader(object):
+    def __init__(self, buff):
+        self.tag0 = buff[0]
+        self.tag1 = buff[1]
+        self.headerSize = buff[2]
+        # Mapping mode (1=Full spectrum, 2=Multiple ROI, 3=List mode)
+        self.mappingMode = buff[3]
+        self.pixelNumber = aslong(buff[4:6])[0]
+        self.blockSize = aslong(buff[6:8])[0]
+        self.channelSize = buff[10:13]
+
+
+class xMAPData(object):
+    def __init__(self, npix, nmod, nchan):
+        ndet = 4 * nmod
+        self.firstPixel = 0
+        self.numPixels = 0
+        self.counts = np.zeros((npix, ndet, nchan), dtype='i2')
+        self.realTime = np.zeros((npix, ndet), dtype='i8')
+        self.liveTime = np.zeros((npix, ndet), dtype='i8')
+        self.inputCounts = np.zeros((npix, ndet), dtype='i4')
+        self.outputCounts = np.zeros((npix, ndet), dtype='i4')
+
+
+CLOCKTICK = 0.320  # xmap clocktick = 320 ns
+
+
+def decode_xmap_buffers(array_data):
+    # array_data will normally be 3d:
+    #  shape = (narrays, nmodules, buffersize)
+    # but nmodules and narrays could be 1, so that
+    # array_data could be 1d or 2d.
+    #
+    # here we force the data to be 3d
+    shape = array_data.shape
+    if len(shape) == 1:
+        array_data.shape = (1, 1, shape[0])
+    elif len(shape) == 2:
+        array_data.shape = (1, shape[0], shape[1])
+
+    narrays, nmodules, buffersize = array_data.shape
+    modpixs = int(max(124, array_data[0, 0, 8]))
+    npix_total = 0
+    # real / live times are returned in microseconds.
+    for array in range(narrays):
+        for module in range(nmodules):
+            d = array_data[array, module, :]
+            bh = xMAPBufferHeader(d)
+            dat = d[256:].reshape(modpixs, int((d.size - 256) / modpixs))
+            # converting buffer from flat to
+
+            npix = bh.numPixels
+            if module == 0:
+                npix_total += npix
+                if array == 0:
+                    # first time through, (array,module)=(0,0) we
+                    # read mapping mode, set up how to slice the
+                    # data, and build data arrays in xmapdat
+                    mapmode = dat[0, 3]
+                    if mapmode == 1:  # mapping, full spectra
+                        nchans = d[20]
+                        data_slice = slice(256, 8448)
+                    elif mapmode == 2:  # ROI mode
+                        # Note:  nchans = number of ROIS !!
+                        nchans = max(d[264:268])
+                        data_slice = slice(64, 64 + 8 * nchans)
+                    xmapdat = xMAPData(narrays * modpixs, nmodules, nchans)
+                    print(narrays * modpixs, nmodules, nchans)
+                    xmapdat.firstPixel = bh.startingPixel
+
+            # acquisition times and i/o counts data are stored
+            # as longs in locations 32:64
+            t_times = aslong(dat[:npix, 32:64]).reshape(npix, 4, 4)
+            mod_slice = slice(module * 4, module * 4 + 4)
+            p1 = npix_total - npix
+            p2 = npix_total
+            xmapdat.realTime[p1:p2, mod_slice] = t_times[:, :, 0]
+            xmapdat.liveTime[p1:p2, mod_slice] = t_times[:, :, 1]
+            xmapdat.inputCounts[p1:p2, mod_slice] = t_times[:, :, 2]
+            xmapdat.outputCounts[p1:p2, mod_slice] = t_times[:, :, 3]
+
+            # the data, extracted as per data_slice and mapmode
+            t_data = dat[:npix, data_slice]
+            if mapmode == 2:
+                t_data = aslong(t_data)
+            xmapdat.counts[p1:p2, mod_slice, :] = t_data.reshape(npix, 4, nchans)
+
+    xmapdat.numPixels = npix_total
+    xmapdat.counts = xmapdat.counts[:npix_total]
+    xmapdat.realTime = CLOCKTICK * xmapdat.realTime[:npix_total]
+    xmapdat.liveTime = CLOCKTICK * xmapdat.liveTime[:npix_total]
+    xmapdat.inputCounts = xmapdat.inputCounts[:npix_total]
+    xmapdat.outputCounts = xmapdat.outputCounts[:npix_total]
+    return xmapdat
+
+#####################################################################
+fname = '077c7dc4-70ef-4e60-8807_000000.h5'
+
+folder_path = "/nsls2/data/iss/legacy/Sandbox/epics/raw/dxp/2025/02/11/"
+f = h5py.File(folder_path + fname, 'r')
+data = f['entry']['data']['data'][:]
+a=decode_xmap_buffers(data)
+
+
+
+path = '/nsls2/data/iss/legacy/Sandbox/epics/'
+filename = 'mock2_003.h5'
+
+f = h5py.File(path + filename, 'r')
+data = f['entry']['data']['data']
+
+array = decode_xmap_buffers(data).counts
+
+
+import h5py
+from matplotlib import pyplot as plt
+#from decode_xmap_buffers import decode_xmap_buffers
+import os
+
+
+folder_path = "/nsls2/data/iss/legacy/Sandbox/epics/raw/dxp/2025/02/11/"
+
+#folder_path = r"C:/nsls/test_006.h5"
+
+#files = [f for f in os.listdir(folder_path) if os.path.isfile(os.path.join(folder_path, f))]
+
+
+plt.figure()
+for nn in range(20:25):
+    d=b[:,nn,0]
+    d=d-np.average(d[-10:])
+    d=d/np.max(d)
+    plt.plot(d, legend =  str(nn))
+plt.legend()
+
+files = ["4d5f0594-8243-44e4-bfbe_000000.h5"]
+
+for fname in files:
+#    fname = r"C:/nsls/test_006.h5"
+    if not str(fname).endswith("h5"):
+        continue
+    print(folder_path + fname)
+    f = h5py.File(folder_path + fname, 'r')
+    data = f['entry']['data']['data'][:]
+    decoded_data, mapmode = decode_xmap_buffers(data)
+    print(decoded_data.counts.shape)
+    print(f"{mapmode=}")
+
+
+frames = 1
+plt.figure()
+for i in range(frames):
+    for j in range(32):
+        plt.plot(array[i][j])
+plt.show()plt
+
+# inclinometer values 2025-01-13
+d = {'motor_det_th1': {'0': -27,
+  '1': -24,
+  '2': -21,
+  '3': -18,
+  '4': -15,
+  '5': -12,
+  '6': -9,
+  '7': -6,
+  '8': -3,
+  '9': 0,
+  '10': 3,
+  '11': 6,
+  '12': 9,
+  '13': 12,
+  '14': 15,
+  '15': 18,
+  '16': 21,
+  '17': 24,
+  '18': 27,
+  '19': 30,
+  '20': 33,
+  '21': 36,
+  '22': 39,
+  '23': 42,
+  '24': 45,
+  '25': 48,
+  '26': 51,
+  '27': 54,
+  '28': 57,
+  '29': 60,
+  '30': 63,
+  '31': 66,
+  '32': 69},
+ 'motor_det_inc1': {'0': 14667,
+  '1': 14398,
+  '2': 14133,
+  '3': 13864,
+  '4': 13594,
+  '5': 13325,
+  '6': 13056,
+  '7': 12791,
+  '8': 12522,
+  '9': 12258,
+  '10': 11994,
+  '11': 11725,
+  '12': 11455,
+  '13': 11191,
+  '14': 10922,
+  '15': 10657,
+  '16': 10389,
+  '17': 10119,
+  '18': 9855,
+  '19': 9586,
+  '20': 9317,
+  '21': 9052,
+  '22': 8788,
+  '23': 8519,
+  '24': 8255,
+  '25': 7986,
+  '26': 7721,
+  '27': 7452,
+  '28': 7188,
+  '29': 6918,
+  '30': 6649,
+  '31': 6385,
+  '32': 6116}}
+
+d = {'motor_det_th1': {'0': -27,
+  '1': -24,
+  '2': -21,
+  '3': -18,
+  '4': -15,
+  '5': -12,
+  '6': -9,
+  '7': -6,
+  '8': -3,
+  '9': 0,
+  '10': 3,
+  '11': 6,
+  '12': 9,
+  '13': 12,
+  '14': 15,
+  '15': 18,
+  '16': 21,
+  '17': 24,
+  '18': 27,
+  '19': 30,
+  '20': 33,
+  '21': 36,
+  '22': 39,
+  '23': 42,
+  '24': 45,
+  '25': 48,
+  '26': 51,
+  '27': 54,
+  '28': 57,
+  '29': 60,
+  '30': 63,
+  '31': 66,
+  '32': 69},
+ 'motor_det_inc1': {'0': 14667,
+  '1': 14402,
+  '2': 14133,
+  '3': 13869,
+  '4': 13599,
+  '5': 13330,
+  '6': 13061,
+  '7': 12791,
+  '8': 12527,
+  '9': 12253,
+  '10': 11988,
+  '11': 11720,
+  '12': 11455,
+  '13': 11186,
+  '14': 10922,
+  '15': 10652,
+  '16': 10388,
+  '17': 10119,
+  '18': 9850,
+  '19': 9581,
+  '20': 9317,
+  '21': 9039,
+  '22': 8783,
+  '23': 8519,
+  '24': 8250,
+  '25': 7986,
+  '26': 7716,
+  '27': 7453,
+  '28': 7183,
+  '29': 6914,
+  '30': 6650,
+  '31': 6381,
+  '32': 6116}}
+
+
+
+fpath = "/nsls2/data/iss/legacy/xf08id/settings/json/"
+
+with open(fpath + 'test.json', 'w') as f:
+    json.dump(d, f)
+
+
+
+    theta = 80
+    R = 500
+    _th = np.deg2rad(theta)
+    crystal_x = R/np.sin(_th)
+    detector_y = 2 * R * np.cos(_th)
+    detector_x = 2 * R * np.cos(_th) * np.cos(_th) / np.sin(_th)
+
+    print(f'Crystal at distance {crystal_x =} mm')
+    print(f'Detector at distance {detector_x = } mm')
+    print(f'Detector at height {detector_y = } mm')
+
+    import matplotlib.pyplot as plt
+
+    circle1 = plt.Circle((0, 0), 7, color='r')
+    circle2 = plt.Circle((-crystal_x,0), 7, color='blue')
+    circle3 = plt.Circle((-detector_x, detector_y), 7, color='g', clip_on=False)
+
+    fig, ax = plt.subplots()  # note we must use plt.subplots, not plt.subplot
+    ax.set_xlim(-750,10)
+    ax.set_ylim(-10, 750)
+    ax.set_aspect('equal', adjustable='box')
+
+    # (or if you have an existing figure)
+    # fig = plt.gcf()
+    # ax = fig.gca()
+
+    ax.add_patch(circle1)
+    ax.add_patch(circle2)
+    ax.add_patch(circle3)
+
+
+    circle1 = plt.Circle((0, 0), 7, color='r')
+    circle2 = plt.Circle((-508,0), 7, color='blue')
+    circle3 = plt.Circle((-34, 184), 7, color='g', clip_on=False)
+
+    fig, ax = plt.subplots()  # note we must use plt.subplots, not plt.subplot
+    ax.set_xlim(-750,10)
+    ax.set_ylim(-10, 750)
+    ax.set_aspect('equal', adjustable='box')
+
+    # (or if you have an existing figure)
+    # fig = plt.gcf()
+    # ax = fig.gca()
+
+    ax.add_patch(circle1)
+    ax.add_patch(circle2)
+    ax.add_patch(circle3)
+
+pseudo_dict = {'det_pitch':10.61 , 'det_x': 34.52, 'det_y': 10.6144}
+
+
+
+a = 337.38 #mm
+b = 302.50 #mm
+c = 234.55 #mm
+
+alpha = 42.55 - theta
+
+def calculate_arc(theta):
+    a = 337.38  # mm
+    b = 302.50  # mm
+    c = 234.55  # mm
+    alpha = 42.55 - theta
+    return  c - np.sqrt(a**2 + b**2 - 2*a*b*np.cos(np.deg2rad(alpha)))
+
+
+{'motor_det_x': 164.8610169497468,
+ 'motor_det_th1': 32.604633125382826,
+ 'motor_det_th2': -53.80463312538281}
+
+
+
+def get_energy_offset(uid, db,  dE=25, plot_fun=None, attempts=20, sleep_time=2, full_return=False):
+    print('running get_energy_offset')
+    start = db[uid].start
+    fname_raw = start['interp_filename']
+    if fname_raw.endswith('.raw'):
+        fname_bin = fname_raw[:-4] + '.dat'
+
+
+
+    df, file_hdr = load_binned_df_from_file(fname_bin)
+    scan_uid = [line for i, line in enumerate(file_hdr.split('\n# ')) if line.startswith('Scan.uid')][0].split(': ')[1]
+    print(f"Computing energy shift for {os.path.split(fname_bin)[1]} (uid: '{scan_uid}')")
+                # print('bla')
+
+    try:
+        energy = df['energy'].values
+        _mu = -np.log(df['ir'] / df['it']).values
+        ds = XASDataSet(mu=_mu, energy=energy)
+        mu = ds.flat
+
+        element = start['element']
+        edge = start['edge']
+        e0 = float(start['e0'])
+
+        # energy_ref, mu_ref = db_proc.foil_spectrum(element, edge) ## unsorted array of energy and mu
+        #
+        # _foil_spectrum_tuple = db_proc.foil_spectrum(element, edge)
+        # _dataframe_foil = pd.DataFrame(np.column_stack(_foil_spectrum_tuple))
+        # _dataframe_foil = _dataframe_foil.sort_values(0)
+        #
+        # energy_ref = np.array(_dataframe_foil[0])
+        # mu_ref = np.array(_dataframe_foil[1])
+
+        _energy_ref, _mu_ref = get_foil_spectrum(element, edge)
+        energy_ref = np.array(_energy_ref)
+        mu_ref = np.array(_mu_ref)
+        mask = (energy_ref >= (e0 - dE)) & (energy_ref <= (e0 + dE))
+
+        energy_shift_coarse = energy_ref[np.argmin(np.abs(mu_ref - 0.5))] - energy[np.argmin(np.abs(mu - 0.5))]
+        energy += energy_shift_coarse
+        energy_ref_roi = energy_ref[mask]
+        mu_ref_roi = mu_ref[mask]
+        shift, mu_fit = compute_shift_between_spectra(energy, mu, energy_ref_roi, mu_ref_roi)
+        e_cor = e0 + shift - energy_shift_coarse
+        if plot_fun is not None:
+            # mu = np.interp(energy_ref_roi, energy, mu)
+            plot_fun(energy_ref_roi, mu_ref_roi, mu_fit)
+
+    except Exception as e:
+        print(f'[Energy Calibration] Error: {e}')
+        e0, e_cor, energy_ref_roi, mu_ref_roi, mu_fit = None, None, None, None, None
+
+    if full_return:
+        return e0, e_cor, energy_ref_roi, mu_ref_roi, mu_fit
+    else:
+        return e0, e_cor
+
+
+
+
+def get_attenuation_value(thickness:int  = 0, **kwargs):
+    # Adding reference foil element list
+    with open(f'{ROOT_PATH_SHARED}/settings/json/attenuator.json') as fp:
+        attenuators_list = json.load(fp)
+
+    current_attenuator_position = int(attenuator_motor.pos.user_readback.get())
+    positions_list = [item['position'] for item in attenuators_list]
+    attenuation_str_list = [item['position'] for item in attenuators_list]
+
+    if position in positions_list:
+        indx = thickness_str_list.index(thickness_str)
+        yield from mv(attenuator_motor.pos, attenuators_list[indx]['position'])
+    else:
+        yield from mv(attenuator_motor.pos, 0)
+
+
+
+
+ 'xia_ch1_roi0': 'ge_detector_channels_mca1_R0'='ge_detector_channels_mca1_R0',
+ 'xia_ch2_roi0': 'ge_detector_channels_mca2_R0',
+ 'xia_ch3_roi0': 'ge_detector_channels_mca3_R0',
+ 'xia_ch4_roi0': 'ge_detector_channels_mca4_R0',
+ 'xia_ch5_roi0': 'ge_detector_channels_mca5_R0',
+ 'xia_ch6_roi0': 'ge_detector_channels_mca6_R0',
+ 'xia_ch7_roi0': 'ge_detector_channels_mca7_R0',
+ 'xia_ch8_roi0': 'ge_detector_channels_mca8_R0',
+ 'xia_ch9_roi0': 'ge_detector_channels_mca9_R0',
+ 'xia_ch10_roi0': 'ge_detector_channels_mca10_R0',
+ 'xia_ch11_roi0': 'ge_detector_channels_mca11_R0',
+ 'xia_ch12_roi0': 'ge_detector_channels_mca12_R0',
+ 'xia_ch13_roi0': 'ge_detector_channels_mca13_R0',
+ 'xia_ch14_roi0': 'ge_detector_channels_mca14_R0',
+ 'xia_ch15_roi0': 'ge_detector_channels_mca15_R0',
+ 'xia_ch16_roi0': 'ge_detector_channels_mca16_R0',
+ 'xia_ch17_roi0': 'ge_detector_channels_mca17_R0',
+ 'xia_ch18_roi0': 'ge_detector_channels_mca18_R0',
+ 'xia_ch19_roi0': 'ge_detector_channels_mca19_R0',
+ 'xia_ch20_roi0': 'ge_detector_channels_mca20_R0',
+ 'xia_ch21_roi0': 'ge_detector_channels_mca21_R0',
+ 'xia_ch22_roi0': 'ge_detector_channels_mca22_R0',
+ 'xia_ch23_roi0': 'ge_detector_channels_mca23_R0',
+ 'xia_ch24_roi0': 'ge_detector_channels_mca24_R0',
+ 'xia_ch25_roi0': 'ge_detector_channels_mca25_R0',
+ 'xia_ch26_roi0': 'ge_detector_channels_mca26_R0',
+ 'xia_ch27_roi0': 'ge_detector_channels_mca27_R0',
+ 'xia_ch28_roi0': 'ge_detector_channels_mca28_R0',
+ 'xia_ch29_roi0': 'ge_detector_channels_mca29_R0',
+ 'xia_ch30_roi0': 'ge_detector_channels_mca30_R0',
+ 'xia_ch31_roi0': 'ge_detector_channels_mca31_R0',
+ 'xia_ch32_roi0': 'ge_detector_channels_mca32_R0'}
+
+
+'ge_detector_channels_mca1_val',
+ 'ge_detector_channels_mca1_R0low',
+ 'ge_detector_channels_mca1_R0high',
+ 'ge_detector_channels_mca1_R0',
+ 'ge_detector_channels_mca1_R0nm',
+ 'ge_detector_channels_mca2_val',
+ 'ge_detector_channels_mca2_R0low',
+ 'ge_detector_channels_mca2_R0high',
+ 'ge_detector_channels_mca2_R0',
+ 'ge_detector_channels_mca2_R0nm',
+ 'ge_detector_channels_mca3_val',
+ 'ge_detector_channels_mca3_R0low',
+ 'ge_detector_channels_mca3_R0high',
+ 'ge_detector_channels_mca3_R0',
+ 'ge_detector_channels_mca3_R0nm',
+ 'ge_detector_channels_mca4_val',
+ 'ge_detector_channels_mca4_R0low',
+
+
+
+bragg = 80
+def calc(bragg):
+    h = 550* np.sin(np.deg2rad(69))
+    R=500
+    L1=550
+    L2=91
+
+    Xc = R/np.cos(np.deg2rad(90-bragg))
+    Yc = 0
+    y = R*np.sin(np.deg2rad(90-bragg))
+    c = R/np.tan(np.deg2rad(bragg))
+    Xd = 2 * c * np.cos(np.deg2rad(bragg))
+    Yd = 2 * c * np.sin(np.deg2rad(bragg))
+
+    Xj = Xd-L2*np.cos(np.deg2rad(90-bragg))
+    Yj = Yd+L2*np.sin(np.deg2rad(90-bragg))
+
+
+    theta1 = (np.arcsin((h-Yd)/L1))
+
+    Xg = Xj+L1*np.cos(theta1)
+    Yg = h
+
+    plt.figure();
+    plt.plot(0,0,'or');
+    plt.plot(F,0,'xr');
+    plt.plot(Xc,Yc,'xb');
+    plt.plot(Xd,Yd,'ob');
+    plt.plot(Xj,Yj,'ob');
+    plt.plot(Xg,Yg,'ob');
+    plt.plot([0,Xc ],[0,Yc], 'b:')
+    plt.plot([Xd,Xc ],[Yd,Yc], 'b:')
+    plt.plot([Xd,0 ],[Yd,0], 'b:')
+    plt.plot([Xd,Xj ],[Yd,Yj], 'b')
+    plt.plot([Xg,Xj ],[Yg,Yj], 'b')
+    plt.plot([0, 500], [h,h], 'b:')
+
+
+    plt.axis('equal')
+
+channels = np.array([ 1,  2,  3,  5,  7,  8,  9, 10, 11, 12, 13, 14, 15, 16, 17,
+       18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 31])
+def process_ge_detctor_data(uid):
+    t = db[uid].table()
+
+    length = len(t['time'])
+    array = np.zeros(length)
+    for channel in channels:
+        pass
+
+
+energy = [8020, 8030, 8050, 8070]
+pixel = [338, 293, 217, 139]
+
+from scipy.interpolate import interp1d
+
+interp1d(
+    x,
+    y,
+    kind='linear',
+    axis=-1,
+    copy=True,
+    bounds_error=None,
+    fill_value=nan,
+    assume_sorted=False,
+)
+
+spectra = []
+uids = []
+images = []
+horz_cuts = []
+def perform_crystal_x_scan(range=2, acq_time=1,step = 0.2):
+    current_cr_x = vonhamos_motors.assm_x.user_readback.get()
+    cr_x_array = np.arange(current_cr_x - range/2, (current_cr_x + range/2) + 0.1, step)
+
+
+    for cr_x in cr_x_array:
+        yield from bps.mv(vonhamos_motors.assm_x, cr_x)
+        uid = (yield from pil2_count(acq_time=acq_time))
+        uids.append(uid)
+        _img=pil100k2.image.array_data.get()
+        _img = _img.reshape(195,487)
+        images.append(_img)
+        roi = _img[80:100,150:380]
+        horz_cuts.append(np.average(roi, axis=1))
+        spectra.append(np.average(roi, axis=0))
+    yield from bps.mv(vonhamos_motors.assm_x,  current_cr_x)
+    return uids, spectra, horz_cuts,images
+
+
+spectra = []
+uids = []
+images = []
+horz_cuts = []
+pos_array = np.array()
+def perform_crystal_yaw_scan(range=6, acq_time=1,step = 0.5):
+    motor = vonhamos_motors.arc
+    current_pos = motor.user_readback.get()
+    pos_array = np.arange(current_pos - range/2, (current_pos + range/2) + 0.1, step)
+
+
+    for pos in pos_array:
+        yield from bps.mv(motor, pos)
+        uid = (yield from pil2_count(acq_time=acq_time))
+        uids.append(uid)
+        _img=pil100k2.image.array_data.get()
+        _img = _img.reshape(195,487)
+        images.append(_img)
+        roi = _img[80:100,150:380]
+        horz_cuts.append(np.average(roi, axis=1))
+        spectra.append(np.average(roi, axis=0))
+    yield from bps.mv(motor,  current_pos)
+    return uids, spectra, horz_cuts,images
+
+
+
+
+
+
+    def compute_arc_motion(self, bragg=90):
+        a = 337.38  # mm
+        b = 302.50  # mm
+        c = 234.55  # mm
+        alpha = 42.55 - bragg
+        return c - np.sqrt(a ** 2 + b ** 2 - 2 * a * b * np.cos(np.deg2rad(alpha)))
+
+    #79.38
+
+
+
+from lmfit.models import GaussianModel as gauss
+from lmfit.models import LorentzianModel as lorenz
+def fit_gauss_normalize_center(x, y, no_of_points=10):
+    dat = y - np.sum(y[:no_of_points])/no_of_points
+    pars = gauss().guess(data=dat, x=x)
+    out = gauss().fit(dat, pars, x=x)
+    return x-out.params.valuesdict()['center'], dat/out.params.valuesdict()['height'], out.best_fit/out.params.valuesdict()['height'], out
+
+def fit_lorent_normalize_center(x, y, no_of_points=10):
+    dat = y - np.sum(y[:no_of_points])/no_of_points
+    pars = lorenz().guess(data=dat, x=x)
+    out = lorenz().fit(dat, pars, x=x)
+    return x-out.params.valuesdict()['center'], dat/out.params.valuesdict()['height'], out.best_fit/out.params.valuesdict()['height'], out
+
+
+
+plt.figure()
+fwhms = []
+for i, spec in enumerate(spectra):
+    a = np.arange(len(spec))
+    x, y,z, t = fit_lorent_normalize_center(a, spec)
+    plt.plot(x,y+i)
+    plt.plot(x,z+i)
+    fwhms.append(t.values['fwhm']*0.25)
+
+
+plt.figure()
+fwhms = []
+for i, spec in enumerate(horz_cuts):
+    a = np.arange(0, len(spec))
+    x, y,z, t = fit_gauss_normalize_center(a, spec)
+    plt.plot(x,y+i)
+    plt.plot(x,z+i)
+    fwhms.append(t.values['fwhm']*0.25)
+
+16-6690-4e10-aae0-bfa9aa7f668b''4b150416-6690-4e10-aae0-bfa9aa7f668b'
+
+spectra = []
+horz_cuts = []
+for image in images:
+    roi = image[80:100,190:270]
+    horz_cuts.append(np.average(roi, axis=1))
+    spectra.append(np.average(roi, axis=0))
+
+
+
+
+spectra = []
+uids = []
+images = []
+horz_cuts = []
+pos_array = []
+def perform_crystal_roll_scan(range=20, acq_time=1,step = 0.5):
+    motor = vonhamos_motors.crystal_pitch
+    current_pos = motor.user_readback.get()
+    pos_array = np.arange(current_pos - range/2, (current_pos + range/2) + 0.1, step)
+
+    for pos in pos_array:
+        yield from bps.mv(motor, pos)
+        uid = (yield from pil2_count(acq_time=acq_time))
+        uids.append(uid)
+        _img=pil100k2.image.array_data.get()
+        _img = _img.reshape(195,487)
+        images.append(_img)
+        roi = _img[80:100,150:380]
+        horz_cuts.append(np.average(roi, axis=1))
+        spectra.append(np.average(roi, axis=0))
+    yield from bps.mv(motor,  current_pos)
+    return uids, spectra, horz_cuts,images
+
+
+
+images = []
+def perform_crystal_roll_scan_stupid(range=10, step = 0.5):
+    motor = vonhamos_motors.crystal_pitch
+    current_pos = motor.user_readback.get()
+    pos_array = np.arange(current_pos - range/2, (current_pos + range/2) + 0.1, step)
+
+    for pos in pos_array:
+        motor.set(pos)
+        ttime.sleep(0.5)
+        _img=pil100k2.image.array_data.get()
+        images.append(_img)
+        ttime.sleep(0.5)
+    motor.set(current_pos)
+
+spectra = []
+horz_cuts = []
+for image in images:
+    image = image.reshape(195,487)
+    roi = image[90:110,140:380]
+    horz_cuts.append(np.average(roi, axis=1))
+    spectra.append(np.average(roi, axis=0))
+
+plt.figure()
+for i, spec in enumerate(spectra):
+    plt.plot(spec, label = str(i))
+
+plt.legend()
+
+
+plt.figure()
+
+
+
+spectra_array = spectra[0:10]
+length = len(spectra_array)
+
+for i, spec, pos in zip(np.arange(10), spectra[:10], pos_array[:10]):
+    plt.plot(spec, label = f"{pos:.2f}")
+plt.legend()
+
+folder_path = "/nsls2/data/iss/legacy/Sandbox/epics/raw/dxp/2025/02/12/"
+
+import glob
+import os
+
+list_of_files = glob.glob(folder_path+ '/*') # * means all if need specific format then *.csv
+latest_file = max(list_of_files, key=os.path.getctime)
+print(latest_file)
+fname = latest_file.split('/')[-1]
+f = h5py.File(folder_path + fname, 'r')
+data = f['entry']['data']['data'][:]
+a=decode_xmap_buffers(data)
+b=a.counts
+c=b[:,:,0]
+plt.figure()
+for ii in range(32):
+    plt.plot(c[:,ii]-np.average(c[-10:,ii]))
+
+
+
+ge_flyscan_uid = 'b441983c-f26b-47a9-a332-c938af5bd928'
+
+
+
+
+def load_xia_dataset_from_db(db, uid, apb_trig_timestamps):
+    hdr = db[uid]
+    t = hdr.table(stream_name='ge_detector_stream', fill=True)
+    # n_spectra = t.size
+    n_spectra = min(t['ge_detector_channels_mca1_R0'][1].size, apb_trig_timestamps.size)
+    xs_timestamps = apb_trig_timestamps[:n_spectra]
+    # chan_roi_names = [f'CHAN{c}ROI{r}' for c, r in product([1, 2, 3, 4], [1, 2, 3, 4])]
+    chan_roi_names = [f'ge_detector_channels_mca{i}_R0' for i in range(1,33)]
+    # chan_roi_names = [f'xs_ch{c:02d}_roi{r:02d}' for r, c in product([1, 2, 3, 4], [1, 2, 3, 4])]
+    spectra = {}
+
+    for j, chan_roi in enumerate(chan_roi_names):
+        # this_spectrum = np.zeros(n_spectra)
+        this_spectrum = t[chan_roi][1][:n_spectra]/100000
+        # for i in range(n_spectra):
+        # this_spectrum[i] = t[i+1][chan_roi]
+        # this_spectrum[i] = t[chan_roi][i + 1]
+
+        spectra[chan_roi] = pd.DataFrame(np.vstack((xs_timestamps, this_spectrum)).T,
+                                         columns=['timestamp', chan_roi])
+
+    return spectra
+
+
+
+### calib scan for 10 energy points
+####
+
+from scipy.ndimage import rotate
+
+uid = '283c2f60-46b5-47bd-bd23-36e6dc2fbedd'
+
+uid = '5211435a-7751-44de-885b-a2de32c1d33a'
+hdr = db[uid]
+t = hdr.table(fill=True)
+from scipy.ndimage import rotate
+image_stack = []
+for img in t['pil100k2_image'][:]:
+    rot = rotate(img[0][77:95, :], angle=-1.2, order=3)
+    image_stack.append(rot)
+image_stack = np.array(image_stack)
+
+def run_calibration_on_slice(uid, slice_array=[100, 200, 0, 300], slice=False):
+    hdr = db[uid]
+    t = hdr.table(fill=True)
+
+
+
+
+rotation = rotate(image_stack, angle=-0.5)
+
+image = t['pil100k2_image'][1:].sum(axis=0)[0]
+
+from xas.process import get_processed_df_from_uid, process_interpolate_bin
+uid = 'ed806cad-9d61-4bbe-b1ba-06c885fc0e87'
+
+hdr, primary_df, extended_data, comments, path_to_file, file_list, data_kind = get_processed_df_from_uid(uid, db, load_images=True)
+
+hdr = db[uid]
+doc = hdr.stop
+
+process_interpolate_bin(doc, db, load_images=True, dump_to_tiff=True)
+
+from xas.process import process_interpolate_bin
+def create_tiff_images(last_few_scans=10):
+    for scan in range(1, last_few_scans+1, 1):
+        hdr = db[-scan]
+        doc = hdr.stop
+        try:
+            process_interpolate_bin(doc, db, load_images=True, dump_to_tiff=True)
+        except:
+            pass
+
+
+
+from xas.process import get_processed_df_from_uid, process_interpolate_bin
+
+
+hdr, primary_df, extended_data, comments, path_to_file, file_list, data_kind = get_processed_df_from_uid(uid, db, load_images=True)
+pil_images =  extended_data['pil100k2_image']
+
+specs = []
+energy = primary_df['energy']
+for image in pil_images:
+    specs.append(np.average(image[70:100, 200:500], axis=0))
+Y =  energy
+X = np.array(range(len(specs[0])))
+Z= np.array(specs)
+X_mesh, Y_mesh = np.meshgrid(X, Y)
+
+plt.figure(figsize=(8, 6))
+contour = plt.contourf(X_mesh, Y_mesh, Z, cmap='viridis')
+plt.colorbar(contour, label='Values')
+plt.xlabel('X Coordinate')
+plt.ylabel('Incident energy')
+plt.title('Contour Plot from Excel Data')
+plt.show()
+
+
+x = xview_gui.widget_data
+
+from xas.file_io import load_binned_df_from_file
+from xas.process import process_interpolate_bin
+uids = []
+for item in x.list_data.selectedItems():
+    fname = os.path.join(x.working_folder, item.text())
+    df, header = load_binned_df_from_file(fname)
+    print(fname, df.shape)
+    uid_idx1 = header.find('Scan.uid:') + 10
+    uid_idx2 = header.find('\n', header.find('Scan.uid:'))
+    uid = header[uid_idx1: uid_idx2]
+    uids.append(uid)
+
+def create_tiff_images(uids):
+    for uid in uids:
+        hdr = db[uid]
+        doc = hdr.stop
+        process_interpolate_bin(doc, db, load_images=True, dump_to_tiff=True, cloud_dispatcher=True)
+
+
+create_tiff_images(uids)
+
+
+uid = 'bb4b2fd0-70c2-416d-8fde-2af9954b0948'
+
+def process_rixs_images(uids, calib_pixel=None, calib_energy=None):
+    rixs = []
+    energy = []
+    for uid in uids:
+        hdr, primary_df, extended_data, comments, path_to_file, file_list, data_kind = get_processed_df_from_uid(uid, db, load_images=True)
+        energy.append(primary_df['energy'])
+
+        xes = []
+        for img in extended_data['pil100k2_image']:
+            xes.append(img[77:95,  :].sum(axis=0))
+
+        rixs.append(np.array(xes))
+
+    energy = np.array(energy)
+    rixs = np.array(rixs)
+
+    return energy, rixs, calib_pixel, calib_energy
+
+
+
+ENERGY, RIXS, CALIB_PIXEL, CALIB_ENERGY = process_rixs_images(uids, calib_pixel=pix, calib_energy=energy)
+
+
+import threading
+import time
+
+results_rixs = []
+results_energy = []
+lock = threading.Lock()
+
+
+def worker(thread_id, uid):
+    hdr, primary_df, extended_data, comments, path_to_file, file_list, data_kind = get_processed_df_from_uid(uid, db,
+                                                                                                             load_images=True)
+
+    xes = []
+    for img in extended_data['pil100k2_image']:
+        xes.append(img[77:95, :].sum(axis=0))
+
+    with lock:
+        results_rixs.append(np.array(xes))
+        results_energy.append(np.array(primary_df['energy']))
+
+
+threads = []
+start = time.time()
+for i, uid in enumerate(uids):
+    thread = threading.Thread(target=worker, args=(i, uid))
+    threads.append(thread)
+    thread.start()
+
+for thread in threads:
+    thread.join()
+
+end = time.time()
+print(f"Total time is {end-start}s")
+
+print("Finished")
+
+####################multiprocessing
+
+
+import multiprocessing
+import time
+
+
+def worker(thread_id, uid, results_rixs, results_energy):
+    hdr = db[uid]
+    t = hdr.table(stream_name='pil100k2_stream', fill=True)
+    # hdr, primary_df, extended_data, comments, path_to_file, file_list, data_kind = get_processed_df_from_uid(uid, db, load_images=True)
+
+    # xes = []
+    # for img in extended_data['pil100k2_image']:
+    #     xes.append(img[77:95, :].sum(axis=0))
+
+    xes = []
+    for img in t['pil100k2_image'][1]:
+        xes.append(img[77:95, :].sum(axis=0))
+
+    results_rixs.append(np.array(xes))
+    # results_energy.append(np.array(primary_df['energy']))
+
+
+if __name__ == "__main__":
+    manager = multiprocessing.Manager()
+    results_rixs = manager.list()
+    results_energy = manager.list()
+    processes = []
+
+    start = time.time()
+    for i, uid in enumerate(uids[:5]):
+        process = multiprocessing.Process(target=worker, args=(i, uid, results_rixs, results_energy))
+        processes.append(process)
+        process.start()
+
+    for process in processes:
+        process.join()
+
+    end = time.time()
+    print(f"Total time is {end-start}s")
+
+    print("Finished")
+
+
+
+start = time.time()
+for uid in uids[20:25]:
+    hdr = db[uid]
+    t = hdr.table(stream_name='pil100k2_stream', fill=True)
+end = time.time()
+print(f"Total time is {end-start}s")
+
+
+
+
+start = ttime.time()
+hdr = db['3bde8fb8-0f7b-4a8e-bf13-b76d01cc3115']
+uid = hdr.start['uid']
+from xas.file_io import (load_dataset_from_files, create_file_header, validate_file_exists, validate_path_exists,
+                      save_interpolated_df_as_file, save_binned_df_as_file, find_e0, save_stepscan_as_file,
+                      stepscan_remove_offsets, stepscan_normalize_xs, stepscan_normalize_xia,combine_xspress3_channels, combine_pil100k_channels,
+                      combine_xia_channels,
+                      filter_df_by_valid_keys, save_primary_df_as_file, save_extended_data_as_file, dump_tiff_images)
+from xas.db_io import load_apb_dataset_from_db, translate_apb_dataset, load_apb_trig_dataset_from_db, load_xs3_dataset_from_db, load_pil100k_dataset_from_db, load_apb_dataset_only_from_db, translate_apb_only_dataset, load_xia_dataset_from_db
+apb_df, energy_df, energy_offset = load_apb_dataset_from_db(db, uid)
+raw_dict = translate_apb_dataset(apb_df, energy_df, energy_offset)
+raw_dict
+apb_trigger_pil100k_timestamps = load_apb_trig_dataset_from_db(db, uid, use_fall=True,
+                                                                                   stream_name='apb_trigger_pil100k2')
+pil100k_dict = load_pil100k_dataset_from_db(db, uid, apb_trigger_pil100k_timestamps,
+                                                                pil100k_stream_name='pil100k2_stream',
+                                                                load_images=True)
+raw_dict = {**raw_dict, **pil100k_dict}
+raw_dict
+raw_dict.keys()
+interpolated_dataset = {}
+dataset = raw_dict
+min_timestamp = max([dataset.get(key).iloc[0, 0] for key in dataset])
+max_timestamp = min([dataset.get(key).iloc[len(dataset.get(key)) - 1, 0] for key in
+                         dataset if len(dataset.get(key).iloc[:, 0]) > 5])
+key_base = None
+if key_base is None:
+    all_keys = []
+    time_step = []
+    for key in dataset.keys():
+        all_keys.append(key)
+        # time_step.append(np.mean(np.diff(dataset[key].timestamp)))
+        time_step.append(np.median(np.diff(dataset[key].timestamp)))
+    key_base = all_keys[np.argmax(time_step)]
+timestamps = dataset[key_base].iloc[:,0]
+
+condition = timestamps < min_timestamp
+timestamps = timestamps[np.sum(condition):]
+
+condition = timestamps > max_timestamp
+timestamps = timestamps[: (len(timestamps) - np.sum(condition) - 1)]
+
+interpolated_dataset['timestamp'] = timestamps.values
+timestamps = dataset[key_base].iloc[:,0]
+condition = timestamps < min_timestamp
+timestamps = timestamps[np.sum(condition):]
+condition = timestamps > max_timestamp
+timestamps = timestamps[: (len(timestamps) - np.sum(condition) - 1)]
+interpolated_dataset['timestamp'] = timestamps.values
+key = 'pil100k2_image'
+time = dataset.get(key).iloc[:, 0].values
+val = dataset.get(key).iloc[:, 1].values
+if len(dataset.get(key).iloc[:, 0]) > 5 * len(timestamps):
+    time = [time[0]] + [np.mean(array) for array in np.array_split(time[1:-1], len(timestamps))] + [time[-1]]
+    val = [val[0]] + [np.mean(array) for array in np.array_split(val[1:-1], len(timestamps))] + [val[-1]]
+
+end = ttime.time()
+print(f'Total duration {end-start}')
+
+
+start = ttime.time()
+val_interp = interpolator_func(timestamps)
+end = ttime.time()
+print(f'Total duration {end-start}')
+
+
+for j in range(len(s)):
+    s[j] = s[j].astype(np.int16)
+
+
+b_interp = np.ndarray((len(timestamps), b.shape[1],b.shape[2]))
+start = ttime.time()
+for ii in range(195):
+    for jj in range(487):
+        b_interp[:, ii,jj] = np.interp(timestamps, time.astype(np.float64), b[:,ii, jj])
+end = ttime.time()
+print(f'Total duration {end-start}')
+
+import numpy as np
+import pandas as pd
+from scipy.interpolate import interp1d
+import time as ttime
+
+
+def interpolate_gpt(dataset, key_base=None, sort=True):
+
+
+    # Compute min and max timestamps more efficiently
+    min_timestamp = max(dataset[key].iloc[0, 0] for key in dataset)
+    max_timestamp = min(dataset[key].iloc[-1, 0] for key in dataset if len(dataset[key]) > 5)
+
+    # Determine key_base based on the max median time step
+    if key_base is None:
+        key_base = max(dataset, key=lambda k: np.median(np.diff(dataset[k].iloc[:, 0])))
+
+    timestamps = dataset[key_base].iloc[:, 0].values
+    timestamps = timestamps[(timestamps >= min_timestamp) & (timestamps <= max_timestamp)]
+
+    interpolated_dataset = {'timestamp': timestamps}
+
+    for key, data in dataset.items():
+        print(f'({ttime.ctime()} Interpolating stream {key}...')
+        #logger.info(f'({ttime.ctime()}) Interpolating stream {key}...')
+
+        time = data.iloc[:, 0].values
+        val = data.iloc[:, 1].values
+
+        if len(time) > 5 * len(timestamps):
+            time = np.concatenate([[time[0]], np.mean(np.array_split(time[1:-1], len(timestamps)), axis=1), [time[-1]]])
+            val = np.concatenate([[val[0]], np.mean(np.array_split(val[1:-1], len(timestamps)), axis=1), [val[-1]]])
+
+        interpolator_func = interp1d(time, val, axis=0, assume_sorted=True, bounds_error=False,
+                                     fill_value="extrapolate")
+        interpolated_dataset[key] = interpolator_func(timestamps)
+        print(f'{ttime.ctime()} Interpolation of stream {key} is complete')
+        #logger.info(f'({ttime.ctime()}) Interpolation of stream {key} is complete')
+
+    interpolated_dataframe = pd.DataFrame(interpolated_dataset)
+
+    return interpolated_dataframe.sort_values('energy') if sort else interpolated_dataframe
+
+
+#___________________________________________________________________________________________
+def interpolate(dataset, key_base = None, sort=True):
+    #logger = get_logger()
+
+    interpolated_dataset = {}
+    min_timestamp = max([dataset.get(key).iloc[0, 0] for key in dataset])
+    max_timestamp = min([dataset.get(key).iloc[len(dataset.get(key)) - 1, 0] for key in
+                         dataset if len(dataset.get(key).iloc[:, 0]) > 5])
+    if key_base is None:
+        all_keys = []
+        time_step = []
+        for key in dataset.keys():
+            all_keys.append(key)
+            # time_step.append(np.mean(np.diff(dataset[key].timestamp)))
+            time_step.append(np.median(np.diff(dataset[key].timestamp)))
+        key_base = all_keys[np.argmax(time_step)]
+    timestamps = dataset[key_base].iloc[:,0]
+
+    condition = timestamps < min_timestamp
+    timestamps = timestamps[np.sum(condition):]
+
+    condition = timestamps > max_timestamp
+    timestamps = timestamps[: (len(timestamps) - np.sum(condition) - 1)]
+
+    interpolated_dataset['timestamp'] = timestamps.values
+
+    for key in dataset.keys():
+        print(f'Interpolating stream {key}...')
+        #logger.info(f'({ttime.ctime()}) Interpolating stream {key}...')
+
+        time = dataset.get(key).iloc[:, 0].values
+        val = dataset.get(key).iloc[:, 1].values
+        if len(dataset.get(key).iloc[:, 0]) > 5 * len(timestamps):
+            time = [time[0]] + [np.mean(array) for array in np.array_split(time[1:-1], len(timestamps))] + [time[-1]]
+            val = [val[0]] + [np.mean(array) for array in np.array_split(val[1:-1], len(timestamps))] + [val[-1]]
+            # interpolated_dataset[key] = np.array([timestamps, np.interp(timestamps, time, val)]).transpose()
+
+        # interpolated_dataset[key] = np.array([timestamps, np.interp(timestamps, time, val)]).transpose()
+        interpolator_func = interp1d(time, np.array([v for v in val]), axis=0)
+        if key != 'pil100k2_image':
+            val_interp = interpolator_func(timestamps)
+
+        else:
+            print(val.shape)
+            print(val[0].shape)
+            reshaped_val = np.stack(val, axis=0)  # Shape: (x, y, z)
+            print(reshaped_val.shape)
+            interpolator = interp1d(time, reshaped_val, kind='linear', axis=0, fill_value='extrapolate',
+                                    assume_sorted=True)
+
+            # Interpolate for new timestamps
+            interpolated_images = interpolator(timestamps)
+            val_interp = np.array(np.split(interpolated_images, interpolated_images.shape[0], axis=0), dtype=object).squeeze()
+            print(val_interp.shape)
+            print(val_interp[0].shape)
+        if len(val_interp.shape) == 1:
+            interpolated_dataset[key] = val_interp
+        else:
+            interpolated_dataset[key] = [v for v in val_interp]
+        print(f'Interpolation of stream {key} is complete')
+        #logger.info(f'({ttime.ctime()}) Interpolation of stream {key} is complete')
+
+    intepolated_dataframe = pd.DataFrame(interpolated_dataset)
+    if sort:
+        return intepolated_dataframe.sort_values('energy')
+    else:
+        return intepolated_dataframe
