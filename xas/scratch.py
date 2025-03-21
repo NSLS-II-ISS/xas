@@ -3180,3 +3180,286 @@ def process_rixs_images(uids, calib_pixel=None, calib_energy=None):
 
 
 ENERGY, RIXS, CALIB_PIXEL, CALIB_ENERGY = process_rixs_images(uids, calib_pixel=pix, calib_energy=energy)
+
+
+import threading
+import time
+
+results_rixs = []
+results_energy = []
+lock = threading.Lock()
+
+
+def worker(thread_id, uid):
+    hdr, primary_df, extended_data, comments, path_to_file, file_list, data_kind = get_processed_df_from_uid(uid, db,
+                                                                                                             load_images=True)
+
+    xes = []
+    for img in extended_data['pil100k2_image']:
+        xes.append(img[77:95, :].sum(axis=0))
+
+    with lock:
+        results_rixs.append(np.array(xes))
+        results_energy.append(np.array(primary_df['energy']))
+
+
+threads = []
+start = time.time()
+for i, uid in enumerate(uids):
+    thread = threading.Thread(target=worker, args=(i, uid))
+    threads.append(thread)
+    thread.start()
+
+for thread in threads:
+    thread.join()
+
+end = time.time()
+print(f"Total time is {end-start}s")
+
+print("Finished")
+
+####################multiprocessing
+
+
+import multiprocessing
+import time
+
+
+def worker(thread_id, uid, results_rixs, results_energy):
+    hdr = db[uid]
+    t = hdr.table(stream_name='pil100k2_stream', fill=True)
+    # hdr, primary_df, extended_data, comments, path_to_file, file_list, data_kind = get_processed_df_from_uid(uid, db, load_images=True)
+
+    # xes = []
+    # for img in extended_data['pil100k2_image']:
+    #     xes.append(img[77:95, :].sum(axis=0))
+
+    xes = []
+    for img in t['pil100k2_image'][1]:
+        xes.append(img[77:95, :].sum(axis=0))
+
+    results_rixs.append(np.array(xes))
+    # results_energy.append(np.array(primary_df['energy']))
+
+
+if __name__ == "__main__":
+    manager = multiprocessing.Manager()
+    results_rixs = manager.list()
+    results_energy = manager.list()
+    processes = []
+
+    start = time.time()
+    for i, uid in enumerate(uids[:5]):
+        process = multiprocessing.Process(target=worker, args=(i, uid, results_rixs, results_energy))
+        processes.append(process)
+        process.start()
+
+    for process in processes:
+        process.join()
+
+    end = time.time()
+    print(f"Total time is {end-start}s")
+
+    print("Finished")
+
+
+
+start = time.time()
+for uid in uids[20:25]:
+    hdr = db[uid]
+    t = hdr.table(stream_name='pil100k2_stream', fill=True)
+end = time.time()
+print(f"Total time is {end-start}s")
+
+
+
+
+start = ttime.time()
+hdr = db['3bde8fb8-0f7b-4a8e-bf13-b76d01cc3115']
+uid = hdr.start['uid']
+from xas.file_io import (load_dataset_from_files, create_file_header, validate_file_exists, validate_path_exists,
+                      save_interpolated_df_as_file, save_binned_df_as_file, find_e0, save_stepscan_as_file,
+                      stepscan_remove_offsets, stepscan_normalize_xs, stepscan_normalize_xia,combine_xspress3_channels, combine_pil100k_channels,
+                      combine_xia_channels,
+                      filter_df_by_valid_keys, save_primary_df_as_file, save_extended_data_as_file, dump_tiff_images)
+from xas.db_io import load_apb_dataset_from_db, translate_apb_dataset, load_apb_trig_dataset_from_db, load_xs3_dataset_from_db, load_pil100k_dataset_from_db, load_apb_dataset_only_from_db, translate_apb_only_dataset, load_xia_dataset_from_db
+apb_df, energy_df, energy_offset = load_apb_dataset_from_db(db, uid)
+raw_dict = translate_apb_dataset(apb_df, energy_df, energy_offset)
+raw_dict
+apb_trigger_pil100k_timestamps = load_apb_trig_dataset_from_db(db, uid, use_fall=True,
+                                                                                   stream_name='apb_trigger_pil100k2')
+pil100k_dict = load_pil100k_dataset_from_db(db, uid, apb_trigger_pil100k_timestamps,
+                                                                pil100k_stream_name='pil100k2_stream',
+                                                                load_images=True)
+raw_dict = {**raw_dict, **pil100k_dict}
+raw_dict
+raw_dict.keys()
+interpolated_dataset = {}
+dataset = raw_dict
+min_timestamp = max([dataset.get(key).iloc[0, 0] for key in dataset])
+max_timestamp = min([dataset.get(key).iloc[len(dataset.get(key)) - 1, 0] for key in
+                         dataset if len(dataset.get(key).iloc[:, 0]) > 5])
+key_base = None
+if key_base is None:
+    all_keys = []
+    time_step = []
+    for key in dataset.keys():
+        all_keys.append(key)
+        # time_step.append(np.mean(np.diff(dataset[key].timestamp)))
+        time_step.append(np.median(np.diff(dataset[key].timestamp)))
+    key_base = all_keys[np.argmax(time_step)]
+timestamps = dataset[key_base].iloc[:,0]
+
+condition = timestamps < min_timestamp
+timestamps = timestamps[np.sum(condition):]
+
+condition = timestamps > max_timestamp
+timestamps = timestamps[: (len(timestamps) - np.sum(condition) - 1)]
+
+interpolated_dataset['timestamp'] = timestamps.values
+timestamps = dataset[key_base].iloc[:,0]
+condition = timestamps < min_timestamp
+timestamps = timestamps[np.sum(condition):]
+condition = timestamps > max_timestamp
+timestamps = timestamps[: (len(timestamps) - np.sum(condition) - 1)]
+interpolated_dataset['timestamp'] = timestamps.values
+key = 'pil100k2_image'
+time = dataset.get(key).iloc[:, 0].values
+val = dataset.get(key).iloc[:, 1].values
+if len(dataset.get(key).iloc[:, 0]) > 5 * len(timestamps):
+    time = [time[0]] + [np.mean(array) for array in np.array_split(time[1:-1], len(timestamps))] + [time[-1]]
+    val = [val[0]] + [np.mean(array) for array in np.array_split(val[1:-1], len(timestamps))] + [val[-1]]
+
+end = ttime.time()
+print(f'Total duration {end-start}')
+
+
+start = ttime.time()
+val_interp = interpolator_func(timestamps)
+end = ttime.time()
+print(f'Total duration {end-start}')
+
+
+for j in range(len(s)):
+    s[j] = s[j].astype(np.int16)
+
+
+b_interp = np.ndarray((len(timestamps), b.shape[1],b.shape[2]))
+start = ttime.time()
+for ii in range(195):
+    for jj in range(487):
+        b_interp[:, ii,jj] = np.interp(timestamps, time.astype(np.float64), b[:,ii, jj])
+end = ttime.time()
+print(f'Total duration {end-start}')
+
+import numpy as np
+import pandas as pd
+from scipy.interpolate import interp1d
+import time as ttime
+
+
+def interpolate_gpt(dataset, key_base=None, sort=True):
+
+
+    # Compute min and max timestamps more efficiently
+    min_timestamp = max(dataset[key].iloc[0, 0] for key in dataset)
+    max_timestamp = min(dataset[key].iloc[-1, 0] for key in dataset if len(dataset[key]) > 5)
+
+    # Determine key_base based on the max median time step
+    if key_base is None:
+        key_base = max(dataset, key=lambda k: np.median(np.diff(dataset[k].iloc[:, 0])))
+
+    timestamps = dataset[key_base].iloc[:, 0].values
+    timestamps = timestamps[(timestamps >= min_timestamp) & (timestamps <= max_timestamp)]
+
+    interpolated_dataset = {'timestamp': timestamps}
+
+    for key, data in dataset.items():
+        print(f'({ttime.ctime()} Interpolating stream {key}...')
+        #logger.info(f'({ttime.ctime()}) Interpolating stream {key}...')
+
+        time = data.iloc[:, 0].values
+        val = data.iloc[:, 1].values
+
+        if len(time) > 5 * len(timestamps):
+            time = np.concatenate([[time[0]], np.mean(np.array_split(time[1:-1], len(timestamps)), axis=1), [time[-1]]])
+            val = np.concatenate([[val[0]], np.mean(np.array_split(val[1:-1], len(timestamps)), axis=1), [val[-1]]])
+
+        interpolator_func = interp1d(time, val, axis=0, assume_sorted=True, bounds_error=False,
+                                     fill_value="extrapolate")
+        interpolated_dataset[key] = interpolator_func(timestamps)
+        print(f'{ttime.ctime()} Interpolation of stream {key} is complete')
+        #logger.info(f'({ttime.ctime()}) Interpolation of stream {key} is complete')
+
+    interpolated_dataframe = pd.DataFrame(interpolated_dataset)
+
+    return interpolated_dataframe.sort_values('energy') if sort else interpolated_dataframe
+
+
+#___________________________________________________________________________________________
+def interpolate(dataset, key_base = None, sort=True):
+    #logger = get_logger()
+
+    interpolated_dataset = {}
+    min_timestamp = max([dataset.get(key).iloc[0, 0] for key in dataset])
+    max_timestamp = min([dataset.get(key).iloc[len(dataset.get(key)) - 1, 0] for key in
+                         dataset if len(dataset.get(key).iloc[:, 0]) > 5])
+    if key_base is None:
+        all_keys = []
+        time_step = []
+        for key in dataset.keys():
+            all_keys.append(key)
+            # time_step.append(np.mean(np.diff(dataset[key].timestamp)))
+            time_step.append(np.median(np.diff(dataset[key].timestamp)))
+        key_base = all_keys[np.argmax(time_step)]
+    timestamps = dataset[key_base].iloc[:,0]
+
+    condition = timestamps < min_timestamp
+    timestamps = timestamps[np.sum(condition):]
+
+    condition = timestamps > max_timestamp
+    timestamps = timestamps[: (len(timestamps) - np.sum(condition) - 1)]
+
+    interpolated_dataset['timestamp'] = timestamps.values
+
+    for key in dataset.keys():
+        print(f'Interpolating stream {key}...')
+        #logger.info(f'({ttime.ctime()}) Interpolating stream {key}...')
+
+        time = dataset.get(key).iloc[:, 0].values
+        val = dataset.get(key).iloc[:, 1].values
+        if len(dataset.get(key).iloc[:, 0]) > 5 * len(timestamps):
+            time = [time[0]] + [np.mean(array) for array in np.array_split(time[1:-1], len(timestamps))] + [time[-1]]
+            val = [val[0]] + [np.mean(array) for array in np.array_split(val[1:-1], len(timestamps))] + [val[-1]]
+            # interpolated_dataset[key] = np.array([timestamps, np.interp(timestamps, time, val)]).transpose()
+
+        # interpolated_dataset[key] = np.array([timestamps, np.interp(timestamps, time, val)]).transpose()
+        interpolator_func = interp1d(time, np.array([v for v in val]), axis=0)
+        if key != 'pil100k2_image':
+            val_interp = interpolator_func(timestamps)
+
+        else:
+            print(val.shape)
+            print(val[0].shape)
+            reshaped_val = np.stack(val, axis=0)  # Shape: (x, y, z)
+            print(reshaped_val.shape)
+            interpolator = interp1d(time, reshaped_val, kind='linear', axis=0, fill_value='extrapolate',
+                                    assume_sorted=True)
+
+            # Interpolate for new timestamps
+            interpolated_images = interpolator(timestamps)
+            val_interp = np.array(np.split(interpolated_images, interpolated_images.shape[0], axis=0), dtype=object).squeeze()
+            print(val_interp.shape)
+            print(val_interp[0].shape)
+        if len(val_interp.shape) == 1:
+            interpolated_dataset[key] = val_interp
+        else:
+            interpolated_dataset[key] = [v for v in val_interp]
+        print(f'Interpolation of stream {key} is complete')
+        #logger.info(f'({ttime.ctime()}) Interpolation of stream {key} is complete')
+
+    intepolated_dataframe = pd.DataFrame(interpolated_dataset)
+    if sort:
+        return intepolated_dataframe.sort_values('energy')
+    else:
+        return intepolated_dataframe

@@ -12,6 +12,7 @@ def load_apb_dataset_from_db(db, uid):
     hdr = db[uid]
     logger.info(f'({ttime.ctime()}) Retrieving pizzabox data... ')
     apb_dataset = list(hdr.data(stream_name='apb_stream', field='apb_stream'))[0].copy()
+    logger.info(f'({ttime.ctime()}) Pizzabox data extracted from DB')
     apb_dataset = pd.DataFrame(apb_dataset,
                                columns=['timestamp', 'i0', 'it', 'ir', 'iff', 'aux1', 'aux2', 'aux3', 'aux4'])
     #to fix the padding
@@ -28,7 +29,8 @@ def load_apb_dataset_from_db(db, uid):
     apb_dataset = apb_dataset[0:padding_index]
 
 
-    logger.info(f'({ttime.ctime()}) Pizzabox data received.')
+    logger.info(f'({ttime.ctime()}) Pizzabox data processed.')
+
     logger.info(f'({ttime.ctime()}) Retrieving encoder data... ')
     # apb_dataset = list(hdr.data(stream_name='apb_stream', field='apb_stream'))[0]
     energy_dataset =  list(hdr.data(stream_name='pb9_enc1',field='pb9_enc1'))[0].copy()
@@ -256,14 +258,19 @@ def _load_pil100k_dataset_from_db_legacy(db, uid, apb_trig_timestamps, input_typ
 
 
 def _load_pil100k_dataset_from_db(db, uid, apb_trig_timestamps, pil100k_stream_name='pil100k_stream', load_images=False):
+    logger = get_logger()
     hdr = db[uid]
     output = {}
     # t = hdr.table(stream_name='pil100k_stream', fill=True)
     pil100k_name = pil100k_stream_name.split('_')[0]
     field_list = [f'{pil100k_name}_roi{i}' for i in range(1, 5)]#, 'pil100k_image']
+
     _t = {field : list(hdr.data(stream_name=pil100k_stream_name, field=field))[0] for field in field_list}
+
     if load_images:
+        logger.info(f'({ttime.ctime()}) Loading Pilatus images...')
         _t[f'{pil100k_name}_image'] = [i for i in list(hdr.data(stream_name=pil100k_stream_name, field=f'{pil100k_name}_image'))[0]]
+        logger.info(f'({ttime.ctime()}) Pilatus images loading is complete.')
     t = pd.DataFrame(_t)
     # n_images = t.shape[0]
     n_images = min(t[f'{pil100k_name}_roi1'].size, apb_trig_timestamps.size)
@@ -273,14 +280,7 @@ def _load_pil100k_dataset_from_db(db, uid, apb_trig_timestamps, pil100k_stream_n
     for j, key in enumerate(keys):
         output[key] = pd.DataFrame(np.vstack((pil100k_timestamps, t[key])).T, columns=['timestamp', f'{key}'])
     return output
-    # _spectra = np.zeros((n_images, len(keys)))
-    # for i in range(0, n_images):
-    #
-    #         _spectra[i, j] = t[i+1][key]
-    # for j, key in enumerate(keys):
-    #     spectra[key] =  pd.DataFrame(np.vstack((pil100k_timestamps, _spectra[:, j])).T, columns=['timestamp', f'pil100k_ROI{j+1}'])
-    #
-    # return spectra
+
 
 def load_pil100k_dataset_from_db(db, uid, apb_trig_timestamps, pil100k_stream_name='pil100k_stream', load_images=False):
     try:

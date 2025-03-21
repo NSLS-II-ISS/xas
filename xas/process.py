@@ -27,13 +27,15 @@ import gc
 
 def process_interpolate_bin(doc, db, draw_func_interp = None, draw_func_bin = None, cloud_dispatcher = None,
                             print_func=None, dump_to_tiff=False, load_images=False, processing_kwargs=None):
-    # logger = get_logger()
+    logger = get_logger()
+    logger.info(f'({ttime.ctime()}) Processing has begun -----------------------------------------------')
     if 'experiment' in db[doc['run_start']].start.keys():
         uid = doc['run_start']
         process_interpolate_bin_from_uid(uid, db, draw_func_interp=draw_func_interp, draw_func_bin=draw_func_bin,
                                          cloud_dispatcher=cloud_dispatcher, print_func=print_func,
                                          dump_to_tiff=dump_to_tiff, load_images=load_images,
                                          processing_kwargs=processing_kwargs)
+    logger.info(f'({ttime.ctime()}) Processing has finished -----------------------------------------------')
 
 
 def process_interpolate_bin_from_uid(uid, db, draw_func_interp = None, draw_func_bin = None, cloud_dispatcher = None,
