@@ -89,23 +89,33 @@ def interpolate_with_interp(dataset, key_base = None, sort=True):
         print(f'Interpolating stream {key}...')
         # logger.info(f'({ttime.ctime()}) Interpolating stream {key}...')
         if key == 'pil100k2_image':
+            print(f'---------------------------{key}----------------------------')
             time = dataset.get(key).iloc[:, 0].values.astype(np.float64)
             val = np.stack(dataset.get(key).iloc[:, 1].values)
 
-            if len(dataset.get(key).iloc[:, 0]) > 5 * len(timestamps):
-                time = [time[0]] + [np.mean(array) for array in np.array_split(time[1:-1], len(timestamps))] + [time[-1]]
-                val = [val[0]] + [np.mean(array) for array in np.array_split(val[1:-1], len(timestamps))] + [val[-1]]
-                interpolated_dataset[key] = np.array([timestamps, np.interp(timestamps, time, val, left=None, right=None)]).transpose()
-        else:
+            shape_length = val.shape[0]
 
+            val_flat = val.reshape(shape_length, -1)
+            interpolated_flat = np.empty((len(timestamps), val_flat.shape[1]), dtype=val.dtype)
+
+            for i in range(val_flat.shape[1]):
+                interpolated_flat[:, i] = np.interp(timestamps, time, val_flat[:, i])
+
+            interpolated_reshaped = interpolated_flat.reshape(len(timestamps), 195, 487).astype('object')
+
+            interpolated_dataset[key] = [v for v in interpolated_reshaped]
+        else:
             time = dataset.get(key).iloc[:, 0].values
             val = dataset.get(key).iloc[:, 1].values
             if len(dataset.get(key).iloc[:, 0]) > 5 * len(timestamps):
                 time = [time[0]] + [np.mean(array) for array in np.array_split(time[1:-1], len(timestamps))] + [time[-1]]
                 val = [val[0]] + [np.mean(array) for array in np.array_split(val[1:-1], len(timestamps))] + [val[-1]]
-                interpolated_dataset[key] = np.array([timestamps, np.interp(timestamps, time, val)]).transpose()
 
-        interpolated_dataset[key] = np.array([timestamps, np.interp(timestamps, time, val)]).transpose()
+            interpolator_func = interp1d(time, np.array([v for v in val]), axis=0)
+            val_interp = interpolator_func(timestamps)
+            interpolated_dataset[key] = val_interp
+
+
         # interpolator_func = interp1d(time, np.array([v for v in val]), axis=0)
         # val_interp = interpolator_func(timestamps)
         # if len(val_interp.shape) == 1:

@@ -403,7 +403,7 @@ def process_von_hamos_scan_legacy(df, extended_data, comments, hdr, path_to_file
 
     # if ('spectrometer_scan_kind' in hdr.start.keys()) and (hdr.start['spectrometer_scan_kind'] == 'calibration'):
     #     try:
-    #         vh_scan.calibrate(['roi1'])
+    #        dictionary[os.path.basename(h5_f)] vh_scan.calibrate(['roi1'])
     #     except Exception as e:
     #         print(e)
     #
@@ -550,7 +550,7 @@ def process_von_hamos_scan_legacy(df, extended_data, comments, hdr, path_to_file
 #             # image_bkg[~bkg_mask] = -100
 #
 #             ysize, xsize = self.total_image.shape
-#             y_mesh, x_mesh = np.meshgrid(np.arange(ysize), np.arange(xsize), indexing='ij')
+#            dictionary[os.path.basename(h5_f)] y_mesh, x_mesh = np.meshgrid(np.arange(ysize), np.arange(xsize), indexing='ij')
 #
 #             y_bkg = y_mesh[bkg_mask].ravel()
 #             x_bkg = x_mesh[bkg_mask].ravel()

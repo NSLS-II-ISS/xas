@@ -6,7 +6,7 @@ from xas.file_io import (load_dataset_from_files, create_file_header, validate_f
                       combine_xia_channels,
                       filter_df_by_valid_keys, save_primary_df_as_file, save_extended_data_as_file, dump_tiff_images)
 from xas.db_io import load_apb_dataset_from_db, translate_apb_dataset, load_apb_trig_dataset_from_db, load_xs3_dataset_from_db, load_pil100k_dataset_from_db, load_apb_dataset_only_from_db, translate_apb_only_dataset, load_xia_dataset_from_db
-from xas.interpolate import interpolate
+from xas.interpolate import interpolate, interpolate_with_interp
 from scipy.interpolate import interp1d
 import pandas as pd
 from xas.file_io import _shift_root
@@ -165,7 +165,10 @@ def get_processed_df_from_uid(uid, db, logger=None, draw_func_interp=None, draw_
         #raise RuntimeError()
         try:
             # print(raw_dict)
-            interpolated_df = interpolate(raw_dict)
+            if load_images:
+                interpolated_df = interpolate_with_interp(raw_dict)
+            else:
+                interpolated_df = interpolate(raw_dict)
 
             logger.info(f'({ttime.ctime()}) Interpolation successful for {path_to_file}')
             if save_interpolated_file:

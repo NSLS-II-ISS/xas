@@ -168,6 +168,9 @@ class ISSPilatusHDF5Handler(Xspress3HDF5Handler, ISSHandlerBaseShiftRoot): # Den
         # print(f'{ttime.ctime()} XS dataset retrieving starting...')
         self._get_dataset()
 
+        # print('In Pilatus handler')
+
+
         if data_type=='image':
             # print(output.shape, output.squeeze().shape)
             return self._image_data

@@ -3275,7 +3275,7 @@ print(f"Total time is {end-start}s")
 
 
 start = ttime.time()
-hdr = db['3bde8fb8-0f7b-4a8e-bf13-b76d01cc3115']
+hdr = db['06f76dde-c1dc-43e1-874e-d2043aff53de']
 uid = hdr.start['uid']
 from xas.file_io import (load_dataset_from_files, create_file_header, validate_file_exists, validate_path_exists,
                       save_interpolated_df_as_file, save_binned_df_as_file, find_e0, save_stepscan_as_file,
@@ -3382,8 +3382,8 @@ def interpolate_gpt(dataset, key_base=None, sort=True):
         val = data.iloc[:, 1].values
 
         if len(time) > 5 * len(timestamps):
-            time = np.concatenate([[time[0]], np.mean(np.array_split(time[1:-1], len(timestamps)), axis=1), [time[-1]]])
-            val = np.concatenate([[val[0]], np.mean(np.array_split(val[1:-1], len(timestamps)), axis=1), [val[-1]]])
+            time = [time[0]] + [np.mean(array) for array in np.array_split(time[1:-1], len(timestamps))] + [time[-1]]
+            val = [val[0]] + [np.mean(array) for array in np.array_split(val[1:-1], len(timestamps))] + [val[-1]]
 
         interpolator_func = interp1d(time, val, axis=0, assume_sorted=True, bounds_error=False,
                                      fill_value="extrapolate")
@@ -3395,6 +3395,11 @@ def interpolate_gpt(dataset, key_base=None, sort=True):
 
     return interpolated_dataframe.sort_values('energy') if sort else interpolated_dataframe
 
+
+
+start = ttime.time()
+interpolator_func(timestamps)
+print(f"total time {ttime.time()-start}")
 
 #___________________________________________________________________________________________
 def interpolate(dataset, key_base = None, sort=True):
@@ -3463,3 +3468,273 @@ def interpolate(dataset, key_base = None, sort=True):
         return intepolated_dataframe.sort_values('energy')
     else:
         return intepolated_dataframe
+
+
+def interpolate_with_interp(dataset, key_base=None, sort=True):
+    # logger = get_logger()
+
+    interpolated_dataset = {}
+    min_timestamp = max([dataset.get(key).iloc[0, 0] for key in dataset])
+    max_timestamp = min([dataset.get(key).iloc[len(dataset.get(key)) - 1, 0] for key in
+                         dataset if len(dataset.get(key).iloc[:, 0]) > 5])
+    if key_base is None:
+        all_keys = []
+        time_step = []
+        for key in dataset.keys():
+            all_keys.append(key)
+            # time_step.append(np.mean(np.diff(dataset[key].timestamp)))
+            time_step.append(np.median(np.diff(dataset[key].timestamp)))
+        key_base = all_keys[np.argmax(time_step)]
+    timestamps = dataset[key_base].iloc[:, 0]
+
+    condition = timestamps < min_timestamp
+    timestamps = timestamps[np.sum(condition):]
+
+    condition = timestamps > max_timestamp
+    timestamps = timestamps[: (len(timestamps) - np.sum(condition) - 1)]
+
+    interpolated_dataset['timestamp'] = timestamps.values
+
+    for key in dataset.keys():
+        print(f'Interpolating stream {key}...')
+        # logger.info(f'({ttime.ctime()}) Interpolating stream {key}...')
+        if key == 'pil100k2_image':
+            time = dataset.get(key).iloc[:, 0].values.astype(np.float64)
+            val = np.stack(dataset.get(key).iloc[:, 1].values)
+
+            if len(dataset.get(key).iloc[:, 0]) > 5 * len(timestamps):
+                time = [time[0]] + [np.mean(array) for array in np.array_split(time[1:-1], len(timestamps))] + [time[-1]]
+                val = [val[0]] + [np.mean(array) for array in np.array_split(val[1:-1], len(timestamps))] + [val[-1]]
+
+                interpolated_dataset[key] = np.array([timestamps, np.interp(timestamps, time, val, left=None, right=None)]).transpose()
+        else:
+
+            time = dataset.get(key).iloc[:, 0].values
+            val = dataset.get(key).iloc[:, 1].values
+            if len(dataset.get(key).iloc[:, 0]) > 5 * len(timestamps):
+                time = [time[0]] + [np.mean(array) for array in np.array_split(time[1:-1], len(timestamps))] + [
+                    time[-1]]
+                val = [val[0]] + [np.mean(array) for array in np.array_split(val[1:-1], len(timestamps))] + [val[-1]]
+                interpolated_dataset[key] = np.array([timestamps, np.interp(timestamps, time, val)]).transpose()
+
+        interpolated_dataset[key] = np.array([timestamps, np.interp(timestamps, time, val)]).transpose()
+        # interpolator_func = interp1d(time, np.array([v for v in val]), axis=0)
+        # val_interp = interpolator_func(timestamps)
+        # if len(val_interp.shape) == 1:
+        #     interpolated_dataset[key] = val_interp
+        # else:
+        #     interpolated_dataset[key] = [v for v in val_interp]
+        # print(f'Interpolation of stream {key} is complete')
+        # logger.info(f'({ttime.ctime()}) Interpolation of stream {key} is complete')
+
+    intepolated_dataframe = pd.DataFrame(interpolated_dataset)
+    if sort:
+        return intepolated_dataframe.sort_values('energy')
+    else:
+        return intepolated_dataframe
+
+
+
+
+##### Jenny VHS Processing after generating all the tif and h5 files for getting the RIXS plan ########
+
+path_hdf5 = '/nsls2/data/iss/legacy/processed/2025/1/314438/extended_data/'
+path_data = '/nsls2/data/iss/legacy/processed/2025/1/314438/'
+
+key_data = "*stepscan*-r0002.dat"
+key_hdf5 = "*stepscan*r0002*.h5"
+
+import glob
+from larch.io import read_ascii
+import h5py
+from xas.vonhamos import *
+
+def create_dict_for_pixel_to_energy(path_hdf5=None,
+                                    path_data=None,
+                                    key_data=None,
+                                    key_hdf5=None):
+
+    dictionary = {}
+
+    h5_files = [f for f in sorted(glob.glob(path_hdf5 + key_hdf5))]
+    data_files = [f for f in sorted(glob.glob(path_data + key_data))]
+
+    for h5_f, da_f in zip(h5_files, data_files):
+        data = read_ascii(da_f)
+        data_h5 = h5py.File(h5_f)
+
+        arr = []
+        for img in data_h5['pil100k2_image']:
+            arr.append(img[80:100, :])
+
+        arr = np.array(arr)
+        dictionary[os.path.basename(h5_f)] = {}
+
+        _, _, pixel, energy = run_calibration(arr, data.energy, output_diagnostics=False)
+
+        dictionary[os.path.basename(h5_f)]['energy'] = energy
+        dictionary[os.path.basename(h5_f)]['pixel'] = pixel
+
+    return dictionary
+
+
+calib_dict = create_dict_for_pixel_to_energy(path_hdf5=path_hdf5, path_data=path_data, key_data=key_data, key_hdf5=key_hdf5)
+
+
+key_hdf5 = "Fe_Acetate*RIXS*.h5"
+key_data = "Fe_Acetate*s_RIXS*0001.dat"
+
+
+h5_files = [f for f in sorted(glob.glob(path_hdf5 + key_hdf5))]
+data_files = [f for f in sorted(glob.glob(path_data + key_data))]
+
+
+MONO_EN = []
+RIXS = []
+EMISSION = []
+
+for hd_f, da_f in zip(h5_files, data_files):
+    data = read_ascii(da_f)
+    if len(data.i0) < 326:
+        continue
+    data_h5 = h5py.File(hd_f)
+    print(f"{hd_f = } {da_f = }")
+    XES= [img[80:100, :].sum(axis=0)/data.i0[i] for i, img in enumerate(data_h5['pil100k2_image'])]
+    MONO_EN.append(data.energy)
+    EMISSION.append(calib_dict['Fe_Acetate (pos 005) Fe-K calib stepscan 0001-r0002.h5']['energy'])
+    RIXS.append(np.array(XES))
+
+data_files = [f for f in sorted(glob.glob('Fe Acetate *s_RIXS*0001.dat'))]
+
+
+plt.figure()
+for key in calib_dict.keys():
+    en = calib_dict[key]['energy']
+    pix = calib_dict[key]['pixel']
+    plt.plot(en, pix, label=key)
+
+plt.legend()
+
+en = 0
+flu = 0
+for da_f in data_files:
+    data = read_ascii(da_f)
+    if len(data.i0) < 326:
+        continue
+    flu = flu + data.pil100k2_roi3/data.i0
+
+
+en = np.array(en)
+flu = flu.array(en)
+
+
+
+h5_files = [f for f in sorted(glob.glob(path_h5 + key_h5))]
+
+
+for i, f in enumerate(hdf5_files, start=6):
+    name_current = os.path.basename(f)[16:19]
+
+    print(f"{i} = {name_current}")
+
+
+h5_files = ['DT372_RIXS (pos 005) Fe-K calib stepscan 0001-r0002.h5',
+'DT373_RIXS (pos 005) Fe-K calib stepscan 0001-r0002.h5',
+'Fe2Co_Acetate (pos 001) Fe-K calib stepscan 0001-r0002.h5',
+'Fe2Co_Mil100 (pos 002) Fe-K calib stepscan 0001-r0002.h5',
+'Fe2Co_MOF74 (pos 001) Fe-K calib stepscan 0001-r0002.h5',
+'Fe2Ni_acetate (pos 002) Fe-K calib stepscan 0001-r0002.h5',
+'Fe2Ni_Mil100 (pos 002) Fe-K calib stepscan 0001-r0002.h5',
+'Fe2Ni_MOF74 (pos 001) Fe-K calib stepscan 0001-r0002.h5',
+'Fe2NiOAc_RIXS (pos 001) Fe-K calib stepscan 0001-r0002.h5',
+'Fe_Acetate (pos 001) Fe-K calib stepscan 0001-r0002.h5',
+'Fe_Acetate (pos 005) Fe-K calib stepscan 0001-r0002.h5',
+'FeBTC (pos 002) Fe-K calib stepscan 0001-r0002.h5',
+'Fe_Mil100 (pos 003) Fe-K calib stepscan 0001-r0002.h5',
+'FeMil100_RIXS (pos 001) Fe-K calib stepscan 0001-r0002.h5',
+'Fe_MOF74 (pos 002) Fe-K calib stepscan 0001-r0002.h5',
+'TCNQ_FeBTC (pos 002) Fe-K calib stepscan 0001-r0002.h5']
+
+h5_files = [path_h5+file for file in h5_files]
+
+for i, f in enumerate(files_h5):
+    new_name = os.path.basename(f).split('(')[1].split(')')[0].split(" ")[1]
+    old_name = os.path.basename(files_h5[i-1]).split('(')[1].split(')')[0].split(" ")[1]
+    if new_name == old_name:
+        print(new_name)
+
+
+files = [f for f in sorted(glob.glob("*s_RIXS*.h5"))]
+
+keys_h5 = ['DT372_RIXS*s_RIXS*.h5',
+'DT373_RIXS*s_RIXS*.h5',
+'Fe2Co_Acetate*s_RIXS*.h5',
+'Fe2Co_Mil100*s_RIXS*.h5',
+'Fe2Co_MOF74*s_RIXS*.h5',
+'Fe2Ni_acetate*s_RIXS*.h5',
+'Fe2Ni_Mil100*s_RIXS*.h5',
+'Fe2Ni_MOF74*s_RIXS*.h5',
+'Fe2NiOAc_RIXS*s_RIXS*.h5',
+'Fe_Acetate*s_RIXS*.h5',
+'FeBTC*s_RIXS*.h5',
+'Fe_Mil100*s_RIXS*.h5',
+'FeMil100_RIXS*s_RIXS*.h5',
+'Fe_MOF74*s_RIXS*.h5',
+'TCNQ_FeBTC*s_RIXS*.h5']
+
+
+keys_data = ['DT372_RIXS*s_RIXS*0001.dat',
+'DT373_RIXS*s_RIXS*0001.dat',
+'Fe2Co_Acetate*s_RIXS*0001.dat',
+'Fe2Co_Mil100*s_RIXS*0001.dat',
+'Fe2Co_MOF74*s_RIXS*0001.dat',
+'Fe2Ni_acetate*s_RIXS*0001.dat',
+'Fe2Ni_Mil100*s_RIXS*0001.dat',
+'Fe2Ni_MOF74*s_RIXS*0001.dat',
+'Fe2NiOAc_RIXS*s_RIXS*0001.dat',
+'Fe_Acetate*s_RIXS*0001.dat',
+'FeBTC*s_RIXS*0001.dat',
+'Fe_Mil100*s_RIXS*0001.dat',
+'FeMil100_RIXS*s_RIXS*0001.dat',
+'Fe_MOF74*s_RIXS*0001.dat',
+'TCNQ_FeBTC*s_RIXS*0001.dat']
+
+group_hdf5 = {}
+group_data = {}
+
+path_hdf5 = '/nsls2/data/iss/legacy/processed/2025/1/314438/extended_data/'
+path_data = '/nsls2/data/iss/legacy/processed/2025/1/314438/'
+
+for key_d, key_h5 in zip(keys_data, keys_h5):
+    group_hdf5[key_h5] = [f for f in sorted(glob.glob(path_hdf5+key_h5))]
+    group_data[key_d] = [f for f in sorted(glob.glob(path_data+key_d))]
+    print(f"{len(group_data[key_d]) = } {len(group_hdf5[key_h5]) = } {key_d}")
+
+
+group_rixs = {}
+for key_d, key_h5, cal_key in zip(group_data.keys(), group_hdf5.keys(), calib_dict.keys()):
+    RIXS = []
+    MONO_EN = []
+    EMISSION = []
+
+    for hd_f, da_f in zip(group_hdf5[key_h5], group_data[key_d]):
+        print(f"{hd_f} {da_f}")
+        data = read_ascii(da_f)
+        if len(data.i0) < 326 or 'pil100k2_roi3' not in data.array_labels:
+            print("-----------------EXCEPTION-------------")
+            continue
+        data_h5 = h5py.File(hd_f)
+        print(f"{hd_f = } {da_f = }")
+        XES = [img[80:100, :].sum(axis=0) / data.i0[i] for i, img in enumerate(data_h5['pil100k2_image'])]
+        MONO_EN.append(data.energy)
+        EMISSION.append(calib_dict[cal_key]['energy'])
+        RIXS.append(np.array(XES))
+
+    group_rixs[key_d] = {}
+    group_rixs[key_d]['rixs'] = np.array(RIXS).sum(axis=0)
+    group_rixs[key_d]['energy'] = np.array(MONO_EN).sum(axis=0)/len(MONO_EN)
+    group_rixs[key_d]['EMISSION'] = np.array(EMISSION).sum(axis=0)/len(EMISSION)
+
+
+
+
