@@ -3737,4 +3737,37 @@ for key_d, key_h5, cal_key in zip(group_data.keys(), group_hdf5.keys(), calib_di
 
 
 
+from tiled.client import from_uri
+from databroker.queries import TimeRange, Key
+c = from_uri("https://tiled.nsls2.bnl.gov")["iss"]["raw"]
+date_limited_c = c.search(TimeRange(since="2025-01-01", until="2025-03-19"))
+proposal_limited_c = date_limited_c.search(Key("proposal") == "309462")
+scan_limited_c = proposal_limited_c.search(Key("experiment") == "fly_scan")
+b=list(scan_limited_c)
+for uid in b:
+    dt = datetime.datetime.fromtimestamp(db[uid].start['time'], tz=datetime.timezone.utc)
+    eastern = pytz.timezone('US/Eastern')
+    loc_dt = dt.astimezone(eastern)
+    fmt = '%Y-%m-%d %H:%M:%S %Z%z'
+    loc_dt.strftime(fmt)
+    print(f"{loc_dt} {uid}")
 
+
+dt = datetime.datetime.fromtimestamp(hdr.start['time'], tz=datetime.timezone.utc)
+eastern = pytz.timezone('US/Eastern')
+loc_dt = dt.astimezone(eastern)
+fmt = '%Y-%m-%d %H:%M:%S %Z%z'
+loc_dt.strftime(fmt)
+print(loc_dt)
+
+print(datetime.datetime.fromtimestamp('9f88d2c7-a7ee-4287-a7fc-dddd904293df', tz=datetime.timezone.utc))
+
+import datetime
+import pytz
+datetime.datetime.fromtimestamp(db[b[-1]].start['time'])
+dt
+
+proposal_limited_c = proposal_limited_c.search(Key("experiment") == "fly_scan")
+proposal_limited_c
+date_limited_c = c.search(TimeRange(since="2025-01-01", until="2025-03-19"))
+%history

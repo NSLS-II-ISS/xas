@@ -26,21 +26,27 @@ from xas.vonhamos import process_von_hamos_scan, filter_von_hamos_kwargs #, save
 import gc
 
 def process_interpolate_bin(doc, db, draw_func_interp = None, draw_func_bin = None, cloud_dispatcher = None,
-                            print_func=None, dump_to_tiff=False, load_images=False, processing_kwargs=None):
+                            print_func=None, dump_to_tiff=False, load_images=False, processing_kwargs=None,
+                            save_image = False, camera1 = None, camera2 = None):
     logger = get_logger()
     logger.info(f'({ttime.ctime()}) Processing has begun -----------------------------------------------')
+
     if 'experiment' in db[doc['run_start']].start.keys():
         uid = doc['run_start']
         process_interpolate_bin_from_uid(uid, db, draw_func_interp=draw_func_interp, draw_func_bin=draw_func_bin,
                                          cloud_dispatcher=cloud_dispatcher, print_func=print_func,
                                          dump_to_tiff=dump_to_tiff, load_images=load_images,
+                                         save_image = save_image, camera1= camera1,camera2=camera2,
                                          processing_kwargs=processing_kwargs)
     logger.info(f'({ttime.ctime()}) Processing has finished -----------------------------------------------')
 
 
+
 def process_interpolate_bin_from_uid(uid, db, draw_func_interp = None, draw_func_bin = None, cloud_dispatcher = None,
                                      print_func=None, dump_to_tiff=False, load_images=False,
-                                     save_interpolated_file=True, update_start=None, processing_kwargs=None):
+                                     save_interpolated_file=True, update_start=None,
+                                     save_image = False, camera1=None,       camera2=None,
+                                     processing_kwargs=None):
 
     logger = get_logger()
     hdr, primary_df, extended_data, comments, path_to_file, file_list, data_kind = get_processed_df_from_uid(uid, db,
@@ -52,6 +58,17 @@ def process_interpolate_bin_from_uid(uid, db, draw_func_interp = None, draw_func
                                                                           update_start=update_start,
                                                                           load_images=load_images,
                                                                           processing_kwargs=processing_kwargs)
+    #save images
+    if save_image:
+        try:
+            base, ext = os.path.splitext(path_to_file)
+            if camera1:
+                camera1.saveImageAsFile(f"{base}_camera1.jpg")
+            if camera2:
+                camera2.saveImageAsFile(f"{base}_camera2.jpg")
+            logger.info(f'({ttime.ctime()}) Sample images are saved for {path_to_file}')
+        except:
+            logger.info(f'({ttime.ctime()}) Saving sample images failed for {path_to_file}')
 
     if (processing_kwargs is not None) and ('skip_standard_dat' in processing_kwargs):
         skip_standard_dat = processing_kwargs['skip_standard_dat']
