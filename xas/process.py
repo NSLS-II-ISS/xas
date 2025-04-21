@@ -204,7 +204,7 @@ def get_processed_df_from_uid(uid, db, logger=None, draw_func_interp=None, draw_
                 logger.info(f'({ttime.ctime()}) Binning successful for {path_to_file}')
 
                 if draw_func_interp is not None:
-                    draw_func_interp(interpolated_df)
+                    draw_func_interp(interpolated_df, processed_df)
                 if draw_func_bin is not None:
                     draw_func_bin(processed_df, path_to_file)
             else:
