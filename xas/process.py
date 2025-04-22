@@ -25,7 +25,9 @@ from xas.image_analysis import reduce_johann_images
 from xas.vonhamos import process_von_hamos_scan, filter_von_hamos_kwargs #, save_vh_scan_to_file
 import gc
 
-def process_interpolate_bin(doc, db, draw_func_interp = None, draw_func_bin = None, cloud_dispatcher = None,
+from iss_workflows.processing import process_run
+
+def process_interpolate_bin(doc, db, processing_repo='iss-workflows', draw_func_interp = None, draw_func_bin = None, cloud_dispatcher = None,
                             print_func=None, dump_to_tiff=False, load_images=False, processing_kwargs=None,
                             save_image = False, camera1 = None, camera2 = None):
     logger = get_logger()
@@ -33,11 +35,22 @@ def process_interpolate_bin(doc, db, draw_func_interp = None, draw_func_bin = No
 
     if 'experiment' in db[doc['run_start']].start.keys():
         uid = doc['run_start']
-        process_interpolate_bin_from_uid(uid, db, draw_func_interp=draw_func_interp, draw_func_bin=draw_func_bin,
-                                         cloud_dispatcher=cloud_dispatcher, print_func=print_func,
-                                         dump_to_tiff=dump_to_tiff, load_images=load_images,
-                                         save_image = save_image, camera1= camera1,camera2=camera2,
-                                         processing_kwargs=processing_kwargs)
+        print(f"processing {uid} in using repo {processing_repo}")
+        if processing_repo == 'xas':
+            process_interpolate_bin_from_uid(uid, db, draw_func_interp=draw_func_interp, draw_func_bin=draw_func_bin,
+                                             cloud_dispatcher=cloud_dispatcher, print_func=print_func,
+                                             dump_to_tiff=dump_to_tiff, load_images=load_images,
+                                             save_image = save_image, camera1= camera1,camera2=camera2,
+                                             processing_kwargs=processing_kwargs)
+        elif processing_repo == 'iss-workflows':
+            process_run(uid,
+                        send_to_sandbox=False,
+                        save_to_file=True,
+                        draw_func_interp=draw_func_interp,
+                        cloud_dispatcher=cloud_dispatcher,
+                        dump_to_tiff=dump_to_tiff,
+                        heavyweight_processing=load_images,
+                        processing_kwargs=processing_kwargs)
     logger.info(f'({ttime.ctime()}) Processing has finished -----------------------------------------------')
 
 
