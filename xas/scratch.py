@@ -3771,3 +3771,19 @@ proposal_limited_c = proposal_limited_c.search(Key("experiment") == "fly_scan")
 proposal_limited_c
 date_limited_c = c.search(TimeRange(since="2025-01-01", until="2025-03-19"))
 %history
+
+uid = '9193b2b0-d6d5-48d2-bb04-a4669c8cbe1f'
+hdr = db[uid]
+start = time.time()
+t = hdr.table(stream_name='pil100k2_stream', fill=True)
+print(f"{time.time()-start}")
+
+path = None
+
+with open(path) as f:
+    data = h
+
+data = h5py.File(path)
+start = time.time()
+arr = np.array(data['entry']['data']['data'])
+print(f"{time.time()-start}")

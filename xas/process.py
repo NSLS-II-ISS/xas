@@ -27,7 +27,7 @@ import gc
 
 from iss_workflows.processing import process_run
 
-def process_interpolate_bin(doc, db, processing_repo='iss-workflows', draw_func_interp = None, draw_func_bin = None, cloud_dispatcher = None,
+def process_interpolate_bin(doc, db, processing_repo='xas', draw_func_interp = None, draw_func_bin = None, cloud_dispatcher = None,
                             print_func=None, dump_to_tiff=False, load_images=False, processing_kwargs=None,
                             save_image = False, camera1 = None, camera2 = None):
     logger = get_logger()

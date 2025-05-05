@@ -266,7 +266,7 @@ def _load_pil100k_dataset_from_db(db, uid, apb_trig_timestamps, pil100k_stream_n
     field_list = [f'{pil100k_name}_roi{i}' for i in range(1, 5)]#, 'pil100k_image']
 
     _t = {field : list(hdr.data(stream_name=pil100k_stream_name, field=field))[0] for field in field_list}
-
+    #WIP
     if load_images:
         logger.info(f'({ttime.ctime()}) Loading Pilatus images...')
         _t[f'{pil100k_name}_image'] = [i for i in list(hdr.data(stream_name=pil100k_stream_name, field=f'{pil100k_name}_image'))[0]]
