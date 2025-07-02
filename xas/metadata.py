@@ -35,9 +35,9 @@ metadata_dict = OrderedDict({
 'detector_ir':                  {'kind' : 'fixed_value', 'value' : 'ion chamber',                                   'human_readable_key': 'Detector.I2'},
 'detector_if':                  {'kind' : 'fixed_value', 'value' : 'PIPS',                                          'human_readable_key': 'Detector.IF'},
 'detector_i0_length':           {'kind' : 'fixed_value', 'value' : '15 cm',                                         'human_readable_key': 'Detector.I0.length'},
-'detector_it_length':           {'kind' : 'fixed_value', 'value' : '28 cm',                                         'human_readable_key': 'Detector.I1.length'},
+'detector_it_length':           {'kind' : 'fixed_value', 'value' : '15 cm',                                         'human_readable_key': 'Detector.I1.length'},
 'detector_ir_length':           {'kind' : 'fixed_value', 'value' : '15 cm',                                         'human_readable_key': 'Detector.I2.length'},
-'detector_if_thickness':        {'kind' : 'fixed_value', 'value' : '300 um',                                        'human_readable_key': 'Detector.IF.thickness'},
+'detector_if_thickness':        {'kind' : 'fixed_value', 'value' : '500 um',                                        'human_readable_key': 'Detector.IF.thickness'},
 'detector_i0_n2':               {'kind' : 'attribute',                                                              'human_readable_key': 'Detector.I0.gas.N2'},
 'detector_it_n2':               {'kind' : 'attribute',                                                              'human_readable_key': 'Detector.I1.gas.N2'},
 'detector_ir_n2':               {'kind' : 'attribute',                                                              'human_readable_key': 'Detector.I2.gas.N2'},
@@ -57,7 +57,7 @@ metadata_dict = OrderedDict({
 'line':                         {'kind' : 'auto',                                                                   'human_readable_key': 'Element.line'},
 'scan_id':                      {'kind' : 'auto',                                                                   'human_readable_key': 'Scan.transient_id'},
 'uid':                          {'kind' : 'auto',                                                                   'human_readable_key': 'Scan.uid'},
-'e0':                           {'kind' : 'auto',                                                                   'human_readable_key': 'Scan.edge_energy'},
+'e0':                           {'kind' : 'auto',                                                                   'human_readable_key': 'Scan.edge_energy.eV'},
 'time':                         {'kind' : 'auto',                                                                   'human_readable_key': 'Scan.start_time'},
 'stop_time':                    {'kind' : 'auto',                                                                   'human_readable_key': 'Scan.end_time'},
 'name':                         {'kind' : 'auto',                                                                   'human_readable_key': 'Scan.name'},
@@ -66,39 +66,39 @@ metadata_dict = OrderedDict({
 'reference_foil':               {'kind' : 'auto',                                                                   'human_readable_key': 'Scan.reference_foil'},
 'sample_name':                  {'kind' : 'auto',                                                                   'human_readable_key': 'Sample.name'},
 'sample_comment':               {'kind' : 'auto',                                                                   'human_readable_key': 'Sample.comment'},
-'sample_x_position':            {'kind' : 'epics_pv',                                                               'human_readable_key': 'Sample.position.x'},
-'sample_y_position':            {'kind' : 'epics_pv',                                                               'human_readable_key': 'Sample.position.y'},
-'sample_z_position':            {'kind' : 'epics_pv',                                                               'human_readable_key': 'Sample.position.z'},
-'sample_th_position':           {'kind' : 'epics_pv',                                                               'human_readable_key': 'Sample.position.theta'},
-'sample_heater_1_T_sp' :        {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{DIODE-HTR:1}T-SP',                     'human_readable_key': 'SampleHeater.temperature1.setpoint'},
-'sample_heater_1_T_rb':         {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{DIODE-Box_B2:5}InCh0:Data-I',          'human_readable_key': 'SampleHeater.temperature1.readback'},
+'sample_x_position':            {'kind' : 'epics_pv',                                                               'human_readable_key': 'Sample.position.x.mm'},
+'sample_y_position':            {'kind' : 'epics_pv',                                                               'human_readable_key': 'Sample.position.y.mm'},
+'sample_z_position':            {'kind' : 'epics_pv',                                                               'human_readable_key': 'Sample.position.z.mm'},
+'sample_th_position':           {'kind' : 'epics_pv',                                                               'human_readable_key': 'Sample.position.theta.deg'},
+'sample_heater_1_T_sp' :        {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{DIODE-HTR:1}T-SP',                     'human_readable_key': 'SampleHeater.temperature1.setpoint.celsius'},
+'sample_heater_1_T_rb':         {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{DIODE-Box_B2:5}InCh0:Data-I',          'human_readable_key': 'SampleHeater.temperature1.readback.celsius'},
 'sample_heater_1_curr_sp':      {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{DIODE-Box_B2:3}OutCh0:Data-SP',        'human_readable_key': 'SampleHeater.current.setpoint'},
 'sample_heater_1_curr_rb' :     {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{DIODE-Box_B2:3}OutCh0:Data-RB',        'human_readable_key': 'SampleHeater.current.readback'},
-'sample_heater_2_T_sp' :        {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{DIODE-HTR:2}T-SP',                     'human_readable_key': 'SampleHeater.temperature2.setpoint'},
-'sample_heater_2_T_rb':         {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{DIODE-Box_B2:5}InCh1:Data-I',          'human_readable_key': 'SampleHeater.temperature2.readback'},
+'sample_heater_2_T_sp' :        {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{DIODE-HTR:2}T-SP',                     'human_readable_key': 'SampleHeater.temperature2.setpoint.celsius'},
+'sample_heater_2_T_rb':         {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{DIODE-Box_B2:5}InCh1:Data-I',          'human_readable_key': 'SampleHeater.temperature2.readback.celsius'},
 'sample_heater_2_volt_sp':      {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{DIODE-Box_B1:11}OutCh0:Data-SP',       'human_readable_key': 'SampleHeater.voltage.setpoint'},
 'sample_heater_2_volt_rb' :     {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{DIODE-Box_B1:11}OutCh0:Data-RB',       'human_readable_key': 'SampleHeater.voltage.readback'},
-'sample_cryostat_a_T_rb' :      {'kind' : 'epics_pv', 'pv_str': 'XF:08ID-ES{LS:331-1}:SAMPLE_A',                    'human_readable_key': 'SampleCryostat.temperature.A.readback'},
-'sample_cryostat_b_T_rb' :      {'kind' : 'epics_pv', 'pv_str': 'XF:08ID-ES{LS:331-1}:SAMPLE_B',                    'human_readable_key': 'SampleCryostat.temperature.B.readback'},
+'sample_cryostat_a_T_rb' :      {'kind' : 'epics_pv', 'pv_str': 'XF:08ID-ES{LS:331-1}:SAMPLE_A',                    'human_readable_key': 'SampleCryostat.temperature.A.readback.kelvin'},
+'sample_cryostat_b_T_rb' :      {'kind' : 'epics_pv', 'pv_str': 'XF:08ID-ES{LS:331-1}:SAMPLE_B',                    'human_readable_key': 'SampleCryostat.temperature.B.readback.kelvin'},
 'sample_heater_PID_KP' :        {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{FbPid:01}PID.KP',                      'human_readable_key': 'SampleHeater.PID.P'},
 'sample_heater_PID_KI' :        {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{FbPid:01}PID.KI',                      'human_readable_key': 'SampleHeater.PID.I'},
 'sample_heater_PID_KD' :        {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{FbPid:01}PID.KD',                      'human_readable_key': 'SampleHeater.PID.D'},
-'gc_mfc_ch4_sp'  :              {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{GC:1-MFC:1}Gas:Flow-SP',               'human_readable_key': 'SampleGasCart.MFC.CH4.setpoint'},
-'gc_mfc_ch4_rb'  :              {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{GC:1-MFC:1}Gas:Flow-I',                'human_readable_key': 'SampleGasCart.MFC.CH4.readback'},
-'gc_mfc_co_sp':                 {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{GC:1-MFC:2}Gas:Flow-SP',               'human_readable_key': 'SampleGasCart.MFC.CO.setpoint'},
-'gc_mfc_co_rb':                 {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{GC:1-MFC:2}Gas:Flow-I',                'human_readable_key': 'SampleGasCart.MFC.CO.readback'},
-'gc_mfc_h2_sp':                 {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{GC:1-MFC:3}Gas:Flow-SP',               'human_readable_key': 'SampleGasCart.MFC.H2.setpoint'},
-'gc_mfc_h2_rb':                 {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{GC:1-MFC:3}Gas:Flow-I',                'human_readable_key': 'SampleGasCart.MFC.H2.readback'},
-'gc_mfc_exhaust_sp':            {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{GC:1-MFC:4}Gas:Flow-SP',               'human_readable_key': 'SampleGasCart.MFC.exhaust.setpoint'},
-'gc_mfc_exhaust_rb':            {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{GC:1-MFC:4}Gas:Flow-I',                'human_readable_key': 'SampleGasCart.MFC.exhaust.readback'},
-'gc_mfc_aux5_sp':               {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{GC:1-MFC:5}Gas:Flow-SP',               'human_readable_key': 'SampleGasCart.MFC.aux5.setpoint'},
-'gc_mfc_aux5_rb':               {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{GC:1-MFC:5}Gas:Flow-I',                'human_readable_key': 'SampleGasCart.MFC.aux5.readback'},
-'gc_mfc_inert_sp':              {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{GC:1-MFC:6}Gas:Flow-SP',               'human_readable_key': 'SampleGasCart.MFC.inert.setpoint'},
-'gc_mfc_inert_rb':              {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{GC:1-MFC:6}Gas:Flow-I',                'human_readable_key': 'SampleGasCart.MFC.inert.readback'},
-'gc_mfc_aux7_sp':               {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{GC:1-MFC:7}Gas:Flow-SP',               'human_readable_key': 'SampleGasCart.MFC.aux7.setpoint'},
-'gc_mfc_aux7_rb':               {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{GC:1-MFC:7}Gas:Flow-I',                'human_readable_key': 'SampleGasCart.MFC.aux7.readback'},
-'gc_mfc_aux8_sp':               {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{GC:1-MFC:8}Gas:Flow-SP',               'human_readable_key': 'SampleGasCart.MFC.aux8.setpoint'},
-'gc_mfc_aux8_rb':               {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{GC:1-MFC:8}Gas:Flow-I',                'human_readable_key': 'SampleGasCart.MFC.aux8.readback'},
+'gc_mfc_ch4_sp'  :              {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{GC:1-MFC:1}Gas:Flow-SP',               'human_readable_key': 'SampleGasCart.MFC.CH4.setpoint.sccm', 'notation': "3.1f"},
+'gc_mfc_ch4_rb'  :              {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{GC:1-MFC:1}Gas:Flow-I',                'human_readable_key': 'SampleGasCart.MFC.CH4.readback.sccm', 'notation': "3.1f"},
+'gc_mfc_co_sp':                 {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{GC:1-MFC:2}Gas:Flow-SP',               'human_readable_key': 'SampleGasCart.MFC.CO.setpoint.sccm', 'notation': "3.1f"},
+'gc_mfc_co_rb':                 {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{GC:1-MFC:2}Gas:Flow-I',                'human_readable_key': 'SampleGasCart.MFC.CO.readback.sccm', 'notation': "3.1f"},
+'gc_mfc_h2_sp':                 {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{GC:1-MFC:3}Gas:Flow-SP',               'human_readable_key': 'SampleGasCart.MFC.H2.setpoint.sccm', 'notation': "3.1f"},
+'gc_mfc_h2_rb':                 {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{GC:1-MFC:3}Gas:Flow-I',                'human_readable_key': 'SampleGasCart.MFC.H2.readback.sccm', 'notation': "3.1f"},
+'gc_mfc_exhaust_sp':            {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{GC:1-MFC:4}Gas:Flow-SP',               'human_readable_key': 'SampleGasCart.MFC.exhaust.setpoint.sccm', 'notation': "3.1f"},
+'gc_mfc_exhaust_rb':            {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{GC:1-MFC:4}Gas:Flow-I',                'human_readable_key': 'SampleGasCart.MFC.exhaust.readback.sccm', 'notation': "3.1f"},
+'gc_mfc_aux5_sp':               {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{GC:1-MFC:5}Gas:Flow-SP',               'human_readable_key': 'SampleGasCart.MFC.aux5.setpoint.sccm', 'notation': "3.1f"},
+'gc_mfc_aux5_rb':               {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{GC:1-MFC:5}Gas:Flow-I',                'human_readable_key': 'SampleGasCart.MFC.aux5.readback.sccm', 'notation': "3.1f"},
+'gc_mfc_inert_sp':              {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{GC:1-MFC:6}Gas:Flow-SP',               'human_readable_key': 'SampleGasCart.MFC.inert.setpoint.sccm', 'notation': "3.1f"},
+'gc_mfc_inert_rb':              {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{GC:1-MFC:6}Gas:Flow-I',                'human_readable_key': 'SampleGasCart.MFC.inert.readback.sccm', 'notation': "3.1f"},
+'gc_mfc_aux7_sp':               {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{GC:1-MFC:7}Gas:Flow-SP',               'human_readable_key': 'SampleGasCart.MFC.aux7.setpoint.sccm', 'notation': "3.1f"},
+'gc_mfc_aux7_rb':               {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{GC:1-MFC:7}Gas:Flow-I',                'human_readable_key': 'SampleGasCart.MFC.aux7.readback.sccm', 'notation': "3.1f"},
+'gc_mfc_aux8_sp':               {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{GC:1-MFC:8}Gas:Flow-SP',               'human_readable_key': 'SampleGasCart.MFC.aux8.setpoint.sccm', 'notation': "3.1f"},
+'gc_mfc_aux8_rb':               {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{GC:1-MFC:8}Gas:Flow-I',                'human_readable_key': 'SampleGasCart.MFC.aux8.readback.sccm', 'notation': "3.1f"},
 # 'gc_mfc_exhaust_rb':            {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{GC:1-MFC:4}Gas:Flow-I',                'human_readable_key': 'SampleGasCart.MFC.exhaust.readback'},
 'switch_valve_ghs':             {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{DIODE-Box_B1:1}Out:0-Sel',             'human_readable_key': 'SampleSwitchValve.GHS.readback'},
 'switch_valve_gas_cart':        {'kind' : 'epics_pv', 'pv_str': 'XF:08IDB-CT{DIODE-Box_B1:1}Out:1-Sel',             'human_readable_key': 'SampleSwitchValve.GasCart.readback'},
@@ -113,19 +113,19 @@ for letter in ['a', 'b', 'c', 'd', 'e']:
 
 _ghs_mfc_dict = OrderedDict()
 for i in range(1, 17):
-    _ghs_mfc_dict[f'ghs_mfc_{i}_sp'] = {'kind': 'epics_pv', 'pv_str': 'XF:08IDB-UT{Gas:1-MFC:' + f'{i:02d}' + '}F:Target-SP',                'human_readable_key': f'SampleGasHandlingSystem.MFC{i}.setpoint'}
-    _ghs_mfc_dict[f'ghs_mfc_{i}_rb'] = {'kind': 'epics_pv', 'pv_str': 'XF:08IDB-UT{Gas:1-MFC:' + f'{i:02d}' + '}F-I',                        'human_readable_key': f'SampleGasHandlingSystem.MFC{i}.readback'}
+    _ghs_mfc_dict[f'ghs_mfc_{i}_sp'] = {'kind': 'epics_pv', 'pv_str': 'XF:08IDB-UT{Gas:1-MFC:' + f'{i:02d}' + '}F:Target-SP','human_readable_key': f'SampleGasHandlingSystem.MFC{i}.setpoint.sccm', 'notation': "3.1f"}
+    _ghs_mfc_dict[f'ghs_mfc_{i}_rb'] = {'kind': 'epics_pv', 'pv_str': 'XF:08IDB-UT{Gas:1-MFC:' + f'{i:02d}' + '}F-I',        'human_readable_key': f'SampleGasHandlingSystem.MFC{i}.readback.sccm', 'notation': "3.1f"}
 
 _rga_dict = OrderedDict()
-for i in range(1, 10):
-    _rga_dict[f'rga_ch{i}_mass'] = {'kind': 'epics_pv', 'pv_str': 'XF:08IDB-VA{RGA:1}Mass:MID' + f'{i}' + '-SP',
-                                        'human_readable_key': f'SampleGasHandlingSystem.RGA.ch{i}.mass'}
-    _rga_dict[f'rga_ch{i}_rb'] = {'kind': 'epics_pv',   'pv_str': 'XF:08IDB-VA{RGA:1}P:MID' + f'{i}' + '-I',
-                                        'human_readable_key': f'SampleGasHandlingSystem.RGA.ch{i}.readback'}
+for i in range(1, 11):
+    _rga_dict[f'rga_ch{i}_mass'] = {'kind': 'epics_pv', 'pv_str': 'XF:08IDB-VA{RGA:1}Mass:MID' + f'{i}',
+                                        'human_readable_key': f'SampleGasHandlingSystem.RGA.ch{i}.mass.amu'}
+    _rga_dict[f'rga_ch{i}_rb'] = {'kind': 'epics_pv',   'pv_str': 'XF:08IDB-SE{RGA:1}P:MID' + f'{i}' + '-I',
+                                        'human_readable_key': f'SampleGasHandlingSystem.RGA.ch{i}.pressure.torr', 'notation': ".3E"}
     
 # @TerribleHack to allow to work on RGA
 # metadata_dict = {**metadata_dict, **_ghs_selected_gas_dict, **_ghs_mfc_dict, **_rga_dict}
-metadata_dict = {**metadata_dict, **_ghs_selected_gas_dict, **_ghs_mfc_dict}
+metadata_dict = {**metadata_dict, **_ghs_selected_gas_dict, **_ghs_mfc_dict, **_rga_dict}
 
 ghs_selected_gas_key_match = {
     'ghs_selected_gas_a': {0: 'None',   1: 'Phosphine',     2: 'Arsine'},

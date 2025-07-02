@@ -5,6 +5,7 @@ from itertools import product
 from copy import deepcopy
 from xas.xas_logger import get_logger
 import time as ttime
+import h5py
 
 
 def load_apb_dataset_from_db(db, uid):
@@ -269,7 +270,13 @@ def _load_pil100k_dataset_from_db(db, uid, apb_trig_timestamps, pil100k_stream_n
     #WIP
     if load_images:
         logger.info(f'({ttime.ctime()}) Loading Pilatus images...')
-        _t[f'{pil100k_name}_image'] = [i for i in list(hdr.data(stream_name=pil100k_stream_name, field=f'{pil100k_name}_image'))[0]]
+        # _t[f'{pil100k_name}_image'] = [i for i in list(hdr.data(stream_name=pil100k_stream_name, field=f'{pil100k_name}_image'))[0]]
+        start = ttime.time()
+        path_hdf5_file = ["/"+doc['resource_path'] for name, doc in hdr.documents() if name == 'resource' and doc['spec'] == "PIL100k_HDF5"][0]
+        with h5py.File(path_hdf5_file, 'r') as f:
+            arry = f['entry/data/data'][()]
+        _t[f'{pil100k_name}_image'] = list(arry)
+        print(f"Total time to load Pilatus images: {ttime.time()-start}")
         logger.info(f'({ttime.ctime()}) Pilatus images loading is complete.')
     t = pd.DataFrame(_t)
     # n_images = t.shape[0]
@@ -281,6 +288,37 @@ def _load_pil100k_dataset_from_db(db, uid, apb_trig_timestamps, pil100k_stream_n
         output[key] = pd.DataFrame(np.vstack((pil100k_timestamps, t[key])).T, columns=['timestamp', f'{key}'])
     return output
 
+
+# def _load_pil100k_dataset_from_db(db, uid, apb_trig_timestamps, pil100k_stream_name='pil100k_stream', load_images=False):
+#     logger = get_logger()
+#     hdr = db[uid]
+#     output = {}
+#     # t = hdr.table(stream_name='pil100k_stream', fill=True)
+#     pil100k_name = pil100k_stream_name.split('_')[0]
+#     field_list = [f'{pil100k_name}_roi{i}' for i in range(1, 5)]#, 'pil100k_image']
+#
+#     _t = {field : list(hdr.data(stream_name=pil100k_stream_name, field=field))[0] for field in field_list}
+#     #WIP
+#     if load_images:
+#         logger.info(f'({ttime.ctime()}) Loading Pilatus images...')
+#         start = ttime.time()
+#         _t[f'{pil100k_name}_image'] = [i for i in list(hdr.data(stream_name=pil100k_stream_name, field=f'{pil100k_name}_image'))[0]]
+#         print(f"Total time to load Pilatus images: {ttime.time()-start}")
+#         logger.info(f'({ttime.ctime()}) Pilatus images loading is complete.')
+#     t = pd.DataFrame(_t)
+#     # n_images = t.shape[0]
+#     n_images = min(t[f'{pil100k_name}_roi1'].size, apb_trig_timestamps.size)
+#     pil100k_timestamps = apb_trig_timestamps[:n_images]
+#     keys = [k for k in t.keys() if (k != 'time') ]#and (k != 'pil100k_image')]
+#     t = t[:n_images]
+#     for j, key in enumerate(keys):
+#         output[key] = pd.DataFrame(np.vstack((pil100k_timestamps, t[key])).T, columns=['timestamp', f'{key}'])
+#     return output
+
+def read_pilatus_data_from_documents(hdr=None, stream_name=None):
+    docs = hdr.documents
+
+    pass
 
 def load_pil100k_dataset_from_db(db, uid, apb_trig_timestamps, pil100k_stream_name='pil100k_stream', load_images=False):
     try:

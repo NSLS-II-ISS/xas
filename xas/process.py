@@ -92,7 +92,9 @@ def process_interpolate_bin_from_uid(uid, db, draw_func_interp = None, draw_func
         save_primary_df_as_file(path_to_file, primary_df, comments)
 
     try:
-        save_extended_data_as_file(path_to_file, extended_data, data_kind=data_kind)
+        dictionary_for_hdf5_file = {**dict(primary_df), **extended_data}
+        save_extended_data_as_file(path_to_file, dictionary_for_hdf5_file, data_kind=data_kind, metadata_dict=dict(hdr.start))
+        # save_extended_data_as_file(path_to_file, extended_data, data_kind=data_kind)
     except Exception  as e:
         print(e)
         pass

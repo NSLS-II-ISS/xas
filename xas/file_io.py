@@ -583,7 +583,34 @@ def save_stepscan_as_file(path_to_file, df, comments):
 def save_primary_df_as_file(path_to_file, df, comments):
     write_df_to_file(path_to_file, df, comments)
 
-def save_extended_data_as_file(path_to_file, extended_data, data_kind='default', ext_data_path='extended_data'):
+def save_metadata_dict_to_h5(h5file, group_name, data_dict):
+    def write_item(group, key, value):
+        if isinstance(value, dict):
+            subgroup = group.require_group(key)
+            for subkey, subval in value.items():
+                write_item(subgroup, subkey, subval)
+        elif isinstance(value, (list, tuple)):
+            try:
+                arr = np.array(value)
+                group.create_dataset(key, data=arr)
+            except Exception:
+                group.create_dataset(key, data=str(value))
+        elif isinstance(value, str):
+            dt = h5py.string_dtype(encoding='utf-8')
+            group.create_dataset(key, data=value, dtype=dt)
+        elif value is None:
+            dt = h5py.string_dtype(encoding='utf-8')
+            group.create_dataset(key, data="None", dtype=dt)
+        else:
+            group.create_dataset(key, data=value)
+
+    group = h5file.require_group(group_name)
+    for key, value in data_dict.items():
+        if key in group:
+            del group[key]
+        write_item(group, key, value)
+
+def save_extended_data_as_file(path_to_file, extended_data, data_kind='default', ext_data_path='extended_data', metadata_dict=None):
     if extended_data is not None:
         folder, file = os.path.split(path_to_file)
         folder = os.path.join(folder, ext_data_path)
@@ -596,6 +623,7 @@ def save_extended_data_as_file(path_to_file, extended_data, data_kind='default',
         path_to_ext_file = os.path.join(folder, filename)
         with h5py.File(path_to_ext_file, 'a') as f:
             f['data_kind'] = data_kind
+            save_metadata_dict_to_h5(f, 'metadata', metadata_dict)
             for k, v in recursively_parse_dict(extended_data):
                 f[k] = v
 

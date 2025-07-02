@@ -2563,6 +2563,79 @@ with open(fpath + 'test.json', 'w') as f:
 
 
 
+
+2025-06-17
+
+d = {'motor_det_th1': {'0': -27,
+  '1': -24,
+  '2': -21,
+  '3': -18,
+  '4': -15,
+  '5': -12,
+  '6': -9,
+  '7': -6,
+  '8': -3,
+  '9': 0,
+  '10': 3,
+  '11': 6,
+  '12': 9,
+  '13': 12,
+  '14': 15,
+  '15': 18,
+  '16': 21,
+  '17': 24,
+  '18': 27,
+  '19': 30,
+  '20': 33,
+  '21': 36,
+  '22': 39,
+  '23': 42,
+  '24': 45,
+  '25': 48,
+  '26': 51,
+  '27': 54,
+  '28': 57,
+  '29': 60,
+  '30': 63,
+  '31': 66,
+  '32': 69},
+ 'motor_det_inc1': {'0': 14668,
+  '1': 14403,
+  '2': 14134,
+  '3': 13870,
+  '4': 13600,
+  '5': 13330,
+  '6': 13061,
+  '7': 12792,
+  '8': 12527,
+  '9': 12229,
+  '10': 11988,
+  '11': 11720,
+  '12': 11455,
+  '13': 11186,
+  '14': 10922,
+  '15': 10652,
+  '16': 10388,
+  '17': 10119,
+  '18': 9850,
+  '19': 9581,
+  '20': 9317,
+  '21': 9039,
+  '22': 8783,
+  '23': 8519,
+  '24': 8250,
+  '25': 7986,
+  '26': 7716,
+  '27': 7453,
+  '28': 7183,
+  '29': 6914,
+  '30': 6650,
+  '31': 6381,
+  '32': 6116}}
+
+
+
+
     theta = 80
     R = 500
     _th = np.deg2rad(theta)
@@ -3773,6 +3846,14 @@ date_limited_c = c.search(TimeRange(since="2025-01-01", until="2025-03-19"))
 %history
 
 uid = '9193b2b0-d6d5-48d2-bb04-a4669c8cbe1f'
+
+from databroker import Broker
+db = Broker.named('iss')
+import time
+uid = 'c43c49b2-f72e-4928-ac01-1bf3ba3a3ddb'
+uid = '4c1a60ed-b202-4c82-b97d-41aecb667b57'
+uid = '4afc89ba-f544-4070-b52e-16fb94aac4a9'
+uid = '18a11286-7e64-4d18-9d91-5440dd7b2495'
 hdr = db[uid]
 start = time.time()
 t = hdr.table(stream_name='pil100k2_stream', fill=True)
@@ -3787,3 +3868,31 @@ data = h5py.File(path)
 start = time.time()
 arr = np.array(data['entry']['data']['data'])
 print(f"{time.time()-start}")
+
+start = time.time()
+with h5py.File(path1, 'r') as f:
+    dset = f['/entry/data/data']
+    array = dset[()]
+print(f"{time.time()-start}")
+
+
+import time
+RE.msg_hook = bluesky.utils.ts_msg_hook
+def motor_move(motor, pos):
+    start = time.time()
+    yield from bps.mv(motor, pos)
+    print(f"Total time {time.time()-start}sec")
+RE(motor_move(hhm.energy, 9000))
+
+
+import time as ttime
+from xas.process import process_interpolate_bin
+uid = '9193b2b0-d6d5-48d2-bb04-a4669c8cbe1f'
+hdr = db[uid]
+start = ttime.time()
+process_interpolate_bin(hdr.stop, db, load_images=True)
+print(f"{ttime.time()-start}")
+
+
+
+hdr, primary_df, extended_data, comments, path_to_file, file_list, data_kind = get_processed_df_from_uid(uid, db, load_images=True)
