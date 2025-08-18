@@ -3896,3 +3896,27 @@ print(f"{ttime.time()-start}")
 
 
 hdr, primary_df, extended_data, comments, path_to_file, file_list, data_kind = get_processed_df_from_uid(uid, db, load_images=True)
+
+
+for uid in uids:
+    start = ttime.time()
+    hdr = db[uid]
+    process_interpolate_bin(hdr.stop, db, load_images=True)
+    print(f"{ttime.time() - start}")
+
+dictionary = {}
+for elem in elements:
+    dictionary[elem] = {}
+    _dict = xraydb.xray_edges(elem)
+    for key in _dict.keys():
+        if _dict[key].energy > 4700 and _dict[key].energy < 32000:
+            dictionary[elem][key] = _dict[key].energy
+
+
+for element in qas_foils:
+    for edge in xraydb.xray_edges(element):
+        energy = xraydb.xray_edges(element)[edge].energy
+        if (energy >= 4500) and (energy <= 32000):
+            _qas_foil_data.append({'element': element,
+                          'edge':edge,
+                          'energy':energy})

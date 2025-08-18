@@ -12,6 +12,10 @@ from .image_analysis import estimate_background_images, correct_pil100k2_images_
 from scipy.ndimage import center_of_mass, rotate
 from scipy import linalg
 from sklearn.covariance import MinCovDet
+from PyQt5.QtCore import QObject, QThread, pyqtSignal
+import h5py
+
+
 
 PILATUS_KEY = 'Pilatus 100k New'
 # PILATUS_KEY = 'Pilatus 100k'
@@ -153,7 +157,7 @@ def run_calibration(image_stack_roi, energies, n_poly=2, output_diagnostics=Fals
                                      x_pix, intensity_total, intensity_total_fit, x_pix_centers, fwhms, p_xy, p_xe)
         return p_xy, p_xe, x_pix, intensity_total, intensity_total_fit, x_pix_centers, np.polyval(p_xe, x_pix)
     else:
-        return p_xy, p_xe, x_pix, np.polyval(p_xe, x_pix)
+        return np.sum(image_stack_roi, axis=0), energies, x_pix, intensity_total, intensity_total_fit, x_pix_centers, fwhms, p_xy, p_xe
 
 
 def plot_calibration_diagnostics(image_total, energies,
@@ -455,7 +459,6 @@ def process_von_hamos_scan_legacy(df, extended_data, comments, hdr, path_to_file
 
 
 
-
 # class VonHamosScan:
 #
 #     @classmethod
@@ -672,11 +675,170 @@ def process_von_hamos_scan_legacy(df, extended_data, comments, hdr, path_to_file
 #             cen, fwhm, _, _, y_fit = fit_gaussian(x, y_new, x.min() + y_new.argmax(), 1)
 #         return cen, fwhm, y_fit
 
+class H5Processor(QObject):
+    result_ready = pyqtSignal(list, np.ndarray, np.ndarray, np.ndarray)  # batch, image, x, y
+    log_message = pyqtSignal(str)
+    progress = pyqtSignal(int)
+    finished = pyqtSignal()
+
+    def __init__(self, file_queue, plot_calibration, perform_calibration, process_scan_file):
+        super().__init__()
+        self.file_queue = file_queue
+        self.total_batches = file_queue.qsize()
+        self.plot_calibration = plot_calibration
+        self.perform_calibration = perform_calibration
+        self.process_scan_file = process_scan_file
+        self._running = True
+
+    def process_queue(self):
+        processed = 0
+        while self._running and not self.file_queue.empty():
+            file_batch = self.file_queue.get()  # List of file paths
+            try:
+                image, x_axis, y_axis = self.process_batch(file_batch)
+                self.result_ready.emit(file_batch, image, x_axis, y_axis)
+                self.log_message.emit(f"Processed batch: {file_batch}")
+            except Exception as e:
+                self.log_message.emit(f"Error in batch {file_batch}: {e}")
+            processed += 1
+            self.progress.emit(int((processed / self.total_batches) * 100))
+        self.finished.emit()
+
+    def process_batch(self, paths):
+        images = []
+        for path in paths:
+            with h5py.File(path, 'r') as f:
+                images.append(f['/entry/data/image'][()])  # Example key
+        stacked = np.stack(images)          # shape: (N, H, W)
+        avg_image = stacked.mean(axis=0)    # Combine images
+        # Use axes from first file (or validate consistent)
+        with h5py.File(paths[0], 'r') as f:
+            x = f['/entry/axes/x'][()]
+            y = f['/entry/axes/y'][()]
+        return avg_image, x, y
+
+
+def load_h5(file_path: str=None) -> tuple:
+    with h5py.File(file_path, 'r') as f:
+        energies = f['energy'][()]
+        i0 = f['i0'][()]
+        images = f['pil100k2_image'][()]
+    return energies, i0, images
+
+
+
+class ProcessingThread(QThread):
+    result_ready = pyqtSignal(dict)  # batch, image, x, y
+    log_message = pyqtSignal(str)
+    progress = pyqtSignal(int)
+    finished = pyqtSignal()
+
+    def __init__(self, file_queue: str=None,
+                 plot_calibration:bool=False,
+                 perform_calibration:bool=False,
+                 process_scan_file:bool=False,
+                 calibration_with_rois:bool=False, sliced_image:dict=None):
+        super().__init__()
+        self.file_queue = file_queue
+        self.plot_calibration = plot_calibration
+        self.perform_calibration = perform_calibration
+        self.process_scan_file = process_scan_file
+        self.calibration_with_rois = calibration_with_rois
+        self.sliced_image = sliced_image
+        self._running = True
+
+    def run(self) -> None:
+        processed = 0
+        while self.file_queue and self._running:
+            if self.plot_calibration:
+                plot_type = 'calibration'
+
+                path = self.file_queue.get()[0]
+                energies, i0, images = load_h5(path)
+                image_total, energies, x_pix, intensity_total, intensity_total_fit, x_pix_centers, fwhms, p_xy, p_xe = run_calibration(images, energies, output_diagnostics=False)
+                results = give_plot_dictionary(energies, i0, images, plot_type, path, image_total, x_pix, intensity_total, intensity_total_fit, x_pix_centers, fwhms, p_xy, p_xe)
+                self.result_ready.emit(results)
+                self._running = False
+
+            if self.calibration_with_rois and self.sliced_image is not None:
+                pass
+
+
+
+            if self.process_scan_file:
+                plot_type = 'rixs'
+                mean_images = None
+                for i, path in enumerate(self.file_queue.get()):
+                    energies, i0, images = load_h5(path)
+                    if mean_images is None and mean_energies is None:
+                        mean_images = images
+                        mean_energies = energies
+                    else:
+                        mean_images += (images - mean_images)/(i+1)
+                        mean_energies += (energies - mean_energies)/(i+1)
+
+                results = create_mean_dictionary(mean_energies, mean_images, plot_type)
+                self.result_ready.emit(results)
+                self._running = False
+                # self.log_message.emit(f"Processed batch: {self.file_queue}")
+        self.finished.emit()
+
+
+
+def create_mean_dictionary(mean_energies, mean_images, plot_type):
+    dictionary = {}
+    dictionary['plot_type'] = plot_type
+    dictionary['mean_images'] = mean_images.sum(axis=0)
+    dictionary['mean_energies'] = mean_energies
+    return dictionary
+
+
+def give_plot_dictionary(energies, i0, images, plot_type, path, image_total, x_pix, intensity_total, intensity_total_fit, x_pix_centers, fwhms, p_xy, p_xe):
+
+    dictionary = {}
+
+    dictionary['plot_type'] = plot_type
+
+    dictionary['path'] = path
+    dictionary['raw'] = {}
+    dictionary['raw']['energy'] = energies
+    dictionary['raw']['i0'] = i0
+    dictionary['raw']['images'] = images
+
+    dictionary['processed'] = {}
+    dictionary['processed']['image_total'] = {}
+    dictionary['processed']['pixels'] = {}
+    dictionary['processed']['intensity_total'] = {}
+    dictionary['processed']['fwhms'] = {}
+    dictionary['processed']['calibration'] ={}
 
 
 
 
+    dictionary['processed']['image_total']['image'] = image_total
+    dictionary['processed']['image_total']['px_x'] = np.arange(487)
+    dictionary['processed']['image_total']['px_y'] = np.arange(195)
+
+
+    y_pix_centers = np.polyval(p_xy, x_pix_centers)
+    dictionary['processed']['pixels']['x_centers'] = x_pix_centers
+    dictionary['processed']['pixels']['y_centers'] = y_pix_centers
+
+    dictionary['processed']['intensity_total']['x'] = np.polyval(p_xe, x_pix)
+    dictionary['processed']['intensity_total']['y'] = intensity_total
+    dictionary['processed']['intensity_total']['fit'] = intensity_total_fit
 
 
 
 
+    energy_hi = np.polyval(p_xe, np.array(x_pix_centers) - np.array(fwhms) / 2)
+    energy_lo = np.polyval(p_xe, np.array(x_pix_centers) + np.array(fwhms) / 2)
+    fwhms_energy = energy_hi - energy_lo
+
+    dictionary['processed']['fwhms']['x'] = energies
+    dictionary['processed']['fwhms']['y'] = fwhms_energy
+
+    dictionary['processed']['calibration']['pixel'] = np.arange(487)
+    dictionary['processed']['calibration']['energy'] = np.polyval(p_xe, x_pix)
+
+    return dictionary
