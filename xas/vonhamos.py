@@ -1,3 +1,5 @@
+from queue import Queue
+
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
@@ -12,7 +14,7 @@ from .image_analysis import estimate_background_images, correct_pil100k2_images_
 from scipy.ndimage import center_of_mass, rotate
 from scipy import linalg
 from sklearn.covariance import MinCovDet
-from PyQt5.QtCore import QObject, QThread, pyqtSignal
+from PyQt5.QtCore import QObject, QThread, pyqtSignal, pyqtSlot, QTimer
 import h5py
 
 
@@ -781,6 +783,63 @@ class ProcessingThread(QThread):
                 self.result_ready.emit(results)
                 self._running = False
                 # self.log_message.emit(f"Processed batch: {self.file_queue}")
+        self.finished.emit()
+
+
+class ProcessingTask:
+    def __init__(self, files: list = None,
+                 plot_calibration: bool = False,
+                 perform_calibration: bool = False,
+                 process_scan_file: bool = False,
+                 calibration_with_rois: bool = False, sliced_image: dict = None, *args, **kwargs) -> None:
+        self.files = files
+        self.plot_calibration = plot_calibration
+        self.perform_calibration = perform_calibration
+        self.process_scan_file = process_scan_file
+        self.calibration_with_rois = calibration_with_rois
+        self.sliced_image = sliced_image
+
+
+class ProcessingWorker(QObject):
+    result_ready = pyqtSignal(dict)  # batch, image, x, y
+    log_message = pyqtSignal(str)
+    progress = pyqtSignal(int)
+    finished = pyqtSignal()
+
+    def __init__(self):
+        super().__init__()
+        self.task_queue = Queue()
+        self._running = True
+        self._started = False
+
+    def add_task(self, task=None):
+        self.task_queue.put(task)
+        # if not self._started:
+        #     self._started = True
+        #     QTimer.singleShot(0, lambda: self.run())
+
+    def stop(self):
+        self._running = False
+        self.task_queue.put(None)
+
+    @pyqtSlot()
+    def run(self):
+        while self._running:
+            task = self.task_queue.get()
+            print(f" Got the task")
+            if task is None:
+                break
+
+            if task.plot_calibration:
+                print(f"Performing calibration")
+                path = task.files[0]
+                energies, i0, images = load_h5(path)
+                image_total, energies, x_pix, intensity_total, intensity_total_fit, x_pix_centers, fwhms, p_xy, p_xe = run_calibration(
+                    images, energies, output_diagnostics=False)
+                results = give_plot_dictionary(energies, i0, images, 'calibration', path, image_total, x_pix,
+                                               intensity_total, intensity_total_fit, x_pix_centers, fwhms, p_xy, p_xe)
+                self.result_ready.emit(results)
+
         self.finished.emit()
 
 
